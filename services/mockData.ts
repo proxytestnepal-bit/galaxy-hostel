@@ -3,15 +3,15 @@ import { AppState, User } from '../types';
 
 export const INITIAL_USERS: User[] = [
   { id: 'u1', name: 'Super Admin', role: 'admin', email: 'admin@galaxy.edu.np', password: 'password', status: 'active' },
-  { id: 'u2', name: 'Principal Skinner', role: 'administrator', email: 'principal@galaxy.edu.np', password: 'password', status: 'active' },
-  { id: 'u3', name: 'John Accountant', role: 'accountant', email: 'accounts@galaxy.edu.np', password: 'password', status: 'active' },
-  { id: 'u4', name: 'Mrs. Krabappel', role: 'teacher', email: 'edna@galaxy.edu.np', password: 'password', status: 'active', subjects: ['Hotel Management', 'Culinary Arts'] },
-  { id: 'u5', name: 'Walter White', role: 'teacher', email: 'walter@galaxy.edu.np', password: 'password', status: 'active', subjects: ['Chemistry', 'Food Science'] },
+  { id: 'u2', name: 'Suresh Pradhan', role: 'administrator', email: 'suresh@galaxy.edu.np', password: 'password', status: 'active' },
+  { id: 'u3', name: 'Ramesh Adhikari', role: 'accountant', email: 'ramesh@galaxy.edu.np', password: 'password', status: 'active' },
+  { id: 'u4', name: 'Sarita Sharma', role: 'teacher', email: 'sarita@galaxy.edu.np', password: 'password', status: 'active', subjects: ['Hotel Management', 'Culinary Arts'] },
+  { id: 'u5', name: 'Bishal Gurung', role: 'teacher', email: 'bishal@galaxy.edu.np', password: 'password', status: 'active', subjects: ['Chemistry', 'Food Science'] },
   { 
     id: 'u6', 
-    name: 'Bart Simpson', 
+    name: 'Ram Thapa', 
     role: 'student', 
-    email: 'bart@galaxy.edu.np', 
+    email: 'ram@galaxy.edu.np', 
     password: 'password',
     status: 'active',
     classId: 'Class 10A',
@@ -21,9 +21,9 @@ export const INITIAL_USERS: User[] = [
   },
   { 
     id: 'u7', 
-    name: 'Lisa Simpson', 
+    name: 'Sita Karki', 
     role: 'student', 
-    email: 'lisa@galaxy.edu.np', 
+    email: 'sita@galaxy.edu.np', 
     password: 'password',
     status: 'active',
     classId: 'Class 10A',
@@ -40,8 +40,8 @@ export const INITIAL_STATE: AppState = {
   assignments: [
     {
       id: 'a1',
-      title: 'History of Hospitality',
-      description: 'Write a 500-word essay on the evolution of 5-star hotels in Nepal.',
+      title: 'History of Hospitality in Nepal',
+      description: 'Write a 500-word essay on the evolution of 5-star hotels in Kathmandu and Pokhara.',
       subject: 'Hotel Management',
       teacherId: 'u4',
       targetClassId: 'Class 10A',
@@ -54,8 +54,8 @@ export const INITIAL_STATE: AppState = {
       id: 's1',
       assignmentId: 'a1',
       studentId: 'u7',
-      studentName: 'Lisa Simpson',
-      content: 'The hospitality industry in Nepal began with...',
+      studentName: 'Sita Karki',
+      content: 'The hospitality industry in Nepal began with the opening of Royal Hotel...',
       submittedAt: '2023-11-02',
     }
   ],
@@ -63,7 +63,7 @@ export const INITIAL_STATE: AppState = {
      {
        id: 'inv1',
        studentId: 'u6',
-       studentName: 'Bart Simpson',
+       studentName: 'Ram Thapa',
        title: 'First Term Fee (30%)',
        amount: 30000,
        dueDate: '2023-10-15',
@@ -73,7 +73,7 @@ export const INITIAL_STATE: AppState = {
      {
       id: 'inv2',
       studentId: 'u7',
-      studentName: 'Lisa Simpson',
+      studentName: 'Sita Karki',
       title: 'First Term Fee (30%)',
       amount: 24000, // (100k - 20k) * 30%
       dueDate: '2023-10-15',
@@ -87,7 +87,7 @@ export const INITIAL_STATE: AppState = {
       receiptNumber: 1001,
       invoiceId: 'inv1',
       studentId: 'u6',
-      studentName: 'Bart Simpson',
+      studentName: 'Ram Thapa',
       amount: 30000,
       description: 'First Term Fee Payment',
       date: '2023-10-05',
@@ -125,10 +125,10 @@ export const INITIAL_STATE: AppState = {
   notices: [
     {
       id: 'n1',
-      title: 'Winter Vacation',
-      content: 'School will remain closed from Jan 1st to Jan 15th.',
-      date: '2023-12-01',
-      postedBy: 'Principal Skinner',
+      title: 'Dashain & Tihar Vacation',
+      content: 'School will remain closed for the upcoming Dashain and Tihar festivals starting from next week.',
+      date: '2023-10-01',
+      postedBy: 'Suresh Pradhan',
       audience: 'all',
     }
   ],

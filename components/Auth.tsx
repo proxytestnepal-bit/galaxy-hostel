@@ -173,10 +173,10 @@ const Auth: React.FC = () => {
                         <option value="" disabled>-- Quick Login As Role --</option>
                         <option value="dheejan@gmail.com">Developer (Dheejan)</option>
                         <option value="admin@galaxy.edu.np">Admin (Super Admin)</option>
-                        <option value="principal@galaxy.edu.np">Administrator (Principal)</option>
-                        <option value="accounts@galaxy.edu.np">Accountant (John)</option>
-                        <option value="edna@galaxy.edu.np">Teacher (Mrs. Krabappel)</option>
-                        <option value="bart@galaxy.edu.np">Student (Bart Simpson)</option>
+                        <option value="suresh@galaxy.edu.np">Administrator (Suresh Pradhan)</option>
+                        <option value="ramesh@galaxy.edu.np">Accountant (Ramesh Adhikari)</option>
+                        <option value="sarita@galaxy.edu.np">Teacher (Sarita Sharma)</option>
+                        <option value="ram@galaxy.edu.np">Student (Ram Thapa)</option>
                     </select>
                 </div>
                 </>
