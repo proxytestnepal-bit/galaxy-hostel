@@ -7,7 +7,7 @@ type Action =
   | { type: 'LOGOUT' }
   | { type: 'ADD_USER'; payload: User }
   | { type: 'UPDATE_USER_DETAILS'; payload: Partial<User> & { id: string } }
-  | { type: 'APPROVE_USER'; payload: string }
+  | { type: 'APPROVE_USER'; payload: { id: string; updates?: Partial<User> } }
   | { type: 'REJECT_USER'; payload: string }
   | { type: 'ADD_ASSIGNMENT'; payload: Assignment }
   | { type: 'ADD_SUBMISSION'; payload: Submission }
@@ -44,7 +44,7 @@ const reducer = (state: AppState, action: Action): AppState => {
     case 'APPROVE_USER':
       return {
           ...state,
-          users: state.users.map(u => u.id === action.payload ? { ...u, status: 'active' } : u)
+          users: state.users.map(u => u.id === action.payload.id ? { ...u, status: 'active', ...action.payload.updates } : u)
       };
     case 'REJECT_USER':
         return {

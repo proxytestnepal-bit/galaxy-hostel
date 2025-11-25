@@ -62,6 +62,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
       case 'developer':
           return [
               ...common,
+              { id: 'users', label: 'Manage Users', icon: User }, // Added this line
               { id: 'debug', label: 'Debug & Reset', icon: Settings },
           ];
       default:

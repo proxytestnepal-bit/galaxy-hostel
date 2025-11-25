@@ -30,7 +30,7 @@ export const INITIAL_USERS: User[] = [
     discount: 20000, // Scholarship
     totalPaid: 0
   },
-  { id: 'u8', name: 'Dev One', role: 'developer', email: 'dev@galaxy.edu.np', password: 'password', status: 'active' },
+  { id: 'u8', name: 'Dheejan Developer', role: 'developer', email: 'dheejan@gmail.com', password: 'password', status: 'active' },
 ];
 
 export const INITIAL_STATE: AppState = {

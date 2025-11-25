@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../services/store';
 import { User, Role } from '../types';
-import { Shield, BookOpen, Calculator, UserCheck, Lock, Mail, User as UserIcon } from 'lucide-react';
+import { Shield, BookOpen, Calculator, UserCheck, Lock, Mail, User as UserIcon, TestTube } from 'lucide-react';
 
 const Auth: React.FC = () => {
   const { state, dispatch } = useAppStore();
@@ -44,11 +44,6 @@ const Auth: React.FC = () => {
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Developer auto-create logic (Simulated)
-    // In real app, only an existing dev could create a dev, or use a secret key.
-    // Here we allow it but it will just be 'pending' unless specific logic is added,
-    // but the prompt says "Developer... no approval is required". 
-    // We will make Developer auto-active for the sake of the "First User" problem in this demo.
     const isDev = regForm.role === 'developer';
 
     const newUser: User = {
@@ -61,14 +56,15 @@ const Auth: React.FC = () => {
         phone: regForm.phone,
         address: regForm.address,
         classId: regForm.role === 'student' ? regForm.classId : undefined,
-        annualFee: regForm.role === 'student' ? Number(regForm.annualFee) : undefined,
-        discount: regForm.role === 'student' ? Number(regForm.discount) : undefined,
+        // Fee assignment is handled by admin during approval
+        annualFee: 0, 
+        discount: 0,
         totalPaid: 0,
         subjects: regForm.role === 'teacher' ? (regForm.subjects as unknown as string).split(',').map(s => s.trim()) : undefined
     };
 
     dispatch({ type: 'ADD_USER', payload: newUser });
-    setRegSuccess(isDev ? 'Developer Account Created! Please Login.' : 'Registration successful! Please wait for administrator approval.');
+    setRegSuccess(isDev ? 'Developer Account Created! Please Login.' : 'Registration submitted. Please wait for approval.');
     setRegForm({ name: '', email: '', role: 'student', phone: '', address: '', classId: '', annualFee: 0, discount: 0, subjects: [] });
     setTimeout(() => {
         setRegSuccess('');
@@ -111,6 +107,7 @@ const Auth: React.FC = () => {
             {regSuccess && <div className="bg-green-50 text-green-600 p-3 rounded mb-4 text-sm">{regSuccess}</div>}
             
             {isLogin ? (
+                <>
                 <form onSubmit={handleLogin} className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
@@ -147,6 +144,31 @@ const Auth: React.FC = () => {
                         Login to Portal
                     </button>
                 </form>
+
+                <div className="mt-8 pt-6 border-t border-gray-100">
+                    <label className="block text-xs font-bold text-red-500 uppercase mb-2 flex items-center gap-1">
+                        <TestTube size={14} /> For Testing Only
+                    </label>
+                    <select
+                        className="w-full text-sm border border-red-200 bg-red-50 text-red-800 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-red-300"
+                        onChange={(e) => {
+                            const selectedEmail = e.target.value;
+                            if(!selectedEmail) return;
+                            const user = state.users.find(u => u.email === selectedEmail);
+                            if(user) dispatch({ type: 'LOGIN', payload: user });
+                        }}
+                        defaultValue=""
+                    >
+                        <option value="" disabled>-- Quick Login As Role --</option>
+                        <option value="dheejan@gmail.com">Developer (Dheejan)</option>
+                        <option value="admin@galaxy.edu.np">Admin (Super Admin)</option>
+                        <option value="principal@galaxy.edu.np">Administrator (Principal)</option>
+                        <option value="accounts@galaxy.edu.np">Accountant (John)</option>
+                        <option value="edna@galaxy.edu.np">Teacher (Mrs. Krabappel)</option>
+                        <option value="bart@galaxy.edu.np">Student (Bart Simpson)</option>
+                    </select>
+                </div>
+                </>
             ) : (
                 <form onSubmit={handleRegister} className="space-y-3 h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                      <div>
@@ -208,7 +230,7 @@ const Auth: React.FC = () => {
                         </div>
                     </div>
 
-                     {/* Student Specific Fields */}
+                     {/* Student Specific Fields - Fee inputs removed */}
                      {regForm.role === 'student' && (
                         <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 space-y-2">
                             <h4 className="font-semibold text-blue-800 text-xs uppercase">Student Details</h4>
@@ -222,25 +244,8 @@ const Auth: React.FC = () => {
                                     onChange={e => setRegForm({...regForm, classId: e.target.value})}
                                 />
                             </div>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-700">Annual Fee</label>
-                                    <input 
-                                        type="number" required
-                                        className="w-full border p-2 rounded mt-1 text-sm"
-                                        value={regForm.annualFee}
-                                        onChange={e => setRegForm({...regForm, annualFee: Number(e.target.value)})}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-medium text-gray-700">Discount</label>
-                                    <input 
-                                        type="number"
-                                        className="w-full border p-2 rounded mt-1 text-sm"
-                                        value={regForm.discount}
-                                        onChange={e => setRegForm({...regForm, discount: Number(e.target.value)})}
-                                    />
-                                </div>
+                            <div className="text-xs text-blue-600 italic mt-1">
+                                Fees and discounts will be assigned by the administration upon approval.
                             </div>
                         </div>
                     )}

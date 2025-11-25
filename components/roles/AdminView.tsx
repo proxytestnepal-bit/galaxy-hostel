@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
 import { Role, User } from '../../types';
 import AccountantView from './AccountantView';
-import { Check, X, Printer, Lock, Unlock, AlertTriangle, RefreshCw, UserCheck, Shield, BookOpen, Edit2 } from 'lucide-react';
+import { Check, X, Printer, Lock, Unlock, AlertTriangle, RefreshCw, UserCheck, Shield, BookOpen, Edit2, Search, Filter, Eye } from 'lucide-react';
 
 interface Props {
   activeTab: string;
@@ -20,10 +20,30 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<User>>({});
 
+  // Search and Filter State
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterRole, setFilterRole] = useState<string>('all');
+
+  // Approval Modal State
+  const [reviewUser, setReviewUser] = useState<User | null>(null);
+  // Change reviewData to hold all potential User fields
+  const [reviewData, setReviewData] = useState<Partial<User>>({});
+
+  // Hierarchy Definition
+  const roleHierarchy: Record<string, number> = {
+    developer: 100,
+    admin: 90,
+    administrator: 80,
+    accountant: 50,
+    teacher: 50,
+    student: 10,
+    guest: 0
+  };
+
   // Approvals Logic
   const getPendingUsers = () => {
       return state.users.filter(u => u.status === 'pending').filter(u => {
-          // Hierarchy Logic
+          // Hierarchy Logic for Approvals
           if (role === 'developer') return u.role === 'admin';
           if (role === 'admin') return u.role === 'administrator' || u.role === 'accountant' || u.role === 'teacher' || u.role === 'student';
           if (role === 'administrator') return u.role === 'teacher' || u.role === 'student';
@@ -31,12 +51,42 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       });
   };
 
-  const handleApprove = (id: string) => {
-      dispatch({ type: 'APPROVE_USER', payload: id });
+  const openReviewModal = (user: User) => {
+      setReviewUser(user);
+      // Populate reviewData with all current user details so they can be edited
+      setReviewData({ ...user });
+  };
+
+  const confirmApproval = () => {
+      if (!reviewUser) return;
+      
+      const updates: Partial<User> = { ...reviewData };
+      
+      // Ensure numeric fields are numbers
+      if (updates.role === 'student') {
+          updates.annualFee = Number(updates.annualFee || 0);
+          updates.discount = Number(updates.discount || 0);
+      }
+      
+      // Clean up fields if role changed (optional, but good practice)
+      if (updates.role !== 'student') {
+          delete updates.annualFee;
+          delete updates.discount;
+          delete updates.classId;
+      }
+      if (updates.role !== 'teacher') {
+          delete updates.subjects;
+      }
+
+      dispatch({ type: 'APPROVE_USER', payload: { id: reviewUser.id, updates } });
+      setReviewUser(null);
+      setReviewData({});
   };
 
   const handleReject = (id: string) => {
-      dispatch({ type: 'REJECT_USER', payload: id });
+      if(window.confirm('Are you sure you want to reject this registration?')) {
+          dispatch({ type: 'REJECT_USER', payload: id });
+      }
   };
 
   const postNotice = (e: React.FormEvent) => {
@@ -79,7 +129,24 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
 
   // --- Registration / User Management ---
   if (activeTab === 'registration' || activeTab === 'users') {
-      const usersToManage = state.users.filter(u => u.status === 'active' && u.id !== currentUser?.id);
+      const usersToManage = state.users
+        .filter(u => u.status === 'active' && u.id !== currentUser?.id)
+        .filter(u => {
+            // Visibility Check based on Hierarchy
+            if (currentUser?.role === 'developer') return true; // Developer sees all
+
+            const myLevel = roleHierarchy[currentUser?.role || 'guest'];
+            const targetLevel = roleHierarchy[u.role || 'guest'];
+
+            // Strict visibility: Can only see users with lower hierarchy level
+            return myLevel > targetLevel;
+        })
+        .filter(u => {
+            const matchesSearch = u.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                  u.email.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesRole = filterRole === 'all' || u.role === filterRole;
+            return matchesSearch && matchesRole;
+        });
       
       return (
           <div className="space-y-8">
@@ -96,12 +163,14 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                               <div key={u.id} className="flex items-center justify-between border p-4 rounded-lg bg-yellow-50 border-yellow-100">
                                   <div>
                                       <p className="font-bold text-gray-800">{u.name}</p>
-                                      <p className="text-sm text-gray-600">{u.role} • {u.email}</p>
-                                      {u.role === 'student' && <p className="text-xs text-gray-500">Class: {u.classId} | Fee: {u.annualFee}</p>}
+                                      <p className="text-sm text-gray-600">{u.role.toUpperCase()} • {u.email}</p>
+                                      <p className="text-xs text-gray-500">Applied: {new Date().toLocaleDateString()}</p>
                                   </div>
                                   <div className="flex gap-2">
-                                      <button onClick={() => handleReject(u.id)} className="px-3 py-1 bg-white border border-red-200 text-red-600 rounded hover:bg-red-50">Reject</button>
-                                      <button onClick={() => handleApprove(u.id)} className="px-3 py-1 bg-galaxy-600 text-white rounded hover:bg-galaxy-700">Approve</button>
+                                      <button onClick={() => handleReject(u.id)} className="px-3 py-1 bg-white border border-red-200 text-red-600 rounded hover:bg-red-50 text-sm">Reject</button>
+                                      <button onClick={() => openReviewModal(u)} className="px-3 py-1 bg-galaxy-600 text-white rounded hover:bg-galaxy-700 text-sm flex items-center gap-1">
+                                          <Eye size={14} /> Review
+                                      </button>
                                   </div>
                               </div>
                           ))}
@@ -109,9 +178,168 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                   )}
               </div>
 
+              {/* Review Modal */}
+              {reviewUser && (
+                  <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+                      <div className="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden max-h-[90vh] overflow-y-auto">
+                          <div className="bg-galaxy-900 text-white p-4 flex justify-between items-center sticky top-0 z-10">
+                              <h3 className="font-bold">Review & Edit Application</h3>
+                              <button onClick={() => setReviewUser(null)}><X size={20} /></button>
+                          </div>
+                          <div className="p-6 space-y-4">
+                              <p className="text-sm text-gray-500 italic mb-4">You can edit any details below before approving the user.</p>
+                              
+                              <div className="grid grid-cols-2 gap-4 text-sm">
+                                  <div>
+                                      <label className="block text-xs font-bold text-gray-500 uppercase">Full Name</label>
+                                      <input 
+                                          type="text" 
+                                          value={reviewData.name || ''}
+                                          onChange={e => setReviewData({...reviewData, name: e.target.value})}
+                                          className="w-full border p-2 rounded mt-1 focus:ring-2 focus:ring-galaxy-500 outline-none"
+                                      />
+                                  </div>
+                                  <div>
+                                      <label className="block text-xs font-bold text-gray-500 uppercase">Role Requested</label>
+                                      <select 
+                                          value={reviewData.role || 'student'}
+                                          onChange={e => setReviewData({...reviewData, role: e.target.value as any})}
+                                          className="w-full border p-2 rounded mt-1 bg-white focus:ring-2 focus:ring-galaxy-500 outline-none"
+                                      >
+                                          <option value="student">Student</option>
+                                          <option value="teacher">Teacher</option>
+                                          <option value="accountant">Accountant</option>
+                                          <option value="administrator">Administrator</option>
+                                          <option value="admin">Admin</option>
+                                      </select>
+                                  </div>
+                                  <div className="col-span-2">
+                                      <label className="block text-xs font-bold text-gray-500 uppercase">Email</label>
+                                      <input 
+                                          type="email" 
+                                          value={reviewData.email || ''}
+                                          onChange={e => setReviewData({...reviewData, email: e.target.value})}
+                                          className="w-full border p-2 rounded mt-1 focus:ring-2 focus:ring-galaxy-500 outline-none"
+                                      />
+                                  </div>
+                                  <div>
+                                      <label className="block text-xs font-bold text-gray-500 uppercase">Phone</label>
+                                      <input 
+                                          type="text" 
+                                          value={reviewData.phone || ''}
+                                          onChange={e => setReviewData({...reviewData, phone: e.target.value})}
+                                          className="w-full border p-2 rounded mt-1 focus:ring-2 focus:ring-galaxy-500 outline-none"
+                                      />
+                                  </div>
+                                  <div>
+                                       <label className="block text-xs font-bold text-gray-500 uppercase">Address</label>
+                                       <input 
+                                           type="text" 
+                                           value={reviewData.address || ''}
+                                           onChange={e => setReviewData({...reviewData, address: e.target.value})}
+                                           className="w-full border p-2 rounded mt-1 focus:ring-2 focus:ring-galaxy-500 outline-none"
+                                       />
+                                  </div>
+                              </div>
+
+                              <div className="border-t pt-4">
+                                  {reviewData.role === 'student' && (
+                                      <div className="space-y-3 bg-blue-50 p-4 rounded-lg border border-blue-100">
+                                          <h4 className="font-bold text-blue-900 flex items-center gap-2">
+                                              <BookOpen size={16}/> Student Configuration
+                                          </h4>
+                                          <div>
+                                              <label className="block text-xs font-bold text-gray-500 uppercase">Assigned Class</label>
+                                              <input 
+                                                  type="text" 
+                                                  value={reviewData.classId || ''}
+                                                  onChange={e => setReviewData({...reviewData, classId: e.target.value})}
+                                                  className="w-full border p-2 rounded mt-1"
+                                                  placeholder="e.g. Batch 2024"
+                                              />
+                                          </div>
+                                          <div className="grid grid-cols-2 gap-4">
+                                              <div>
+                                                  <label className="block text-xs font-bold text-gray-500 uppercase">Annual Fee (Rs)</label>
+                                                  <input 
+                                                      type="number" 
+                                                      value={reviewData.annualFee || 0}
+                                                      onChange={e => setReviewData({...reviewData, annualFee: Number(e.target.value)})}
+                                                      className="w-full border p-2 rounded mt-1"
+                                                  />
+                                              </div>
+                                              <div>
+                                                  <label className="block text-xs font-bold text-gray-500 uppercase">Discount (Rs)</label>
+                                                  <input 
+                                                      type="number" 
+                                                      value={reviewData.discount || 0}
+                                                      onChange={e => setReviewData({...reviewData, discount: Number(e.target.value)})}
+                                                      className="w-full border p-2 rounded mt-1"
+                                                  />
+                                              </div>
+                                          </div>
+                                      </div>
+                                  )}
+
+                                  {reviewData.role === 'teacher' && (
+                                      <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
+                                          <h4 className="font-bold text-purple-900 mb-2">Teacher Configuration</h4>
+                                          <label className="block text-xs font-bold text-gray-500 uppercase">Subjects</label>
+                                          <input 
+                                              type="text" 
+                                              value={(reviewData.subjects || []).join(', ')}
+                                              onChange={e => setReviewData({...reviewData, subjects: e.target.value.split(',').map(s => s.trim())})}
+                                              className="w-full border p-2 rounded mt-1"
+                                              placeholder="Comma separated subjects"
+                                          />
+                                      </div>
+                                  )}
+                              </div>
+
+                              <div className="flex gap-3 pt-4">
+                                  <button onClick={() => setReviewUser(null)} className="flex-1 py-2 border rounded hover:bg-gray-50">Cancel</button>
+                                  <button onClick={confirmApproval} className="flex-1 py-2 bg-green-600 text-white rounded hover:bg-green-700 font-bold">Confirm & Approve</button>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              )}
+
               {/* User Management Section */}
               <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                  <h3 className="text-xl font-bold mb-4">Manage Active Users</h3>
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                      <h3 className="text-xl font-bold">Manage Active Users</h3>
+                      
+                      <div className="flex gap-3 w-full md:w-auto">
+                          <div className="relative flex-1 md:w-64">
+                              <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                              <input 
+                                type="text" 
+                                placeholder="Search by name or email..." 
+                                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-galaxy-500 outline-none"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                              />
+                          </div>
+                          
+                          <div className="relative">
+                              <select 
+                                className="pl-3 pr-8 py-2 border rounded-lg bg-white focus:ring-2 focus:ring-galaxy-500 outline-none appearance-none"
+                                value={filterRole}
+                                onChange={(e) => setFilterRole(e.target.value)}
+                              >
+                                  <option value="all">All Roles</option>
+                                  <option value="student">Student</option>
+                                  <option value="teacher">Teacher</option>
+                                  <option value="accountant">Accountant</option>
+                                  {roleHierarchy[currentUser?.role || 'guest'] > 80 && <option value="administrator">Administrator</option>}
+                                  {roleHierarchy[currentUser?.role || 'guest'] > 90 && <option value="admin">Admin</option>}
+                              </select>
+                              <Filter className="absolute right-3 top-2.5 text-gray-400 pointer-events-none" size={16} />
+                          </div>
+                      </div>
+                  </div>
+
                   <div className="overflow-x-auto">
                       <table className="w-full text-left">
                           <thead className="bg-gray-50">
@@ -123,52 +351,84 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                               </tr>
                           </thead>
                           <tbody className="divide-y">
-                              {usersToManage.map(u => (
-                                  <tr key={u.id}>
-                                      <td className="p-3 font-medium">{u.name} <br/><span className="text-xs text-gray-500 font-normal">{u.email}</span></td>
-                                      <td className="p-3 capitalize">{u.role}</td>
-                                      <td className="p-3 text-sm">
-                                          {editingUserId === u.id ? (
-                                              <div className="space-y-2">
-                                                  {u.role === 'student' && (
-                                                      <input 
-                                                        className="border p-1 rounded w-full"
-                                                        placeholder="Class ID"
-                                                        value={editForm.classId || ''}
-                                                        onChange={e => setEditForm({...editForm, classId: e.target.value})}
-                                                      />
-                                                  )}
-                                                  {u.role === 'teacher' && (
-                                                      <input 
-                                                        className="border p-1 rounded w-full"
-                                                        placeholder="Subjects"
-                                                        value={(editForm.subjects || []).join(', ')}
-                                                        onChange={e => setEditForm({...editForm, subjects: e.target.value.split(',').map(s=>s.trim())})}
-                                                      />
-                                                  )}
-                                                  {(u.role === 'admin' || u.role === 'administrator') && <span className="text-gray-400">No editable details</span>}
-                                              </div>
-                                          ) : (
-                                              <div>
-                                                  {u.role === 'student' && <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">{u.classId}</span>}
-                                                  {u.role === 'teacher' && <span className="text-xs text-gray-600">{u.subjects?.join(', ')}</span>}
-                                              </div>
-                                          )}
-                                      </td>
-                                      <td className="p-3">
-                                          {editingUserId === u.id ? (
-                                              <div className="flex gap-2">
-                                                  <button onClick={saveUserEdit} className="text-green-600 hover:underline">Save</button>
-                                                  <button onClick={() => setEditingUserId(null)} className="text-gray-500 hover:underline">Cancel</button>
-                                              </div>
-                                          ) : (
-                                              <button onClick={() => startEditUser(u)} className="text-galaxy-600 hover:bg-galaxy-50 p-2 rounded">
-                                                  <Edit2 size={16} />
-                                              </button>
-                                          )}
+                              {usersToManage.length === 0 ? (
+                                  <tr>
+                                      <td colSpan={4} className="p-8 text-center text-gray-500">
+                                          No users found matching your search (or you do not have permission to view them).
                                       </td>
                                   </tr>
-                              ))}
+                              ) : (
+                                  usersToManage.map(u => (
+                                      <tr key={u.id} className="hover:bg-gray-50 transition-colors">
+                                          <td className="p-3 font-medium">
+                                              {u.name} 
+                                              <br/>
+                                              <span className="text-xs text-gray-500 font-normal">{u.email}</span>
+                                          </td>
+                                          <td className="p-3">
+                                              <span className={`px-2 py-1 rounded text-xs font-bold uppercase
+                                                  ${u.role === 'student' ? 'bg-blue-100 text-blue-700' : 
+                                                    u.role === 'teacher' ? 'bg-purple-100 text-purple-700' :
+                                                    u.role === 'accountant' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                                                  }`}
+                                              >
+                                                  {u.role}
+                                              </span>
+                                          </td>
+                                          <td className="p-3 text-sm">
+                                              {editingUserId === u.id ? (
+                                                  <div className="space-y-2">
+                                                      {u.role === 'student' && (
+                                                          <input 
+                                                            className="border p-1 rounded w-full"
+                                                            placeholder="Class ID"
+                                                            value={editForm.classId || ''}
+                                                            onChange={e => setEditForm({...editForm, classId: e.target.value})}
+                                                          />
+                                                      )}
+                                                      {u.role === 'teacher' && (
+                                                          <input 
+                                                            className="border p-1 rounded w-full"
+                                                            placeholder="Subjects"
+                                                            value={(editForm.subjects || []).join(', ')}
+                                                            onChange={e => setEditForm({...editForm, subjects: e.target.value.split(',').map(s=>s.trim())})}
+                                                          />
+                                                      )}
+                                                      {((u.role === 'admin' || u.role === 'administrator') && role !== 'developer') && 
+                                                          <span className="text-gray-400">No editable details</span>
+                                                      }
+                                                      {((u.role === 'admin' || u.role === 'administrator') && role === 'developer') && (
+                                                          <div className="text-xs text-green-600">Admin details (Editable via Dev)</div>
+                                                      )}
+                                                  </div>
+                                              ) : (
+                                                  <div>
+                                                      {u.role === 'student' && (
+                                                          <div>
+                                                            <span className="bg-blue-50 text-blue-800 text-xs px-2 py-1 rounded border border-blue-100 mr-2">{u.classId}</span>
+                                                            <span className="text-xs text-gray-500">Fee: {u.annualFee}</span>
+                                                          </div>
+                                                      )}
+                                                      {u.role === 'teacher' && <span className="text-xs text-gray-600">{u.subjects?.join(', ')}</span>}
+                                                      {(u.role === 'admin' || u.role === 'administrator') && <span className="text-xs text-gray-400">System User</span>}
+                                                  </div>
+                                              )}
+                                          </td>
+                                          <td className="p-3">
+                                              {editingUserId === u.id ? (
+                                                  <div className="flex gap-2">
+                                                      <button onClick={saveUserEdit} className="text-green-600 hover:underline font-medium">Save</button>
+                                                      <button onClick={() => setEditingUserId(null)} className="text-gray-500 hover:underline">Cancel</button>
+                                                  </div>
+                                              ) : (
+                                                  <button onClick={() => startEditUser(u)} className="text-galaxy-600 hover:bg-galaxy-100 p-2 rounded transition-colors" title="Edit User">
+                                                      <Edit2 size={16} />
+                                                  </button>
+                                              )}
+                                          </td>
+                                      </tr>
+                                  ))
+                              )}
                           </tbody>
                       </table>
                   </div>
