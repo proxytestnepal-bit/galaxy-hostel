@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import { useAppStore } from '../services/store';
 import { User, Role } from '../types';
-import { Shield, BookOpen, Calculator, UserCheck, Lock, Mail, User as UserIcon, TestTube } from 'lucide-react';
+import { Shield, BookOpen, Calculator, UserCheck, Lock, Mail, User as UserIcon, TestTube, Check } from 'lucide-react';
 
 const Auth: React.FC = () => {
   const { state, dispatch } = useAppStore();
@@ -60,7 +61,7 @@ const Auth: React.FC = () => {
         annualFee: 0, 
         discount: 0,
         totalPaid: 0,
-        subjects: regForm.role === 'teacher' ? (regForm.subjects as unknown as string).split(',').map(s => s.trim()) : undefined
+        subjects: regForm.role === 'teacher' ? regForm.subjects : undefined
     };
 
     dispatch({ type: 'ADD_USER', payload: newUser });
@@ -70,6 +71,15 @@ const Auth: React.FC = () => {
         setRegSuccess('');
         setIsLogin(true);
     }, 3000);
+  };
+
+  const toggleSubject = (subject: string) => {
+      const currentSubjects = regForm.subjects || [];
+      if (currentSubjects.includes(subject)) {
+          setRegForm({ ...regForm, subjects: currentSubjects.filter(s => s !== subject) });
+      } else {
+          setRegForm({ ...regForm, subjects: [...currentSubjects, subject] });
+      }
   };
 
   return (
@@ -253,15 +263,29 @@ const Auth: React.FC = () => {
                     {/* Teacher Specific Fields */}
                     {regForm.role === 'teacher' && (
                         <div className="bg-purple-50 p-3 rounded-lg border border-purple-100">
-                            <h4 className="font-semibold text-purple-800 text-xs uppercase">Teacher Details</h4>
-                            <label className="block text-xs font-medium text-gray-700">Subjects (comma separated)</label>
-                            <input 
-                                type="text" required
-                                className="w-full border p-2 rounded mt-1 text-sm"
-                                placeholder="e.g. Housekeeping, F&B Production"
-                                value={regForm.subjects as unknown as string}
-                                onChange={e => setRegForm({...regForm, subjects: e.target.value as unknown as string[]})}
-                            />
+                            <h4 className="font-semibold text-purple-800 text-xs uppercase mb-2">Select Subjects</h4>
+                            <div className="flex flex-wrap gap-2">
+                                {state.availableSubjects.map(subject => {
+                                    const isSelected = regForm.subjects?.includes(subject);
+                                    return (
+                                        <button
+                                            key={subject}
+                                            type="button"
+                                            onClick={() => toggleSubject(subject)}
+                                            className={`text-xs px-2 py-1 rounded-full border transition-all ${
+                                                isSelected 
+                                                ? 'bg-purple-600 text-white border-purple-600' 
+                                                : 'bg-white text-gray-600 border-gray-300 hover:border-purple-400'
+                                            }`}
+                                        >
+                                            {subject} {isSelected && '✓'}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                            {(regForm.subjects?.length || 0) === 0 && (
+                                <p className="text-xs text-red-400 mt-2">* Please select at least one subject</p>
+                            )}
                         </div>
                     )}
 

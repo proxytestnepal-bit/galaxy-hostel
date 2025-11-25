@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useReducer } from 'react';
 import { AppState, User, Assignment, Submission, FeeRecord, ExamReport, Notice, Invoice } from '../types';
 import { INITIAL_STATE } from './mockData';
@@ -21,7 +22,9 @@ type Action =
   | { type: 'ADD_REPORT'; payload: ExamReport }
   | { type: 'PUBLISH_REPORT'; payload: { id: string; published: boolean } }
   | { type: 'ADD_NOTICE'; payload: Notice }
-  | { type: 'RESET_RECEIPT_COUNTER'; payload: number };
+  | { type: 'RESET_RECEIPT_COUNTER'; payload: number }
+  | { type: 'ADD_SYSTEM_SUBJECT'; payload: string }
+  | { type: 'DELETE_SYSTEM_SUBJECT'; payload: string };
 
 const AppContext = createContext<{
   state: AppState;
@@ -125,6 +128,11 @@ const reducer = (state: AppState, action: Action): AppState => {
         return { ...state, notices: [action.payload, ...state.notices] };
     case 'RESET_RECEIPT_COUNTER':
         return { ...state, receiptCounter: action.payload };
+    case 'ADD_SYSTEM_SUBJECT':
+        if(state.availableSubjects.includes(action.payload)) return state;
+        return { ...state, availableSubjects: [...state.availableSubjects, action.payload] };
+    case 'DELETE_SYSTEM_SUBJECT':
+        return { ...state, availableSubjects: state.availableSubjects.filter(s => s !== action.payload) };
     default:
       return state;
   }

@@ -1,8 +1,9 @@
+
 import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
 import { Role, User } from '../../types';
 import AccountantView from './AccountantView';
-import { Check, X, Printer, Lock, Unlock, AlertTriangle, RefreshCw, UserCheck, Shield, BookOpen, Edit2, Search, Filter, Eye } from 'lucide-react';
+import { Check, X, Printer, Lock, Unlock, AlertTriangle, RefreshCw, UserCheck, Shield, BookOpen, Edit2, Search, Filter, Eye, Settings, Plus, Trash2 } from 'lucide-react';
 
 interface Props {
   activeTab: string;
@@ -16,18 +17,17 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   // Notice Form
   const [noticeForm, setNoticeForm] = useState({ title: '', content: '', audience: 'all' });
 
-  // User Edit Form
-  const [editingUserId, setEditingUserId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<Partial<User>>({});
-
   // Search and Filter State
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<string>('all');
 
-  // Approval Modal State
+  // Approval / Edit Modal State
   const [reviewUser, setReviewUser] = useState<User | null>(null);
-  // Change reviewData to hold all potential User fields
   const [reviewData, setReviewData] = useState<Partial<User>>({});
+  
+  // Subject Management Modal State
+  const [showSubjectManager, setShowSubjectManager] = useState(false);
+  const [newSubject, setNewSubject] = useState('');
 
   // Hierarchy Definition
   const roleHierarchy: Record<string, number> = {
@@ -53,11 +53,10 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
 
   const openReviewModal = (user: User) => {
       setReviewUser(user);
-      // Populate reviewData with all current user details so they can be edited
       setReviewData({ ...user });
   };
 
-  const confirmApproval = () => {
+  const confirmApprovalOrEdit = () => {
       if (!reviewUser) return;
       
       const updates: Partial<User> = { ...reviewData };
@@ -68,7 +67,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
           updates.discount = Number(updates.discount || 0);
       }
       
-      // Clean up fields if role changed (optional, but good practice)
+      // Clean up fields if role changed
       if (updates.role !== 'student') {
           delete updates.annualFee;
           delete updates.discount;
@@ -78,7 +77,14 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
           delete updates.subjects;
       }
 
-      dispatch({ type: 'APPROVE_USER', payload: { id: reviewUser.id, updates } });
+      if (reviewUser.status === 'pending') {
+          // Approving new user
+          dispatch({ type: 'APPROVE_USER', payload: { id: reviewUser.id, updates } });
+      } else {
+          // Editing existing user
+          dispatch({ type: 'UPDATE_USER_DETAILS', payload: { id: reviewUser.id, ...updates } });
+      }
+
       setReviewUser(null);
       setReviewData({});
   };
@@ -86,6 +92,22 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   const handleReject = (id: string) => {
       if(window.confirm('Are you sure you want to reject this registration?')) {
           dispatch({ type: 'REJECT_USER', payload: id });
+      }
+  };
+
+  const toggleSubjectInReview = (subject: string) => {
+      const currentSubjects = reviewData.subjects || [];
+      if (currentSubjects.includes(subject)) {
+          setReviewData({ ...reviewData, subjects: currentSubjects.filter(s => s !== subject) });
+      } else {
+          setReviewData({ ...reviewData, subjects: [...currentSubjects, subject] });
+      }
+  };
+
+  const handleAddSubject = () => {
+      if(newSubject.trim()) {
+          dispatch({ type: 'ADD_SYSTEM_SUBJECT', payload: newSubject.trim() });
+          setNewSubject('');
       }
   };
 
@@ -103,20 +125,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
           }
       });
       setNoticeForm({ title: '', content: '', audience: 'all' });
-  }
-
-  // Edit User Logic
-  const startEditUser = (user: User) => {
-      setEditingUserId(user.id);
-      setEditForm({ ...user });
-  }
-
-  const saveUserEdit = () => {
-      if(editingUserId && editForm) {
-          dispatch({ type: 'UPDATE_USER_DETAILS', payload: { id: editingUserId, ...editForm } });
-          setEditingUserId(null);
-          setEditForm({});
-      }
   }
 
   // System Tools
@@ -178,17 +186,56 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                   )}
               </div>
 
-              {/* Review Modal */}
+              {/* Subject Manager Modal */}
+              {showSubjectManager && (
+                  <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+                      <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+                          <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
+                              <h3 className="font-bold">Subject Library</h3>
+                              <button onClick={() => setShowSubjectManager(false)}><X size={18} /></button>
+                          </div>
+                          <div className="p-6">
+                              <div className="flex gap-2 mb-4">
+                                  <input 
+                                      type="text" 
+                                      placeholder="New Subject Name" 
+                                      className="flex-1 border p-2 rounded"
+                                      value={newSubject}
+                                      onChange={e => setNewSubject(e.target.value)}
+                                  />
+                                  <button onClick={handleAddSubject} className="bg-green-600 text-white px-3 py-2 rounded">
+                                      <Plus size={18} />
+                                  </button>
+                              </div>
+                              <div className="max-h-60 overflow-y-auto space-y-2">
+                                  {state.availableSubjects.map(s => (
+                                      <div key={s} className="flex justify-between items-center p-2 bg-gray-50 rounded border">
+                                          <span>{s}</span>
+                                          <button 
+                                              onClick={() => dispatch({ type: 'DELETE_SYSTEM_SUBJECT', payload: s })}
+                                              className="text-red-500 hover:text-red-700"
+                                          >
+                                              <Trash2 size={16} />
+                                          </button>
+                                      </div>
+                                  ))}
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              )}
+
+              {/* Review / Edit Modal */}
               {reviewUser && (
                   <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
                       <div className="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden max-h-[90vh] overflow-y-auto">
                           <div className="bg-galaxy-900 text-white p-4 flex justify-between items-center sticky top-0 z-10">
-                              <h3 className="font-bold">Review & Edit Application</h3>
+                              <h3 className="font-bold">
+                                  {reviewUser.status === 'pending' ? 'Review Application' : 'Edit User Details'}
+                              </h3>
                               <button onClick={() => setReviewUser(null)}><X size={20} /></button>
                           </div>
                           <div className="p-6 space-y-4">
-                              <p className="text-sm text-gray-500 italic mb-4">You can edit any details below before approving the user.</p>
-                              
                               <div className="grid grid-cols-2 gap-4 text-sm">
                                   <div>
                                       <label className="block text-xs font-bold text-gray-500 uppercase">Full Name</label>
@@ -200,7 +247,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                       />
                                   </div>
                                   <div>
-                                      <label className="block text-xs font-bold text-gray-500 uppercase">Role Requested</label>
+                                      <label className="block text-xs font-bold text-gray-500 uppercase">Role</label>
                                       <select 
                                           value={reviewData.role || 'student'}
                                           onChange={e => setReviewData({...reviewData, role: e.target.value as any})}
@@ -284,21 +331,34 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                   {reviewData.role === 'teacher' && (
                                       <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
                                           <h4 className="font-bold text-purple-900 mb-2">Teacher Configuration</h4>
-                                          <label className="block text-xs font-bold text-gray-500 uppercase">Subjects</label>
-                                          <input 
-                                              type="text" 
-                                              value={(reviewData.subjects || []).join(', ')}
-                                              onChange={e => setReviewData({...reviewData, subjects: e.target.value.split(',').map(s => s.trim())})}
-                                              className="w-full border p-2 rounded mt-1"
-                                              placeholder="Comma separated subjects"
-                                          />
+                                          <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Assign Subjects</label>
+                                          <div className="flex flex-wrap gap-2">
+                                              {state.availableSubjects.map(subject => {
+                                                  const isSelected = reviewData.subjects?.includes(subject);
+                                                  return (
+                                                      <button
+                                                          key={subject}
+                                                          onClick={() => toggleSubjectInReview(subject)}
+                                                          className={`text-xs px-2 py-1 rounded-full border transition-all ${
+                                                              isSelected 
+                                                              ? 'bg-purple-600 text-white border-purple-600' 
+                                                              : 'bg-white text-gray-600 border-gray-300 hover:border-purple-400'
+                                                          }`}
+                                                      >
+                                                          {subject} {isSelected && '✓'}
+                                                      </button>
+                                                  )
+                                              })}
+                                          </div>
                                       </div>
                                   )}
                               </div>
 
                               <div className="flex gap-3 pt-4">
                                   <button onClick={() => setReviewUser(null)} className="flex-1 py-2 border rounded hover:bg-gray-50">Cancel</button>
-                                  <button onClick={confirmApproval} className="flex-1 py-2 bg-green-600 text-white rounded hover:bg-green-700 font-bold">Confirm & Approve</button>
+                                  <button onClick={confirmApprovalOrEdit} className="flex-1 py-2 bg-green-600 text-white rounded hover:bg-green-700 font-bold">
+                                      {reviewUser.status === 'pending' ? 'Confirm & Approve' : 'Save Changes'}
+                                  </button>
                               </div>
                           </div>
                       </div>
@@ -310,12 +370,22 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                       <h3 className="text-xl font-bold">Manage Active Users</h3>
                       
-                      <div className="flex gap-3 w-full md:w-auto">
+                      <div className="flex gap-3 w-full md:w-auto items-center">
+                          {/* Subject Manager Button */}
+                          <button 
+                              onClick={() => setShowSubjectManager(true)}
+                              className="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                              title="Manage System Subjects"
+                          >
+                              <BookOpen size={18} />
+                              <span className="hidden md:inline text-sm font-medium">Subjects</span>
+                          </button>
+
                           <div className="relative flex-1 md:w-64">
                               <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
                               <input 
                                 type="text" 
-                                placeholder="Search by name or email..." 
+                                placeholder="Search..." 
                                 className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-galaxy-500 outline-none"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -376,55 +446,19 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                               </span>
                                           </td>
                                           <td className="p-3 text-sm">
-                                              {editingUserId === u.id ? (
-                                                  <div className="space-y-2">
-                                                      {u.role === 'student' && (
-                                                          <input 
-                                                            className="border p-1 rounded w-full"
-                                                            placeholder="Class ID"
-                                                            value={editForm.classId || ''}
-                                                            onChange={e => setEditForm({...editForm, classId: e.target.value})}
-                                                          />
-                                                      )}
-                                                      {u.role === 'teacher' && (
-                                                          <input 
-                                                            className="border p-1 rounded w-full"
-                                                            placeholder="Subjects"
-                                                            value={(editForm.subjects || []).join(', ')}
-                                                            onChange={e => setEditForm({...editForm, subjects: e.target.value.split(',').map(s=>s.trim())})}
-                                                          />
-                                                      )}
-                                                      {((u.role === 'admin' || u.role === 'administrator') && role !== 'developer') && 
-                                                          <span className="text-gray-400">No editable details</span>
-                                                      }
-                                                      {((u.role === 'admin' || u.role === 'administrator') && role === 'developer') && (
-                                                          <div className="text-xs text-green-600">Admin details (Editable via Dev)</div>
-                                                      )}
-                                                  </div>
-                                              ) : (
+                                              {u.role === 'student' && (
                                                   <div>
-                                                      {u.role === 'student' && (
-                                                          <div>
-                                                            <span className="bg-blue-50 text-blue-800 text-xs px-2 py-1 rounded border border-blue-100 mr-2">{u.classId}</span>
-                                                            <span className="text-xs text-gray-500">Fee: {u.annualFee}</span>
-                                                          </div>
-                                                      )}
-                                                      {u.role === 'teacher' && <span className="text-xs text-gray-600">{u.subjects?.join(', ')}</span>}
-                                                      {(u.role === 'admin' || u.role === 'administrator') && <span className="text-xs text-gray-400">System User</span>}
+                                                    <span className="bg-blue-50 text-blue-800 text-xs px-2 py-1 rounded border border-blue-100 mr-2">{u.classId}</span>
+                                                    <span className="text-xs text-gray-500">Fee: {u.annualFee}</span>
                                                   </div>
                                               )}
+                                              {u.role === 'teacher' && <span className="text-xs text-gray-600">{u.subjects?.join(', ')}</span>}
+                                              {(u.role === 'admin' || u.role === 'administrator') && <span className="text-xs text-gray-400">System User</span>}
                                           </td>
                                           <td className="p-3">
-                                              {editingUserId === u.id ? (
-                                                  <div className="flex gap-2">
-                                                      <button onClick={saveUserEdit} className="text-green-600 hover:underline font-medium">Save</button>
-                                                      <button onClick={() => setEditingUserId(null)} className="text-gray-500 hover:underline">Cancel</button>
-                                                  </div>
-                                              ) : (
-                                                  <button onClick={() => startEditUser(u)} className="text-galaxy-600 hover:bg-galaxy-100 p-2 rounded transition-colors" title="Edit User">
-                                                      <Edit2 size={16} />
-                                                  </button>
-                                              )}
+                                              <button onClick={() => openReviewModal(u)} className="text-galaxy-600 hover:bg-galaxy-100 p-2 rounded transition-colors" title="Edit User">
+                                                  <Edit2 size={16} />
+                                              </button>
                                           </td>
                                       </tr>
                                   ))

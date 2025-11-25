@@ -1,3 +1,4 @@
+
 export type Role = 'admin' | 'administrator' | 'accountant' | 'teacher' | 'student' | 'guest' | 'developer';
 
 export type UserStatus = 'active' | 'pending' | 'rejected';
@@ -97,4 +98,5 @@ export interface AppState {
   examReports: ExamReport[];
   notices: Notice[];
   receiptCounter: number;
+  availableSubjects: string[];
 }

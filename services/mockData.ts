@@ -1,3 +1,4 @@
+
 import { AppState, User } from '../types';
 
 export const INITIAL_USERS: User[] = [
@@ -115,4 +116,17 @@ export const INITIAL_STATE: AppState = {
     }
   ],
   receiptCounter: 1002,
+  availableSubjects: [
+    'Hotel Management',
+    'Culinary Arts',
+    'Food & Beverage Service',
+    'Front Office Operations',
+    'Housekeeping',
+    'Travel & Tourism',
+    'Food Science',
+    'Business Communication',
+    'Hospitality Marketing',
+    'Accounting',
+    'Chemistry'
+  ]
 };
