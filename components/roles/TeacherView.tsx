@@ -1,8 +1,9 @@
+
 import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
 import { Assignment } from '../../types';
 import { generateAssignmentIdeas, generateFeedbackHelper } from '../../services/geminiService';
-import { Sparkles, Send, CheckCircle, Clock } from 'lucide-react';
+import { Sparkles, Send, CheckCircle, Clock, PenTool, Save } from 'lucide-react';
 
 interface Props {
   activeTab: string;
@@ -22,6 +23,11 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
     targetClassId: 'Class 10A',
     dueDate: '',
   });
+
+  // Marks Entry State
+  const [selectedSessionId, setSelectedSessionId] = useState('');
+  const [selectedClassId, setSelectedClassId] = useState('');
+  const [selectedSubject, setSelectedSubject] = useState('');
 
   const handleCreateAssignment = (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +73,139 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
           setSelectedSubmissionId(null);
           setGradeData({ grade: '', feedback: '' });
       }
+  }
+
+  // Marks Entry Handlers
+  const handleScoreChange = (studentId: string, scoreStr: string) => {
+      if (!selectedSessionId || !selectedSubject) return;
+      const score = parseFloat(scoreStr);
+      if (isNaN(score)) return;
+
+      const session = state.examSessions.find(s => s.id === selectedSessionId);
+      
+      dispatch({
+          type: 'UPDATE_EXAM_MARKS',
+          payload: {
+              studentId,
+              examSessionId: selectedSessionId,
+              sessionName: session?.name || '',
+              subject: selectedSubject,
+              score
+          }
+      });
+  };
+
+  if (activeTab === 'marks_entry') {
+      const openSessions = state.examSessions.filter(s => s.status === 'open');
+      const uniqueClasses = Array.from(new Set(state.users.filter(u => u.role === 'student' && u.classId).map(u => u.classId as string)));
+      
+      const filteredStudents = selectedClassId 
+          ? state.users.filter(u => u.role === 'student' && u.classId === selectedClassId)
+          : [];
+
+      return (
+          <div className="space-y-6">
+              <div className="bg-white p-6 rounded-xl border shadow-sm">
+                  <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                      <PenTool className="text-galaxy-600" /> Exam Marks Entry
+                  </h3>
+                  
+                  {openSessions.length === 0 ? (
+                      <div className="text-center p-8 bg-gray-50 rounded-lg text-gray-500">
+                          No exams are currently open for marks entry. Please contact the administrator.
+                      </div>
+                  ) : (
+                      <div className="space-y-6">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div>
+                                  <label className="block text-sm font-bold text-gray-700 mb-1">Select Exam Session</label>
+                                  <select 
+                                      className="w-full border p-2 rounded"
+                                      value={selectedSessionId}
+                                      onChange={e => setSelectedSessionId(e.target.value)}
+                                  >
+                                      <option value="">-- Choose Exam --</option>
+                                      {openSessions.map(s => <option key={s.id} value={s.id}>{s.name} ({s.type})</option>)}
+                                  </select>
+                              </div>
+                              <div>
+                                  <label className="block text-sm font-bold text-gray-700 mb-1">Select Class</label>
+                                  <select 
+                                      className="w-full border p-2 rounded"
+                                      value={selectedClassId}
+                                      onChange={e => setSelectedClassId(e.target.value)}
+                                  >
+                                      <option value="">-- Choose Class --</option>
+                                      {uniqueClasses.map(c => <option key={c} value={c}>{c}</option>)}
+                                  </select>
+                              </div>
+                              <div>
+                                  <label className="block text-sm font-bold text-gray-700 mb-1">Select Subject</label>
+                                  <select 
+                                      className="w-full border p-2 rounded"
+                                      value={selectedSubject}
+                                      onChange={e => setSelectedSubject(e.target.value)}
+                                  >
+                                      <option value="">-- Choose Subject --</option>
+                                      {state.currentUser?.subjects?.map(s => <option key={s} value={s}>{s}</option>)}
+                                  </select>
+                              </div>
+                          </div>
+
+                          {selectedSessionId && selectedClassId && selectedSubject ? (
+                              <div className="mt-6">
+                                  <div className="flex justify-between items-center mb-2">
+                                      <h4 className="font-bold text-gray-800">Student List</h4>
+                                      <span className="text-sm text-gray-500 italic">Changes are saved automatically</span>
+                                  </div>
+                                  <div className="border rounded-lg overflow-hidden">
+                                      <table className="w-full text-left">
+                                          <thead className="bg-gray-50 text-gray-700">
+                                              <tr>
+                                                  <th className="p-3">Student Name</th>
+                                                  <th className="p-3 w-32 text-right">Marks Obtained</th>
+                                              </tr>
+                                          </thead>
+                                          <tbody className="divide-y bg-white">
+                                              {filteredStudents.map(student => {
+                                                  // Find current score
+                                                  const report = state.examReports.find(
+                                                      r => r.studentId === student.id && r.examSessionId === selectedSessionId
+                                                  );
+                                                  const score = report?.scores[selectedSubject] || '';
+
+                                                  return (
+                                                      <tr key={student.id}>
+                                                          <td className="p-3">{student.name}</td>
+                                                          <td className="p-3 text-right">
+                                                              <input 
+                                                                  type="number" 
+                                                                  className="border p-2 rounded w-24 text-right font-mono focus:ring-2 focus:ring-galaxy-500 outline-none"
+                                                                  placeholder="0"
+                                                                  value={score}
+                                                                  onChange={e => handleScoreChange(student.id, e.target.value)}
+                                                              />
+                                                          </td>
+                                                      </tr>
+                                                  );
+                                              })}
+                                          </tbody>
+                                      </table>
+                                      {filteredStudents.length === 0 && (
+                                          <div className="p-4 text-center text-gray-500">No students found in this class.</div>
+                                      )}
+                                  </div>
+                              </div>
+                          ) : (
+                              <div className="p-8 text-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg text-gray-400">
+                                  Please select Exam, Class, and Subject to start entering marks.
+                              </div>
+                          )}
+                      </div>
+                  )}
+              </div>
+          </div>
+      );
   }
 
   if (activeTab === 'assignments') {

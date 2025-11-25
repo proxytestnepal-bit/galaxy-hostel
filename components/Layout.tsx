@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { useAppStore } from '../services/store';
-import { LogOut, User, LayoutDashboard, FileText, CreditCard, Bell, GraduationCap, Settings, Shield, UserPlus } from 'lucide-react';
+import { LogOut, User, LayoutDashboard, FileText, CreditCard, Bell, GraduationCap, Settings, Shield, UserPlus, PenTool } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -35,6 +36,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
           ...common,
           { id: 'assignments', label: 'Manage Assignments', icon: FileText },
           { id: 'submissions', label: 'Submissions & Grading', icon: GraduationCap },
+          { id: 'marks_entry', label: 'Marks Entry', icon: PenTool },
           { id: 'notices', label: 'Notices', icon: Bell },
         ];
       case 'accountant':

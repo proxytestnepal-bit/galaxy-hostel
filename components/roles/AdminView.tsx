@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
-import { Role, User } from '../../types';
+import { Role, User, ExamType } from '../../types';
 import AccountantView from './AccountantView';
-import { Check, X, Printer, Lock, Unlock, AlertTriangle, RefreshCw, UserCheck, Shield, BookOpen, Edit2, Search, Filter, Eye, Settings, Plus, Trash2 } from 'lucide-react';
+import { Check, X, Printer, Lock, Unlock, AlertTriangle, RefreshCw, UserCheck, Shield, BookOpen, Edit2, Search, Filter, Eye, Settings, Plus, Trash2, Calendar } from 'lucide-react';
 
 interface Props {
   activeTab: string;
@@ -28,6 +28,10 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   // Subject Management Modal State
   const [showSubjectManager, setShowSubjectManager] = useState(false);
   const [newSubject, setNewSubject] = useState('');
+
+  // Exam Session Form
+  const [newSessionName, setNewSessionName] = useState('');
+  const [newSessionType, setNewSessionType] = useState<ExamType>('Term Exam');
 
   // Hierarchy Definition
   const roleHierarchy: Record<string, number> = {
@@ -126,6 +130,21 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       });
       setNoticeForm({ title: '', content: '', audience: 'all' });
   }
+
+  const handleCreateSession = () => {
+      if (!newSessionName.trim()) return;
+      dispatch({
+          type: 'ADD_EXAM_SESSION',
+          payload: {
+              id: `es${Date.now()}`,
+              name: newSessionName,
+              type: newSessionType,
+              status: 'open',
+              startDate: new Date().toISOString().split('T')[0]
+          }
+      });
+      setNewSessionName('');
+  };
 
   // System Tools
   const [resetVal, setResetVal] = useState(1);
@@ -515,42 +534,110 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
 
   if (activeTab === 'reports' || activeTab === 'exam_management') {
       return (
-          <div>
-              <div className="flex justify-between items-center mb-6">
-                 <h3 className="text-xl font-bold">Exam Reports Management</h3>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {state.examReports.map(report => {
-                      const student = state.users.find(u => u.id === report.studentId);
-                      return (
-                          <div key={report.id} className="border rounded-xl p-4 bg-white shadow-sm relative">
-                              <div className="flex justify-between mb-2">
-                                  <h4 className="font-bold text-lg">{student?.name}</h4>
-                                  <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${report.published ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                                      {report.published ? 'Published' : 'Draft'}
-                                  </span>
+          <div className="space-y-8">
+              {/* Exam Sessions Management */}
+              <div className="bg-white p-6 rounded-xl border border-galaxy-200 shadow-sm">
+                  <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                       <Calendar className="text-galaxy-600" /> Manage Exam Sessions
+                  </h3>
+                  
+                  {/* Create New Session */}
+                  <div className="bg-gray-50 p-4 rounded-lg mb-6 flex flex-wrap gap-4 items-end border">
+                      <div className="flex-1 min-w-[200px]">
+                          <label className="text-sm font-bold text-gray-600 block mb-1">Session Name</label>
+                          <input 
+                              type="text" 
+                              placeholder="e.g. Second Term 2024" 
+                              className="w-full border p-2 rounded"
+                              value={newSessionName}
+                              onChange={e => setNewSessionName(e.target.value)}
+                          />
+                      </div>
+                      <div className="min-w-[150px]">
+                           <label className="text-sm font-bold text-gray-600 block mb-1">Exam Type</label>
+                           <select 
+                              className="w-full border p-2 rounded"
+                              value={newSessionType}
+                              onChange={e => setNewSessionType(e.target.value as ExamType)}
+                           >
+                               <option value="Monthly Test">Monthly Test</option>
+                               <option value="Unit Test">Unit Test</option>
+                               <option value="Term Exam">Term Exam</option>
+                               <option value="Viva Exam">Viva Exam</option>
+                               <option value="Final Exam">Final Exam</option>
+                           </select>
+                      </div>
+                      <button 
+                          onClick={handleCreateSession}
+                          className="bg-galaxy-900 text-white px-4 py-2 rounded hover:bg-galaxy-800 flex items-center gap-2"
+                      >
+                          <Plus size={16} /> Create Session
+                      </button>
+                  </div>
+
+                  {/* List Sessions */}
+                  <div className="space-y-3">
+                      {state.examSessions.map(session => (
+                          <div key={session.id} className="flex items-center justify-between border p-4 rounded-lg bg-white shadow-sm">
+                              <div>
+                                  <div className="flex items-center gap-2">
+                                      <h4 className="font-bold text-lg">{session.name}</h4>
+                                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded border">{session.type}</span>
+                                  </div>
+                                  <p className="text-xs text-gray-500">Started: {session.startDate}</p>
                               </div>
-                              <p className="text-sm text-gray-600 mb-2">{report.term}</p>
-                              <div className="mb-4">
-                                  {Object.entries(report.scores).map(([s, score]) => (
-                                      <div key={s} className="flex justify-between text-sm border-b border-gray-100 py-1">
-                                          <span>{s}</span>
-                                          <span className="font-mono">{score}</span>
-                                      </div>
-                                  ))}
-                              </div>
-                              <div className="flex justify-end gap-2 mt-4 pt-2 border-t">
+                              <div className="flex items-center gap-4">
+                                  <div className={`text-sm font-bold ${session.status === 'open' ? 'text-green-600' : 'text-red-500'}`}>
+                                      {session.status === 'open' ? 'OPEN FOR ENTRY' : 'CLOSED'}
+                                  </div>
                                   <button 
-                                    onClick={() => dispatch({ type: 'PUBLISH_REPORT', payload: { id: report.id, published: !report.published } })}
-                                    className={`w-full py-2 px-4 rounded text-white flex items-center justify-center gap-2 ${report.published ? 'bg-amber-500 hover:bg-amber-600' : 'bg-green-600 hover:bg-green-700'}`}
+                                      onClick={() => dispatch({ type: 'TOGGLE_EXAM_SESSION_STATUS', payload: session.id })}
+                                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${session.status === 'open' ? 'bg-green-600' : 'bg-gray-300'}`}
                                   >
-                                      {report.published ? <><Lock size={16} /> Unpublish</> : <><Unlock size={16} /> Publish Result</>}
+                                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${session.status === 'open' ? 'translate-x-6' : 'translate-x-1'}`} />
                                   </button>
                               </div>
                           </div>
-                      );
-                  })}
+                      ))}
+                  </div>
+              </div>
+
+              {/* Existing Reports Publishing */}
+              <div className="bg-white p-6 rounded-xl border border-galaxy-200 shadow-sm">
+                  <h3 className="text-xl font-bold mb-4">Publish Results</h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {state.examReports.map(report => {
+                          const student = state.users.find(u => u.id === report.studentId);
+                          return (
+                              <div key={report.id} className="border rounded-xl p-4 bg-white shadow-sm relative">
+                                  <div className="flex justify-between mb-2">
+                                      <h4 className="font-bold text-lg">{student?.name}</h4>
+                                      <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${report.published ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                          {report.published ? 'Published' : 'Draft'}
+                                      </span>
+                                  </div>
+                                  <p className="text-sm text-gray-600 mb-2">{report.term}</p>
+                                  <div className="mb-4">
+                                      {Object.entries(report.scores).map(([s, score]) => (
+                                          <div key={s} className="flex justify-between text-sm border-b border-gray-100 py-1">
+                                              <span>{s}</span>
+                                              <span className="font-mono">{score}</span>
+                                          </div>
+                                      ))}
+                                  </div>
+                                  <div className="flex justify-end gap-2 mt-4 pt-2 border-t">
+                                      <button 
+                                        onClick={() => dispatch({ type: 'PUBLISH_REPORT', payload: { id: report.id, published: !report.published } })}
+                                        className={`w-full py-2 px-4 rounded text-white flex items-center justify-center gap-2 ${report.published ? 'bg-amber-500 hover:bg-amber-600' : 'bg-green-600 hover:bg-green-700'}`}
+                                      >
+                                          {report.published ? <><Lock size={16} /> Unpublish</> : <><Unlock size={16} /> Publish Result</>}
+                                      </button>
+                                  </div>
+                              </div>
+                          );
+                      })}
+                  </div>
               </div>
           </div>
       );

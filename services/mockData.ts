@@ -95,11 +95,28 @@ export const INITIAL_STATE: AppState = {
       remainingDueSnapshot: 65000 // 95k - 30k
     }
   ],
+  examSessions: [
+    {
+      id: 'es1',
+      name: 'First Term 2024',
+      type: 'Term Exam',
+      status: 'closed', // Previous exam
+      startDate: '2023-10-01'
+    },
+    {
+      id: 'es2',
+      name: 'Second Term 2024',
+      type: 'Term Exam',
+      status: 'open', // Currently active
+      startDate: '2024-02-15'
+    }
+  ],
   examReports: [
     {
       id: 'e1',
       studentId: 'u7',
-      term: 'First Term',
+      term: 'First Term 2024',
+      examSessionId: 'es1',
       scores: { 'Hotel Management': 95, 'Food Science': 98 },
       remarks: 'Excellent performance.',
       published: true,

@@ -45,6 +45,7 @@ const Auth: React.FC = () => {
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Developer role logic kept in backend logic for extensibility, but removed from UI
     const isDev = regForm.role === 'developer';
 
     const newUser: User = {
@@ -194,7 +195,6 @@ const Auth: React.FC = () => {
                             <option value="accountant">Accountant</option>
                             <option value="administrator">Administrator</option>
                             <option value="admin">Admin</option>
-                            <option value="developer">Developer</option>
                         </select>
                     </div>
                     

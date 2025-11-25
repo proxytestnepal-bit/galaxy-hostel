@@ -3,6 +3,8 @@ export type Role = 'admin' | 'administrator' | 'accountant' | 'teacher' | 'stude
 
 export type UserStatus = 'active' | 'pending' | 'rejected';
 
+export type ExamType = 'Monthly Test' | 'Unit Test' | 'Term Exam' | 'Viva Exam' | 'Final Exam';
+
 export interface User {
   id: string;
   name: string;
@@ -70,10 +72,19 @@ export interface FeeRecord {
   remainingDueSnapshot?: number; // Balance at the time of payment
 }
 
+export interface ExamSession {
+  id: string;
+  name: string; // e.g., "First Term 2024"
+  type: ExamType;
+  status: 'open' | 'closed';
+  startDate: string;
+}
+
 export interface ExamReport {
   id: string;
   studentId: string;
-  term: string;
+  term: string; // Maps to ExamSession.name
+  examSessionId?: string;
   scores: Record<string, number>; // Subject -> Score
   remarks: string;
   published: boolean; // Controls visibility to student
@@ -95,6 +106,7 @@ export interface AppState {
   submissions: Submission[];
   invoices: Invoice[];
   fees: FeeRecord[];
+  examSessions: ExamSession[];
   examReports: ExamReport[];
   notices: Notice[];
   receiptCounter: number;
