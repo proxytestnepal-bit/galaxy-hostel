@@ -1,6 +1,7 @@
 
+
 import React, { createContext, useContext, useReducer } from 'react';
-import { AppState, User, Assignment, Submission, FeeRecord, ExamReport, Notice, Invoice, ExamSession, Subject, ScoreData } from '../types';
+import { AppState, User, Assignment, Submission, FeeRecord, ExamReport, Notice, Invoice, ExamSession, Subject, ScoreData, WorkLog } from '../types';
 import { INITIAL_STATE } from './mockData';
 
 type Action =
@@ -31,7 +32,8 @@ type Action =
   | { type: 'ADD_SYSTEM_CLASS'; payload: string }
   | { type: 'DELETE_SYSTEM_CLASS'; payload: string }
   | { type: 'ADD_CLASS_SECTION'; payload: { className: string; section: string } }
-  | { type: 'DELETE_CLASS_SECTION'; payload: { className: string; section: string } };
+  | { type: 'DELETE_CLASS_SECTION'; payload: { className: string; section: string } }
+  | { type: 'ADD_WORK_LOG'; payload: WorkLog };
 
 const AppContext = createContext<{
   state: AppState;
@@ -210,6 +212,8 @@ const reducer = (state: AppState, action: Action): AppState => {
                 : c
             )
         };
+    case 'ADD_WORK_LOG':
+        return { ...state, workLogs: [action.payload, ...state.workLogs] };
     default:
       return state;
   }

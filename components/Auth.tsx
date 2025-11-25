@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { useAppStore } from '../services/store';
 import { User, Role } from '../types';
@@ -178,6 +179,7 @@ const Auth: React.FC = () => {
                         <option value="ramesh@galaxy.edu.np">Accountant (Ramesh Adhikari)</option>
                         <option value="sarita@galaxy.edu.np">Teacher (Sarita Sharma)</option>
                         <option value="ram@galaxy.edu.np">Student (Ram Kafle)</option>
+                        <option value="hari@galaxy.edu.np">Intern (Hari Shrestha)</option>
                         <option value="dheejan@gmail.com">Developer</option>
                     </select>
                 </div>
@@ -193,6 +195,7 @@ const Auth: React.FC = () => {
                             required
                         >
                             <option value="student">Student</option>
+                            <option value="intern">Intern</option>
                             <option value="teacher">Teacher</option>
                             <option value="accountant">Accountant</option>
                             <option value="admin">Admin</option>

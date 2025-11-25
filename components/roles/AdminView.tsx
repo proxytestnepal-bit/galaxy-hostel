@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
 import { Role, User, ExamType, SubjectType } from '../../types';
@@ -48,6 +49,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
     accountant: 50,
     teacher: 50,
     student: 10,
+    intern: 10,
     guest: 0
   };
 
@@ -55,7 +57,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   const getPendingUsers = () => {
       return state.users.filter(u => u.status === 'pending').filter(u => {
           if (role === 'developer') return u.role === 'admin';
-          if (role === 'admin') return u.role === 'accountant' || u.role === 'teacher' || u.role === 'student';
+          if (role === 'admin') return u.role === 'accountant' || u.role === 'teacher' || u.role === 'student' || u.role === 'intern';
           return false;
       });
   };
@@ -375,6 +377,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                           className="w-full border p-2 rounded mt-1 bg-white outline-none"
                                       >
                                           <option value="student">Student</option>
+                                          <option value="intern">Intern</option>
                                           <option value="teacher">Teacher</option>
                                           <option value="accountant">Accountant</option>
                                           <option value="admin">Admin</option>
@@ -531,7 +534,9 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                           </td>
                                           <td className="p-3">
                                               <span className={`px-2 py-1 rounded text-xs font-bold uppercase
-                                                  ${u.role === 'student' ? 'bg-blue-100 text-blue-700' : u.role === 'teacher' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700'}`}
+                                                  ${u.role === 'student' ? 'bg-blue-100 text-blue-700' : 
+                                                    u.role === 'teacher' ? 'bg-purple-100 text-purple-700' : 
+                                                    u.role === 'intern' ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 text-gray-700'}`}
                                               >
                                                   {u.role}
                                               </span>
@@ -758,7 +763,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       )
   }
 
-  if ((activeTab === 'system' || activeTab === 'debug') && (role === 'admin' || role === 'developer')) {
+  if ((activeTab === 'system' || activeTab === 'debug') && role === 'developer') {
       return (
           <div>
               <h3 className="text-xl font-bold mb-6 text-red-700 flex items-center gap-2">

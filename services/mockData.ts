@@ -1,4 +1,5 @@
 
+
 import { AppState, User, Subject } from '../types';
 
 const INITIAL_SUBJECTS: Subject[] = [
@@ -48,6 +49,7 @@ export const INITIAL_USERS: User[] = [
     totalPaid: 0
   },
   { id: 'u8', name: 'Dheejan Developer', role: 'developer', email: 'dheejan@gmail.com', password: 'password', status: 'active' },
+  { id: 'u9', name: 'Hari Shrestha', role: 'intern', email: 'hari@galaxy.edu.np', password: 'password', status: 'active' },
 ];
 
 export const INITIAL_STATE: AppState = {
@@ -159,5 +161,16 @@ export const INITIAL_STATE: AppState = {
     { name: 'HDHM-SEM1', sections: [] },
     { name: 'HDHM-SEM2', sections: [] },
     { name: 'HDHM-SEM3', sections: [] }
+  ],
+  workLogs: [
+    {
+        id: 'wl1',
+        studentId: 'u9',
+        date: '2024-03-01',
+        department: 'Front Office',
+        shift: 'Morning',
+        description: 'Assisted with guest check-ins and handled 5 luggage transfers.',
+        hours: 8
+    }
   ]
 };

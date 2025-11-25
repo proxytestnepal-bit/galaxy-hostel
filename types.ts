@@ -1,5 +1,6 @@
 
-export type Role = 'admin' | 'accountant' | 'teacher' | 'student' | 'guest' | 'developer';
+
+export type Role = 'admin' | 'accountant' | 'teacher' | 'student' | 'guest' | 'developer' | 'intern';
 
 export type UserStatus = 'active' | 'pending' | 'rejected';
 
@@ -124,6 +125,16 @@ export interface SystemClass {
   sections: string[];
 }
 
+export interface WorkLog {
+  id: string;
+  studentId: string;
+  date: string;
+  department: string; // Front Office, Housekeeping, etc.
+  shift: string; // Morning, Evening, Night
+  description: string;
+  hours: number;
+}
+
 export interface AppState {
   currentUser: User | null;
   users: User[];
@@ -137,4 +148,5 @@ export interface AppState {
   receiptCounter: number;
   availableSubjects: Subject[];
   systemClasses: SystemClass[];
+  workLogs: WorkLog[];
 }

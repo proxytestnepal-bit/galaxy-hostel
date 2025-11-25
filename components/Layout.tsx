@@ -1,7 +1,8 @@
 
+
 import React from 'react';
 import { useAppStore } from '../services/store';
-import { LogOut, User, LayoutDashboard, FileText, CreditCard, Bell, GraduationCap, Settings, Shield, UserPlus, PenTool } from 'lucide-react';
+import { LogOut, User, LayoutDashboard, FileText, CreditCard, Bell, GraduationCap, Settings, Shield, UserPlus, PenTool, ClipboardList } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -55,8 +56,14 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
           { id: 'finance_overview', label: 'Finance Overview', icon: CreditCard },
           { id: 'exam_management', label: 'Exam Management', icon: GraduationCap },
           { id: 'issue_notices', label: 'Issue Notices', icon: Bell },
-          { id: 'system', label: 'System Control', icon: Settings },
+          // Removed System Control from Admin
         ];
+      case 'intern':
+          return [
+              ...common,
+              { id: 'work_logs', label: 'Work Logs', icon: ClipboardList },
+              { id: 'notices', label: 'Notices', icon: Bell },
+          ];
       case 'developer':
           return [
               ...common,

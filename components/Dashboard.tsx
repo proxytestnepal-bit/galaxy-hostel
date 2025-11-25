@@ -1,3 +1,5 @@
+
+
 import React, { useState } from 'react';
 import { useAppStore } from '../services/store';
 import Layout from './Layout';
@@ -5,6 +7,7 @@ import StudentView from './roles/StudentView';
 import TeacherView from './roles/TeacherView';
 import AccountantView from './roles/AccountantView';
 import AdminView from './roles/AdminView';
+import InternView from './roles/InternView';
 import { User, Shield, Briefcase, GraduationCap, Code } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
@@ -23,6 +26,8 @@ const Dashboard: React.FC = () => {
       case 'admin':
       case 'developer':
         return <AdminView activeTab={activeTab} role={role} />;
+      case 'intern':
+        return <InternView activeTab={activeTab} />;
       default:
         return <div>Access Denied or Unknown Role</div>;
     }
