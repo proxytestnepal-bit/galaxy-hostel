@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
-import { CheckCircle, AlertCircle, FileText, Send } from 'lucide-react';
+import { CheckCircle, AlertCircle, FileText, Send, Crown } from 'lucide-react';
 
 interface Props {
   activeTab: string;
@@ -140,14 +141,20 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
                                       <thead>
                                           <tr className="border-b text-left text-sm text-gray-500">
                                               <th className="py-2">Subject</th>
-                                              <th className="py-2 text-right">Score</th>
+                                              <th className="py-2 text-center">Full Marks</th>
+                                              <th className="py-2 text-center">Pass Marks</th>
+                                              <th className="py-2 text-right">Obtained</th>
                                           </tr>
                                       </thead>
                                       <tbody>
-                                          {Object.entries(report.scores).map(([subj, score]) => (
+                                          {Object.entries(report.scores).map(([subj, data]) => (
                                               <tr key={subj} className="border-b last:border-0">
                                                   <td className="py-3 text-gray-800 font-medium">{subj}</td>
-                                                  <td className="py-3 text-right text-gray-900 font-bold">{score}</td>
+                                                  <td className="py-3 text-center text-gray-500">{data.fullMarks}</td>
+                                                  <td className="py-3 text-center text-gray-500">{data.passMarks}</td>
+                                                  <td className={`py-3 text-right font-bold ${data.obtained < data.passMarks ? 'text-red-600' : 'text-gray-900'}`}>
+                                                      {data.obtained}
+                                                  </td>
                                               </tr>
                                           ))}
                                       </tbody>
@@ -162,6 +169,80 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
               )}
           </div>
       );
+  }
+
+  // Aggregate Ledger (Leaderboard/Summary)
+  if (activeTab === 'ledger') {
+      // Find all published reports for my class's sessions
+      // Filter sessions that have at least one report for me
+      const mySessions = state.examReports
+          .filter(r => r.studentId === currentUser?.id && r.published)
+          .map(r => r.term);
+      const uniqueSessions = [...new Set(mySessions)];
+
+      return (
+          <div className="space-y-8">
+              <h3 className="text-xl font-bold text-galaxy-900">Class Aggregate Ledger</h3>
+              
+              {uniqueSessions.map(sessionName => {
+                  // Get reports for all students in my class for this session
+                  const classReports = state.examReports.filter(r => 
+                      r.term === sessionName && 
+                      r.published && 
+                      state.users.find(u => u.id === r.studentId)?.classId === currentUser?.classId
+                  );
+
+                  // Calculate totals
+                  const leaderboard = classReports.map(r => {
+                      const totalObtained = Object.values(r.scores).reduce((acc, curr) => acc + curr.obtained, 0);
+                      const totalFull = Object.values(r.scores).reduce((acc, curr) => acc + curr.fullMarks, 0);
+                      return {
+                          studentId: r.studentId,
+                          studentName: state.users.find(u => u.id === r.studentId)?.name,
+                          totalObtained,
+                          totalFull,
+                          percentage: (totalObtained / totalFull) * 100
+                      };
+                  }).sort((a, b) => b.percentage - a.percentage);
+
+                  return (
+                      <div key={sessionName} className="bg-white border rounded-xl overflow-hidden shadow-sm">
+                          <div className="bg-galaxy-900 text-white p-4">
+                              <h4 className="font-bold">{sessionName} - Class Performance</h4>
+                          </div>
+                          <table className="w-full text-left">
+                              <thead className="bg-gray-50 text-xs uppercase text-gray-500 font-bold">
+                                  <tr>
+                                      <th className="p-3">Rank</th>
+                                      <th className="p-3">Student Name</th>
+                                      <th className="p-3 text-right">Total Obtained</th>
+                                      <th className="p-3 text-right">Percentage</th>
+                                  </tr>
+                              </thead>
+                              <tbody className="divide-y">
+                                  {leaderboard.map((item, idx) => (
+                                      <tr key={item.studentId} className={item.studentId === currentUser?.id ? 'bg-yellow-50' : ''}>
+                                          <td className="p-3 font-mono text-gray-500">
+                                              {idx === 0 ? <Crown size={16} className="text-gold-500 inline mr-1" /> : `#${idx + 1}`}
+                                          </td>
+                                          <td className="p-3 font-medium">
+                                              {item.studentName} {item.studentId === currentUser?.id && '(You)'}
+                                          </td>
+                                          <td className="p-3 text-right font-mono">{item.totalObtained} / {item.totalFull}</td>
+                                          <td className="p-3 text-right font-bold">{item.percentage.toFixed(2)}%</td>
+                                      </tr>
+                                  ))}
+                              </tbody>
+                          </table>
+                      </div>
+                  )
+              })}
+              
+              {uniqueSessions.length === 0 && (
+                  <p className="text-gray-500">No published class results available yet.</p>
+              )}
+          </div>
+      )
   }
 
   if (activeTab === 'fees') {
@@ -201,25 +282,7 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
       )
   }
 
-  if (activeTab === 'notices') {
-    return (
-        <div className="space-y-4">
-             <h3 className="text-xl font-bold text-galaxy-900 mb-6">School Notices</h3>
-             {state.notices.filter(n => n.audience === 'all' || n.audience === 'students').map(notice => (
-                 <div key={notice.id} className="bg-yellow-50 border-l-4 border-gold-400 p-4 rounded shadow-sm">
-                     <div className="flex justify-between items-center mb-2">
-                         <h4 className="font-bold text-gold-600 text-lg">{notice.title}</h4>
-                         <span className="text-xs text-gray-500">{notice.date}</span>
-                     </div>
-                     <p className="text-gray-800 whitespace-pre-line">{notice.content}</p>
-                     <p className="text-xs text-gray-500 mt-2 text-right">- {notice.postedBy}</p>
-                 </div>
-             ))}
-        </div>
-    )
-  }
-
-  // Dashboard Overview for Student
+  // Dashboard Overview
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-gradient-to-br from-galaxy-500 to-galaxy-700 text-white rounded-2xl p-6 shadow-lg">
@@ -229,9 +292,8 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
             </p>
         </div>
         <div className="bg-white border rounded-2xl p-6 shadow-sm">
-            <h3 className="text-lg font-medium text-gray-600">Average Grade</h3>
-            <p className="text-4xl font-bold mt-2 text-galaxy-900">A-</p>
-            <p className="text-xs text-gray-400 mt-1">Based on recent submissions</p>
+            <h3 className="text-lg font-medium text-gray-600">Total Fees Paid</h3>
+            <p className="text-4xl font-bold mt-2 text-galaxy-900">Rs. {currentUser?.totalPaid?.toLocaleString()}</p>
         </div>
         <div className="bg-white border rounded-2xl p-6 shadow-sm">
             <h3 className="text-lg font-medium text-gray-600">Attendance</h3>

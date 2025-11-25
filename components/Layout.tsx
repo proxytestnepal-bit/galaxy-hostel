@@ -29,6 +29,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
           { id: 'assignments', label: 'My Assignments', icon: FileText },
           { id: 'reports', label: 'Exam Reports', icon: GraduationCap },
           { id: 'fees', label: 'Fee Status', icon: CreditCard },
+          { id: 'ledger', label: 'Class Ledger', icon: FileText },
           { id: 'notices', label: 'Notices', icon: Bell },
         ];
       case 'teacher':
@@ -43,34 +44,34 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
         return [
           ...common,
           { id: 'fees', label: 'Fees & Invoices', icon: CreditCard },
+          { id: 'approvals', label: 'Pending Approvals', icon: UserCheck },
           { id: 'ledger', label: 'Student Ledger', icon: FileText },
-        ];
-      case 'administrator':
-        return [
-            ...common,
-            { id: 'registration', label: 'Registration', icon: UserPlus },
-            { id: 'users', label: 'Manage Users', icon: User },
-            { id: 'reports', label: 'Exam Management', icon: GraduationCap },
-            { id: 'notices', label: 'Issue Notices', icon: Bell },
         ];
       case 'admin':
         return [
           ...common,
-          { id: 'registration', label: 'Admin Registration', icon: UserPlus },
+          { id: 'registration', label: 'Registration & Users', icon: UserPlus },
           { id: 'approvals', label: 'Approvals', icon: Shield },
           { id: 'finance_overview', label: 'Finance Overview', icon: CreditCard },
+          { id: 'exam_management', label: 'Exam Management', icon: GraduationCap },
+          { id: 'issue_notices', label: 'Issue Notices', icon: Bell },
           { id: 'system', label: 'System Control', icon: Settings },
         ];
       case 'developer':
           return [
               ...common,
-              { id: 'users', label: 'Manage Users', icon: User }, // Added this line
+              { id: 'users', label: 'Manage Users', icon: User }, 
               { id: 'debug', label: 'Debug & Reset', icon: Settings },
           ];
       default:
         return common;
     }
   };
+
+  // Icon for Accountant Approval
+  const UserCheck = ({ size }: { size: number }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></svg>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">

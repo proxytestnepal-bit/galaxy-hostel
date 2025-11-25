@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useReducer } from 'react';
-import { AppState, User, Assignment, Submission, FeeRecord, ExamReport, Notice, Invoice, ExamSession } from '../types';
+import { AppState, User, Assignment, Submission, FeeRecord, ExamReport, Notice, Invoice, ExamSession, Subject, ScoreData } from '../types';
 import { INITIAL_STATE } from './mockData';
 
 type Action =
@@ -21,12 +21,13 @@ type Action =
   | { type: 'REQUEST_DELETE_FEE'; payload: string }
   | { type: 'ADD_EXAM_SESSION'; payload: ExamSession }
   | { type: 'TOGGLE_EXAM_SESSION_STATUS'; payload: string } // id
-  | { type: 'UPDATE_EXAM_MARKS'; payload: { studentId: string; examSessionId: string; sessionName: string; subject: string; score: number } }
+  | { type: 'UPDATE_EXAM_MARKS'; payload: { studentId: string; examSessionId: string; sessionName: string; subject: string; scoreData: ScoreData } }
   | { type: 'PUBLISH_REPORT'; payload: { id: string; published: boolean } }
+  | { type: 'PUBLISH_CLASS_RESULT'; payload: { examSessionId: string; classId: string; section?: string; published: boolean } }
   | { type: 'ADD_NOTICE'; payload: Notice }
   | { type: 'RESET_RECEIPT_COUNTER'; payload: number }
-  | { type: 'ADD_SYSTEM_SUBJECT'; payload: string }
-  | { type: 'DELETE_SYSTEM_SUBJECT'; payload: string }
+  | { type: 'ADD_SYSTEM_SUBJECT'; payload: Subject }
+  | { type: 'DELETE_SYSTEM_SUBJECT'; payload: string } // name
   | { type: 'ADD_SYSTEM_CLASS'; payload: string }
   | { type: 'DELETE_SYSTEM_CLASS'; payload: string }
   | { type: 'ADD_CLASS_SECTION'; payload: { className: string; section: string } }
@@ -76,18 +77,13 @@ const reducer = (state: AppState, action: Action): AppState => {
     case 'BULK_GENERATE_INVOICE':
       return { ...state, invoices: [...action.payload, ...state.invoices] };
     case 'ADD_FEE': {
-      // 1. Increment receipt counter
       const nextCounter = state.receiptCounter + 1;
-      
-      // 2. Update Student Total Paid
       const updatedUsers = state.users.map(u => {
           if (u.id === action.payload.studentId) {
               return { ...u, totalPaid: (u.totalPaid || 0) + action.payload.amount };
           }
           return u;
       });
-
-      // 3. Update Invoice Status if linked
       let updatedInvoices = state.invoices;
       if (action.payload.invoiceId) {
           updatedInvoices = state.invoices.map(inv => {
@@ -97,7 +93,6 @@ const reducer = (state: AppState, action: Action): AppState => {
               return inv;
           });
       }
-
       return {
         ...state,
         fees: [action.payload, ...state.fees],
@@ -131,31 +126,28 @@ const reducer = (state: AppState, action: Action): AppState => {
             )
         };
     case 'UPDATE_EXAM_MARKS': {
-        const { studentId, examSessionId, sessionName, subject, score } = action.payload;
+        const { studentId, examSessionId, sessionName, subject, scoreData } = action.payload;
         
-        // Find existing report for this student and session
         const existingReportIndex = state.examReports.findIndex(
             r => r.studentId === studentId && (r.examSessionId === examSessionId || r.term === sessionName)
         );
 
         if (existingReportIndex > -1) {
-            // Update existing
             const updatedReports = [...state.examReports];
             const report = updatedReports[existingReportIndex];
             updatedReports[existingReportIndex] = {
                 ...report,
-                examSessionId, // Ensure ID is set
-                scores: { ...report.scores, [subject]: score }
+                examSessionId, 
+                scores: { ...report.scores, [subject]: scoreData }
             };
             return { ...state, examReports: updatedReports };
         } else {
-            // Create new
             const newReport: ExamReport = {
                 id: `er_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
                 studentId,
                 examSessionId,
                 term: sessionName,
-                scores: { [subject]: score },
+                scores: { [subject]: scoreData },
                 remarks: '',
                 published: false
             };
@@ -167,15 +159,34 @@ const reducer = (state: AppState, action: Action): AppState => {
             ...state,
             examReports: state.examReports.map(r => r.id === action.payload.id ? { ...r, published: action.payload.published } : r)
         };
+    case 'PUBLISH_CLASS_RESULT': {
+        const { examSessionId, classId, section, published } = action.payload;
+        
+        // Find all students in this class/section
+        const studentIds = state.users
+            .filter(u => u.role === 'student' && u.classId === classId && (!section || u.section === section))
+            .map(u => u.id);
+
+        return {
+            ...state,
+            examReports: state.examReports.map(report => {
+                // If report belongs to one of these students AND matches the session
+                if (studentIds.includes(report.studentId) && report.examSessionId === examSessionId) {
+                    return { ...report, published };
+                }
+                return report;
+            })
+        };
+    }
     case 'ADD_NOTICE':
         return { ...state, notices: [action.payload, ...state.notices] };
     case 'RESET_RECEIPT_COUNTER':
         return { ...state, receiptCounter: action.payload };
     case 'ADD_SYSTEM_SUBJECT':
-        if(state.availableSubjects.includes(action.payload)) return state;
+        if(state.availableSubjects.find(s => s.name === action.payload.name)) return state;
         return { ...state, availableSubjects: [...state.availableSubjects, action.payload] };
     case 'DELETE_SYSTEM_SUBJECT':
-        return { ...state, availableSubjects: state.availableSubjects.filter(s => s !== action.payload) };
+        return { ...state, availableSubjects: state.availableSubjects.filter(s => s.name !== action.payload) };
     case 'ADD_SYSTEM_CLASS':
         if(state.systemClasses.find(c => c.name === action.payload)) return state;
         return { ...state, systemClasses: [...state.systemClasses, { name: action.payload, sections: [] }] };

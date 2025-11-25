@@ -1,9 +1,16 @@
 
-export type Role = 'admin' | 'administrator' | 'accountant' | 'teacher' | 'student' | 'guest' | 'developer';
+export type Role = 'admin' | 'accountant' | 'teacher' | 'student' | 'guest' | 'developer';
 
 export type UserStatus = 'active' | 'pending' | 'rejected';
 
 export type ExamType = 'Monthly Test' | 'Unit Test' | 'Term Exam' | 'Viva Exam' | 'Final Exam';
+
+export type SubjectType = 'Theory' | 'Practical';
+
+export interface Subject {
+  name: string;
+  type: SubjectType;
+}
 
 export interface User {
   id: string;
@@ -17,13 +24,13 @@ export interface User {
   
   // Student specific
   classId?: string; 
-  section?: string; // Added section support
+  section?: string; 
   annualFee?: number; // Total agreed fee for the year
   discount?: number; // Discount amount
   totalPaid?: number; // Calculated field
   
   // Teacher specific
-  subjects?: string[];
+  subjects?: string[]; // Subject Names
 }
 
 export interface Assignment {
@@ -42,18 +49,24 @@ export interface Submission {
   assignmentId: string;
   studentId: string;
   studentName: string;
-  content: string; // Text content or simulated file URL
+  content: string; 
   submittedAt: string;
   grade?: string;
   feedback?: string;
+}
+
+export interface InvoiceItem {
+  description: string;
+  amount: number;
 }
 
 export interface Invoice {
   id: string;
   studentId: string;
   studentName: string;
-  title: string; // e.g., "First Term Fee (30%)"
-  amount: number;
+  title: string; 
+  amount: number; // Total amount
+  feeBreakdown?: InvoiceItem[]; // Details (Viva, Tour, etc.)
   dueDate: string;
   issuedAt: string;
   status: 'unpaid' | 'paid' | 'partial';
@@ -62,7 +75,7 @@ export interface Invoice {
 export interface FeeRecord {
   id: string;
   receiptNumber: number;
-  invoiceId?: string; // Optional link to an invoice
+  invoiceId?: string; 
   studentId: string;
   studentName: string;
   amount: number;
@@ -70,15 +83,21 @@ export interface FeeRecord {
   date: string;
   status: 'paid' | 'pending_edit' | 'pending_delete';
   editedByAccountant?: boolean;
-  remainingDueSnapshot?: number; // Balance at the time of payment
+  remainingDueSnapshot?: number; 
 }
 
 export interface ExamSession {
   id: string;
-  name: string; // e.g., "First Term 2024"
+  name: string; 
   type: ExamType;
   status: 'open' | 'closed';
   startDate: string;
+}
+
+export interface ScoreData {
+  obtained: number;
+  fullMarks: number;
+  passMarks: number;
 }
 
 export interface ExamReport {
@@ -86,9 +105,9 @@ export interface ExamReport {
   studentId: string;
   term: string; // Maps to ExamSession.name
   examSessionId?: string;
-  scores: Record<string, number>; // Subject -> Score
+  scores: Record<string, ScoreData>; // Subject Name -> Score Data
   remarks: string;
-  published: boolean; // Controls visibility to student
+  published: boolean; 
 }
 
 export interface Notice {
@@ -116,6 +135,6 @@ export interface AppState {
   examReports: ExamReport[];
   notices: Notice[];
   receiptCounter: number;
-  availableSubjects: string[];
+  availableSubjects: Subject[];
   systemClasses: SystemClass[];
 }

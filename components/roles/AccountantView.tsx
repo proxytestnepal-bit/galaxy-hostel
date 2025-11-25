@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
-import { User, Invoice, FeeRecord } from '../../types';
-import { Plus, Trash2, Edit2, AlertTriangle, Printer, FileText, Download, User as UserIcon, Users } from 'lucide-react';
+import { User, Invoice, FeeRecord, InvoiceItem } from '../../types';
+import { Plus, Trash2, Edit2, AlertTriangle, Printer, FileText, Download, User as UserIcon, Users, X } from 'lucide-react';
 
 interface Props {
   activeTab: string;
@@ -15,6 +15,9 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
   // Invoice Form State
   const [invoicePercent, setInvoicePercent] = useState<number>(30);
   const [invoiceTitle, setInvoiceTitle] = useState('Term Fee');
+  // Breakdown State
+  const [feeBreakdown, setFeeBreakdown] = useState<InvoiceItem[]>([]);
+  const [newFeeItem, setNewFeeItem] = useState({ description: '', amount: 0 });
   
   // Bulk Invoice State
   const [selectedClassId, setSelectedClassId] = useState<string>('');
@@ -36,19 +39,38 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
   const classes = state.systemClasses;
   const selectedClassData = classes.find(c => c.name === selectedClassId);
 
+  const addFeeItem = () => {
+      if(newFeeItem.description && newFeeItem.amount) {
+          setFeeBreakdown([...feeBreakdown, { ...newFeeItem }]);
+          setNewFeeItem({ description: '', amount: 0 });
+      }
+  };
+
+  const removeFeeItem = (index: number) => {
+      setFeeBreakdown(feeBreakdown.filter((_, i) => i !== index));
+  };
+
+  // Helper to calculate total amount for an invoice
+  const calculateTotalInvoiceAmount = (student: User) => {
+      const payableFee = (student.annualFee || 0) - (student.discount || 0);
+      const percentAmount = (payableFee * invoicePercent) / 100;
+      const extrasAmount = feeBreakdown.reduce((acc, item) => acc + item.amount, 0);
+      return Math.round(percentAmount + extrasAmount);
+  };
+
   // Generate Single Invoice
   const handleGenerateInvoice = () => {
       if (!selectedStudent || !selectedStudent.annualFee) return;
       
-      const payableFee = selectedStudent.annualFee - (selectedStudent.discount || 0);
-      const amount = (payableFee * invoicePercent) / 100;
+      const amount = calculateTotalInvoiceAmount(selectedStudent);
       
       const newInvoice: Invoice = {
           id: `inv${Date.now()}`,
           studentId: selectedStudent.id,
           studentName: selectedStudent.name,
           title: invoiceTitle,
-          amount: Math.round(amount),
+          amount: amount,
+          feeBreakdown: [...feeBreakdown],
           dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // +15 days
           issuedAt: new Date().toISOString().split('T')[0],
           status: 'unpaid'
@@ -56,6 +78,7 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
 
       dispatch({ type: 'GENERATE_INVOICE', payload: newInvoice });
       alert(`Invoice generated for Rs. ${newInvoice.amount}`);
+      setFeeBreakdown([]); // Reset
   };
 
   // Bulk Generate Invoice
@@ -78,15 +101,15 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
       
       targetStudents.forEach((student, index) => {
            if (!student.annualFee) return;
-           const payableFee = student.annualFee - (student.discount || 0);
-           const amount = (payableFee * invoicePercent) / 100;
+           const amount = calculateTotalInvoiceAmount(student);
            
            newInvoices.push({
                id: `inv${timestamp}_${index}`,
                studentId: student.id,
                studentName: student.name,
                title: invoiceTitle,
-               amount: Math.round(amount),
+               amount: amount,
+               feeBreakdown: [...feeBreakdown], // Copy the breakdown
                dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
                issuedAt: new Date().toISOString().split('T')[0],
                status: 'unpaid'
@@ -97,11 +120,11 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
           if(window.confirm(`Generate ${newInvoices.length} invoices for ${selectedClassId} ${selectedSection ? `(${selectedSection})` : ''}?`)) {
               dispatch({ type: 'BULK_GENERATE_INVOICE', payload: newInvoices });
               alert(`Successfully generated ${newInvoices.length} invoices.`);
+              setFeeBreakdown([]);
           }
       }
   };
 
-  // Process Payment
   const handlePayment = (e: React.FormEvent) => {
       e.preventDefault();
       if (!selectedStudent) return;
@@ -114,7 +137,7 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
 
       const newFee: FeeRecord = {
           id: `f${Date.now()}`,
-          receiptNumber: state.receiptCounter, // Will be incremented in reducer
+          receiptNumber: state.receiptCounter, 
           invoiceId: selectedInvoiceId || undefined,
           studentId: selectedStudent.id,
           studentName: selectedStudent.name,
@@ -127,7 +150,7 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
 
       dispatch({ type: 'ADD_FEE', payload: newFee });
       setShowPaymentModal(false);
-      setShowReceipt(newFee); // Show Receipt Modal
+      setShowReceipt(newFee); 
       setPaymentAmount('');
       setPaymentDesc('');
       setSelectedInvoiceId('');
@@ -211,11 +234,69 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
       );
   };
 
-  if(activeTab === 'ledger' || activeTab === 'dashboard' || activeTab === 'fees' || activeTab === 'finance_overview') {
+  // Shared UI for Breakdown items
+  const BreakdownSection = () => (
+      <div className="bg-gray-50 p-4 rounded-lg border mb-4">
+          <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Additional Fee Heads (Optional)</label>
+          <div className="space-y-2 mb-2">
+              {feeBreakdown.map((item, idx) => (
+                  <div key={idx} className="flex justify-between items-center bg-white p-2 rounded border text-sm">
+                      <span>{item.description}</span>
+                      <div className="flex items-center gap-3">
+                          <span className="font-mono">Rs. {item.amount}</span>
+                          <button onClick={() => removeFeeItem(idx)} className="text-red-500 hover:text-red-700"><X size={14}/></button>
+                      </div>
+                  </div>
+              ))}
+          </div>
+          <div className="flex gap-2">
+              <input 
+                  type="text" 
+                  placeholder="e.g. Viva, Tour, Medicine" 
+                  className="flex-1 border p-1 text-sm rounded"
+                  value={newFeeItem.description}
+                  onChange={e => setNewFeeItem({...newFeeItem, description: e.target.value})}
+              />
+              <input 
+                  type="number" 
+                  placeholder="Amount" 
+                  className="w-24 border p-1 text-sm rounded"
+                  value={newFeeItem.amount || ''}
+                  onChange={e => setNewFeeItem({...newFeeItem, amount: Number(e.target.value)})}
+              />
+              <button onClick={addFeeItem} className="bg-blue-600 text-white px-2 py-1 rounded text-sm"><Plus size={16}/></button>
+          </div>
+      </div>
+  );
+
+  if(activeTab === 'approvals') {
+       const pendingFees = state.fees.filter(f => f.status === 'pending_delete' || f.status === 'pending_edit');
+       return (
+          <div>
+              <h3 className="text-xl font-bold mb-4">Pending Approvals</h3>
+              {pendingFees.length === 0 ? <p className="text-gray-500">No pending approvals for fees.</p> : (
+                  <div className="space-y-4">
+                      {pendingFees.map(fee => (
+                          <div key={fee.id} className="border border-red-200 bg-red-50 p-4 rounded-lg flex justify-between items-center">
+                              <div>
+                                  <p className="font-bold text-red-900">Request: {fee.status === 'pending_delete' ? 'Delete Receipt' : 'Edit Receipt'}</p>
+                                  <p className="text-sm">Receipt #{fee.receiptNumber} - {fee.studentName} - Rs. {fee.amount}</p>
+                              </div>
+                              <div className="flex gap-2">
+                                  <button className="bg-white border text-gray-600 px-3 py-1 rounded text-sm cursor-not-allowed">Wait for Admin</button>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              )}
+          </div>
+       )
+  }
+
+  if(activeTab === 'ledger' || activeTab === 'fees' || activeTab === 'finance_overview') {
       const studentInvoices = state.invoices.filter(i => i.studentId === selectedStudentId);
       const studentFees = state.fees.filter(f => f.studentId === selectedStudentId);
       
-      // Calculate financial summary
       const annualFee = selectedStudent?.annualFee || 0;
       const discount = selectedStudent?.discount || 0;
       const netPayable = annualFee - discount;
@@ -226,12 +307,12 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
           <div className="space-y-6">
               {renderReceipt()}
 
-              {/* Bulk Operation Panel (For whole class) */}
+              {/* Bulk Operation Panel */}
               <div className="bg-galaxy-50 border border-galaxy-200 p-6 rounded-xl shadow-sm">
                   <h4 className="font-bold text-galaxy-900 mb-4 flex items-center gap-2">
                        <Users size={20} /> Class-wise Invoice Generation
                   </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-start">
                       <div className="md:col-span-1">
                           <label className="text-sm text-gray-600">Select Class</label>
                           <select 
@@ -242,9 +323,7 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                               <option value="">-- Choose Class --</option>
                               {classes.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                           </select>
-                      </div>
-                      <div className="md:col-span-1">
-                          <label className="text-sm text-gray-600">Select Section (Optional)</label>
+                          <label className="text-sm text-gray-600 mt-2 block">Select Section</label>
                           <select 
                             className="w-full border p-2 rounded mt-1"
                             value={selectedSection}
@@ -255,22 +334,25 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                               {selectedClassData?.sections.map(s => <option key={s} value={s}>{s}</option>)}
                           </select>
                       </div>
+                      
                       <div className="md:col-span-1">
                           <label className="text-sm text-gray-600">Invoice Title</label>
                           <input type="text" value={invoiceTitle} onChange={e => setInvoiceTitle(e.target.value)} className="w-full border p-2 rounded mt-1" />
+                          <label className="text-sm text-gray-600 mt-2 block">% of Annual Fee</label>
+                          <input type="number" value={invoicePercent} onChange={e => setInvoicePercent(Number(e.target.value))} className="w-full border p-2 rounded mt-1" />
                       </div>
-                      <div className="md:col-span-1 flex gap-2">
-                          <div className="flex-1">
-                             <label className="text-sm text-gray-600">% to Clear</label>
-                             <input type="number" value={invoicePercent} onChange={e => setInvoicePercent(Number(e.target.value))} className="w-full border p-2 rounded mt-1" />
+
+                      <div className="md:col-span-2">
+                          <BreakdownSection />
+                          <div className="text-right">
+                              <button 
+                                onClick={handleBulkInvoice}
+                                disabled={!selectedClassId}
+                                className="bg-galaxy-600 text-white px-4 py-2 rounded hover:bg-galaxy-700 disabled:opacity-50"
+                              >
+                                  Generate Bulk Invoices
+                              </button>
                           </div>
-                          <button 
-                            onClick={handleBulkInvoice}
-                            disabled={!selectedClassId}
-                            className="bg-galaxy-600 text-white p-2 rounded hover:bg-galaxy-700 disabled:opacity-50 flex items-center justify-center gap-2 mt-6 h-10 w-24"
-                          >
-                              Generate
-                          </button>
                       </div>
                   </div>
               </div>
@@ -278,7 +360,7 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
               {/* Individual Student Selection */}
               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex gap-4 items-center flex-wrap">
                   <div className="flex-1 min-w-[200px]">
-                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Select Student to Manage</label>
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Select Student</label>
                       <select 
                         className="w-full border p-2 rounded-lg"
                         value={selectedStudentId}
@@ -291,15 +373,15 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                   {selectedStudent && (
                       <div className="flex gap-4 px-4 border-l flex-wrap">
                          <div>
-                             <p className="text-xs text-gray-500">Net Payable</p>
-                             <p className="text-lg font-bold">Rs. {netPayable.toLocaleString()}</p>
+                             <p className="text-xs text-gray-500">Annual Fee</p>
+                             <p className="text-lg font-bold">Rs. {annualFee.toLocaleString()}</p>
                          </div>
                          <div>
-                             <p className="text-xs text-gray-500">Total Paid</p>
+                             <p className="text-xs text-gray-500">Paid</p>
                              <p className="text-lg font-bold text-green-600">Rs. {totalPaid.toLocaleString()}</p>
                          </div>
                          <div>
-                             <p className="text-xs text-gray-500">Balance Due</p>
+                             <p className="text-xs text-gray-500">Balance</p>
                              <p className="text-lg font-bold text-red-600">Rs. {currentDue.toLocaleString()}</p>
                          </div>
                       </div>
@@ -314,47 +396,50 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                           <div className="bg-white p-6 rounded-xl border shadow-sm">
                               <h4 className="font-bold text-lg mb-4 flex items-center gap-2">
                                   <FileText size={20} className="text-galaxy-600" />
-                                  Single Student Invoice
+                                  Single Invoice
                               </h4>
-                              <div className="grid grid-cols-2 gap-4 items-end">
-                                  <div>
-                                      <label className="text-sm text-gray-600">Description</label>
-                                      <input 
-                                        type="text" 
-                                        value={invoiceTitle} onChange={e => setInvoiceTitle(e.target.value)}
-                                        className="w-full border p-2 rounded mt-1"
-                                      />
-                                  </div>
-                                  <div>
-                                      <label className="text-sm text-gray-600">% of Annual Fee</label>
-                                      <div className="flex gap-2">
+                              <div className="space-y-4">
+                                  <div className="flex gap-4">
+                                      <div className="flex-1">
+                                          <label className="text-sm text-gray-600">Title</label>
+                                          <input 
+                                            type="text" 
+                                            value={invoiceTitle} onChange={e => setInvoiceTitle(e.target.value)}
+                                            className="w-full border p-2 rounded mt-1"
+                                          />
+                                      </div>
+                                      <div className="w-1/3">
+                                          <label className="text-sm text-gray-600">% Fee</label>
                                           <input 
                                             type="number" 
                                             value={invoicePercent} onChange={e => setInvoicePercent(Number(e.target.value))}
-                                            className="w-full border p-2 rounded"
+                                            className="w-full border p-2 rounded mt-1"
                                           />
-                                          <button 
-                                            onClick={handleGenerateInvoice}
-                                            className="bg-galaxy-600 text-white px-4 py-2 rounded hover:bg-galaxy-700"
-                                          >
-                                              Generate
-                                          </button>
                                       </div>
                                   </div>
+                                  <BreakdownSection />
+                                  <button 
+                                    onClick={handleGenerateInvoice}
+                                    className="w-full bg-galaxy-600 text-white px-4 py-2 rounded hover:bg-galaxy-700"
+                                  >
+                                      Generate Invoice
+                                  </button>
                               </div>
                           </div>
 
                           <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
                               <div className="p-4 bg-gray-50 border-b font-bold text-gray-700">Pending Invoices</div>
                               <div className="divide-y max-h-64 overflow-y-auto">
-                                  {studentInvoices.filter(i => i.status !== 'paid').length === 0 && (
-                                      <div className="p-4 text-gray-500 text-sm italic">No pending invoices.</div>
-                                  )}
                                   {studentInvoices.filter(i => i.status !== 'paid').map(inv => (
                                       <div key={inv.id} className="p-4 flex justify-between items-center">
                                           <div>
                                               <p className="font-medium">{inv.title}</p>
                                               <p className="text-xs text-gray-500">Due: {inv.dueDate}</p>
+                                              {inv.feeBreakdown && inv.feeBreakdown.length > 0 && (
+                                                  <div className="text-xs text-gray-500 mt-1">
+                                                      Includes: {inv.feeBreakdown.map(i => i.description).join(', ')}
+                                                  </div>
+                                              )}
                                           </div>
                                           <div className="flex items-center gap-4">
                                               <span className="font-bold">Rs. {inv.amount.toLocaleString()}</span>
@@ -381,7 +466,7 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                            <div className="bg-white p-6 rounded-xl border shadow-sm flex justify-between items-center">
                                <div>
                                    <h4 className="font-bold text-lg">Collect Payment</h4>
-                                   <p className="text-sm text-gray-500">Receive cash/bank transfer manually</p>
+                                   <p className="text-sm text-gray-500">Manual Entry</p>
                                </div>
                                <button 
                                 onClick={() => {
@@ -397,7 +482,7 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                            </div>
 
                            <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
-                              <div className="p-4 bg-gray-50 border-b font-bold text-gray-700">Payment History (Ledger)</div>
+                              <div className="p-4 bg-gray-50 border-b font-bold text-gray-700">Payment History</div>
                               <table className="w-full text-left text-sm">
                                   <thead className="bg-gray-50 text-gray-500">
                                       <tr>
@@ -415,7 +500,7 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                                               <td className="p-3 text-right font-bold">Rs. {fee.amount.toLocaleString()}</td>
                                               <td className="p-3 text-right">
                                                   <button onClick={() => setShowReceipt(fee)} className="text-galaxy-600 hover:underline flex items-center justify-end gap-1 w-full">
-                                                      <Printer size={14} /> Reprint
+                                                      <Printer size={14} />
                                                   </button>
                                               </td>
                                           </tr>

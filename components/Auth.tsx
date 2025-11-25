@@ -45,7 +45,7 @@ const Auth: React.FC = () => {
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Developer role logic kept in backend logic for extensibility, but removed from UI
+    // Developer role logic kept in backend logic for extensibility
     const isDev = regForm.role === 'developer';
 
     const newUser: User = {
@@ -59,7 +59,6 @@ const Auth: React.FC = () => {
         address: regForm.address,
         classId: regForm.role === 'student' ? regForm.classId : undefined,
         section: regForm.role === 'student' ? regForm.section : undefined,
-        // Fee assignment is handled by admin during approval
         annualFee: 0, 
         discount: 0,
         totalPaid: 0,
@@ -75,12 +74,12 @@ const Auth: React.FC = () => {
     }, 3000);
   };
 
-  const toggleSubject = (subject: string) => {
+  const toggleSubject = (subjectName: string) => {
       const currentSubjects = regForm.subjects || [];
-      if (currentSubjects.includes(subject)) {
-          setRegForm({ ...regForm, subjects: currentSubjects.filter(s => s !== subject) });
+      if (currentSubjects.includes(subjectName)) {
+          setRegForm({ ...regForm, subjects: currentSubjects.filter(s => s !== subjectName) });
       } else {
-          setRegForm({ ...regForm, subjects: [...currentSubjects, subject] });
+          setRegForm({ ...regForm, subjects: [...currentSubjects, subjectName] });
       }
   };
 
@@ -174,12 +173,12 @@ const Auth: React.FC = () => {
                         defaultValue=""
                     >
                         <option value="" disabled>-- Quick Login As Role --</option>
-                        <option value="dheejan@gmail.com">Developer</option>
                         <option value="admin@galaxy.edu.np">Admin (Super Admin)</option>
-                        <option value="suresh@galaxy.edu.np">Administrator (Suresh Pradhan)</option>
+                        <option value="suresh@galaxy.edu.np">Admin (Suresh Pradhan)</option>
                         <option value="ramesh@galaxy.edu.np">Accountant (Ramesh Adhikari)</option>
                         <option value="sarita@galaxy.edu.np">Teacher (Sarita Sharma)</option>
                         <option value="ram@galaxy.edu.np">Student (Ram Kafle)</option>
+                        <option value="dheejan@gmail.com">Developer</option>
                     </select>
                 </div>
                 </>
@@ -196,7 +195,6 @@ const Auth: React.FC = () => {
                             <option value="student">Student</option>
                             <option value="teacher">Teacher</option>
                             <option value="accountant">Accountant</option>
-                            <option value="administrator">Administrator</option>
                             <option value="admin">Admin</option>
                         </select>
                     </div>
@@ -243,7 +241,7 @@ const Auth: React.FC = () => {
                         </div>
                     </div>
 
-                     {/* Student Specific Fields - Fee inputs removed */}
+                     {/* Student Specific Fields */}
                      {regForm.role === 'student' && (
                         <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 space-y-2">
                             <h4 className="font-semibold text-blue-800 text-xs uppercase">Student Details</h4>
@@ -291,19 +289,19 @@ const Auth: React.FC = () => {
                             <h4 className="font-semibold text-purple-800 text-xs uppercase mb-2">Select Subjects</h4>
                             <div className="flex flex-wrap gap-2">
                                 {state.availableSubjects.map(subject => {
-                                    const isSelected = regForm.subjects?.includes(subject);
+                                    const isSelected = regForm.subjects?.includes(subject.name);
                                     return (
                                         <button
-                                            key={subject}
+                                            key={subject.name}
                                             type="button"
-                                            onClick={() => toggleSubject(subject)}
+                                            onClick={() => toggleSubject(subject.name)}
                                             className={`text-xs px-2 py-1 rounded-full border transition-all ${
                                                 isSelected 
                                                 ? 'bg-purple-600 text-white border-purple-600' 
                                                 : 'bg-white text-gray-600 border-gray-300 hover:border-purple-400'
                                             }`}
                                         >
-                                            {subject} {isSelected && '✓'}
+                                            {subject.name} <span className="text-[10px] opacity-75">({subject.type[0]})</span> {isSelected && '✓'}
                                         </button>
                                     )
                                 })}

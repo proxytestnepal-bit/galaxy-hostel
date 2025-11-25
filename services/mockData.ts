@@ -1,9 +1,23 @@
 
-import { AppState, User } from '../types';
+import { AppState, User, Subject } from '../types';
+
+const INITIAL_SUBJECTS: Subject[] = [
+  { name: 'Hotel Management', type: 'Theory' },
+  { name: 'Culinary Arts', type: 'Practical' },
+  { name: 'Food & Beverage Service', type: 'Practical' },
+  { name: 'Front Office Operations', type: 'Theory' },
+  { name: 'Housekeeping', type: 'Practical' },
+  { name: 'Travel & Tourism', type: 'Theory' },
+  { name: 'Food Science', type: 'Theory' },
+  { name: 'Business Communication', type: 'Theory' },
+  { name: 'Hospitality Marketing', type: 'Theory' },
+  { name: 'Accounting', type: 'Theory' },
+  { name: 'Chemistry', type: 'Theory' }
+];
 
 export const INITIAL_USERS: User[] = [
   { id: 'u1', name: 'Super Admin', role: 'admin', email: 'admin@galaxy.edu.np', password: 'password', status: 'active' },
-  { id: 'u2', name: 'Suresh Pradhan', role: 'administrator', email: 'suresh@galaxy.edu.np', password: 'password', status: 'active' },
+  { id: 'u2', name: 'Suresh Pradhan', role: 'admin', email: 'suresh@galaxy.edu.np', password: 'password', status: 'active' }, // Changed to admin
   { id: 'u3', name: 'Ramesh Adhikari', role: 'accountant', email: 'ramesh@galaxy.edu.np', password: 'password', status: 'active' },
   { id: 'u4', name: 'Sarita Sharma', role: 'teacher', email: 'sarita@galaxy.edu.np', password: 'password', status: 'active', subjects: ['Hotel Management', 'Culinary Arts'] },
   { id: 'u5', name: 'Bishal Gurung', role: 'teacher', email: 'bishal@galaxy.edu.np', password: 'password', status: 'active', subjects: ['Chemistry', 'Food Science'] },
@@ -119,7 +133,10 @@ export const INITIAL_STATE: AppState = {
       studentId: 'u7',
       term: 'First Term 2024',
       examSessionId: 'es1',
-      scores: { 'Hotel Management': 95, 'Food Science': 98 },
+      scores: { 
+        'Hotel Management': { obtained: 95, fullMarks: 100, passMarks: 40 }, 
+        'Food Science': { obtained: 98, fullMarks: 100, passMarks: 40 } 
+      },
       remarks: 'Excellent performance.',
       published: true,
     }
@@ -135,19 +152,7 @@ export const INITIAL_STATE: AppState = {
     }
   ],
   receiptCounter: 1002,
-  availableSubjects: [
-    'Hotel Management',
-    'Culinary Arts',
-    'Food & Beverage Service',
-    'Front Office Operations',
-    'Housekeeping',
-    'Travel & Tourism',
-    'Food Science',
-    'Business Communication',
-    'Hospitality Marketing',
-    'Accounting',
-    'Chemistry'
-  ],
+  availableSubjects: INITIAL_SUBJECTS,
   systemClasses: [
     { name: '11', sections: ['Accor', 'Jumeirah', 'Hyatt', 'Fourseasons'] },
     { name: '12', sections: ['Emirates', 'Marriott', 'Sheraton'] },

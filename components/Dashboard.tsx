@@ -21,7 +21,6 @@ const Dashboard: React.FC = () => {
       case 'accountant':
         return <AccountantView activeTab={activeTab} />;
       case 'admin':
-      case 'administrator':
       case 'developer':
         return <AdminView activeTab={activeTab} role={role} />;
       default:

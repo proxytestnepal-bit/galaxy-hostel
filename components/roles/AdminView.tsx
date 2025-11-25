@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
-import { Role, User, ExamType } from '../../types';
+import { Role, User, ExamType, SubjectType } from '../../types';
 import AccountantView from './AccountantView';
 import { Check, X, Printer, Lock, Unlock, AlertTriangle, RefreshCw, UserCheck, Shield, BookOpen, Edit2, Search, Filter, Eye, Settings, Plus, Trash2, Calendar, Layout, ChevronRight, ChevronDown } from 'lucide-react';
 
@@ -28,6 +28,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   // System Management State
   const [showSubjectManager, setShowSubjectManager] = useState(false);
   const [newSubject, setNewSubject] = useState('');
+  const [newSubjectType, setNewSubjectType] = useState<SubjectType>('Theory');
   
   const [showClassManager, setShowClassManager] = useState(false);
   const [newClass, setNewClass] = useState('');
@@ -37,12 +38,13 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   // Exam Session Form
   const [newSessionName, setNewSessionName] = useState('');
   const [newSessionType, setNewSessionType] = useState<ExamType>('Term Exam');
+  const [publishClassId, setPublishClassId] = useState('');
+  const [publishSection, setPublishSection] = useState('');
 
   // Hierarchy Definition
   const roleHierarchy: Record<string, number> = {
     developer: 100,
     admin: 90,
-    administrator: 80,
     accountant: 50,
     teacher: 50,
     student: 10,
@@ -52,10 +54,8 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   // Approvals Logic
   const getPendingUsers = () => {
       return state.users.filter(u => u.status === 'pending').filter(u => {
-          // Hierarchy Logic for Approvals
           if (role === 'developer') return u.role === 'admin';
-          if (role === 'admin') return u.role === 'administrator' || u.role === 'accountant' || u.role === 'teacher' || u.role === 'student';
-          if (role === 'administrator') return u.role === 'teacher' || u.role === 'student';
+          if (role === 'admin') return u.role === 'accountant' || u.role === 'teacher' || u.role === 'student';
           return false;
       });
   };
@@ -69,32 +69,22 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       if (!reviewUser) return;
       
       const updates: Partial<User> = { ...reviewData };
-      
-      // Ensure numeric fields are numbers
       if (updates.role === 'student') {
           updates.annualFee = Number(updates.annualFee || 0);
           updates.discount = Number(updates.discount || 0);
       }
-      
-      // Clean up fields if role changed
       if (updates.role !== 'student') {
-          delete updates.annualFee;
-          delete updates.discount;
-          delete updates.classId;
-          delete updates.section;
+          delete updates.annualFee; delete updates.discount; delete updates.classId; delete updates.section;
       }
       if (updates.role !== 'teacher') {
           delete updates.subjects;
       }
 
       if (reviewUser.status === 'pending') {
-          // Approving new user
           dispatch({ type: 'APPROVE_USER', payload: { id: reviewUser.id, updates } });
       } else {
-          // Editing existing user
           dispatch({ type: 'UPDATE_USER_DETAILS', payload: { id: reviewUser.id, ...updates } });
       }
-
       setReviewUser(null);
       setReviewData({});
   };
@@ -105,18 +95,18 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       }
   };
 
-  const toggleSubjectInReview = (subject: string) => {
+  const toggleSubjectInReview = (subjectName: string) => {
       const currentSubjects = reviewData.subjects || [];
-      if (currentSubjects.includes(subject)) {
-          setReviewData({ ...reviewData, subjects: currentSubjects.filter(s => s !== subject) });
+      if (currentSubjects.includes(subjectName)) {
+          setReviewData({ ...reviewData, subjects: currentSubjects.filter(s => s !== subjectName) });
       } else {
-          setReviewData({ ...reviewData, subjects: [...currentSubjects, subject] });
+          setReviewData({ ...reviewData, subjects: [...currentSubjects, subjectName] });
       }
   };
 
   const handleAddSubject = () => {
       if(newSubject.trim()) {
-          dispatch({ type: 'ADD_SYSTEM_SUBJECT', payload: newSubject.trim() });
+          dispatch({ type: 'ADD_SYSTEM_SUBJECT', payload: { name: newSubject.trim(), type: newSubjectType } });
           setNewSubject('');
       }
   };
@@ -174,6 +164,19 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       }
   }
 
+  const handlePublishClassResult = (examSessionId: string, published: boolean) => {
+      if (!publishClassId) {
+          alert("Please select a class first");
+          return;
+      }
+      if(window.confirm(`${published ? 'Publish' : 'Unpublish'} results for ${publishClassId} ${publishSection ? publishSection : ''}?`)) {
+          dispatch({
+              type: 'PUBLISH_CLASS_RESULT',
+              payload: { examSessionId, classId: publishClassId, section: publishSection || undefined, published }
+          });
+      }
+  }
+
   const selectedClassData = state.systemClasses.find(c => c.name === reviewData.classId);
 
   // --- Registration / User Management ---
@@ -181,13 +184,9 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       const usersToManage = state.users
         .filter(u => u.status === 'active' && u.id !== currentUser?.id)
         .filter(u => {
-            // Visibility Check based on Hierarchy
-            if (currentUser?.role === 'developer') return true; // Developer sees all
-
+            if (currentUser?.role === 'developer') return true;
             const myLevel = roleHierarchy[currentUser?.role || 'guest'];
             const targetLevel = roleHierarchy[u.role || 'guest'];
-
-            // Strict visibility: Can only see users with lower hierarchy level
             return myLevel > targetLevel;
         })
         .filter(u => {
@@ -239,21 +238,29 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                               <div className="flex gap-2 mb-4">
                                   <input 
                                       type="text" 
-                                      placeholder="New Subject Name" 
+                                      placeholder="Subject Name" 
                                       className="flex-1 border p-2 rounded"
                                       value={newSubject}
                                       onChange={e => setNewSubject(e.target.value)}
                                   />
+                                  <select 
+                                    className="border p-2 rounded"
+                                    value={newSubjectType}
+                                    onChange={e => setNewSubjectType(e.target.value as SubjectType)}
+                                  >
+                                      <option value="Theory">Theory</option>
+                                      <option value="Practical">Practical</option>
+                                  </select>
                                   <button onClick={handleAddSubject} className="bg-green-600 text-white px-3 py-2 rounded">
                                       <Plus size={18} />
                                   </button>
                               </div>
                               <div className="max-h-60 overflow-y-auto space-y-2">
                                   {state.availableSubjects.map(s => (
-                                      <div key={s} className="flex justify-between items-center p-2 bg-gray-50 rounded border">
-                                          <span>{s}</span>
+                                      <div key={s.name} className="flex justify-between items-center p-2 bg-gray-50 rounded border">
+                                          <span>{s.name} <span className="text-xs text-gray-400">({s.type})</span></span>
                                           <button 
-                                              onClick={() => dispatch({ type: 'DELETE_SYSTEM_SUBJECT', payload: s })}
+                                              onClick={() => dispatch({ type: 'DELETE_SYSTEM_SUBJECT', payload: s.name })}
                                               className="text-red-500 hover:text-red-700"
                                           >
                                               <Trash2 size={16} />
@@ -296,7 +303,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                               <button 
                                                   onClick={() => dispatch({ type: 'DELETE_SYSTEM_CLASS', payload: c.name })}
                                                   className="text-red-500 hover:text-red-700 p-1"
-                                                  title="Delete Class"
                                               >
                                                   <Trash2 size={16} />
                                               </button>
@@ -314,10 +320,8 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                                           </button>
                                                       </div>
                                                   ))}
-                                                  {c.sections.length === 0 && <span className="text-xs text-gray-400 italic">No sections</span>}
                                               </div>
                                               
-                                              {/* Add Section Input */}
                                               <div className="flex gap-2 mt-2">
                                                   <input 
                                                       type="text" 
@@ -360,7 +364,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                           type="text" 
                                           value={reviewData.name || ''}
                                           onChange={e => setReviewData({...reviewData, name: e.target.value})}
-                                          className="w-full border p-2 rounded mt-1 focus:ring-2 focus:ring-galaxy-500 outline-none"
+                                          className="w-full border p-2 rounded mt-1 outline-none"
                                       />
                                   </div>
                                   <div>
@@ -368,12 +372,11 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                       <select 
                                           value={reviewData.role || 'student'}
                                           onChange={e => setReviewData({...reviewData, role: e.target.value as any})}
-                                          className="w-full border p-2 rounded mt-1 bg-white focus:ring-2 focus:ring-galaxy-500 outline-none"
+                                          className="w-full border p-2 rounded mt-1 bg-white outline-none"
                                       >
                                           <option value="student">Student</option>
                                           <option value="teacher">Teacher</option>
                                           <option value="accountant">Accountant</option>
-                                          <option value="administrator">Administrator</option>
                                           <option value="admin">Admin</option>
                                       </select>
                                   </div>
@@ -383,26 +386,8 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                           type="email" 
                                           value={reviewData.email || ''}
                                           onChange={e => setReviewData({...reviewData, email: e.target.value})}
-                                          className="w-full border p-2 rounded mt-1 focus:ring-2 focus:ring-galaxy-500 outline-none"
+                                          className="w-full border p-2 rounded mt-1 outline-none"
                                       />
-                                  </div>
-                                  <div>
-                                      <label className="block text-xs font-bold text-gray-500 uppercase">Phone</label>
-                                      <input 
-                                          type="text" 
-                                          value={reviewData.phone || ''}
-                                          onChange={e => setReviewData({...reviewData, phone: e.target.value})}
-                                          className="w-full border p-2 rounded mt-1 focus:ring-2 focus:ring-galaxy-500 outline-none"
-                                      />
-                                  </div>
-                                  <div>
-                                       <label className="block text-xs font-bold text-gray-500 uppercase">Address</label>
-                                       <input 
-                                           type="text" 
-                                           value={reviewData.address || ''}
-                                           onChange={e => setReviewData({...reviewData, address: e.target.value})}
-                                           className="w-full border p-2 rounded mt-1 focus:ring-2 focus:ring-galaxy-500 outline-none"
-                                       />
                                   </div>
                               </div>
 
@@ -449,6 +434,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                                       value={reviewData.annualFee || 0}
                                                       onChange={e => setReviewData({...reviewData, annualFee: Number(e.target.value)})}
                                                       className="w-full border p-2 rounded mt-1"
+                                                      // Accountant can't edit fees here if restricted, but sticking to prompt "Admins approval to remove or edit"
                                                   />
                                               </div>
                                               <div>
@@ -470,18 +456,18 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                           <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Assign Subjects</label>
                                           <div className="flex flex-wrap gap-2">
                                               {state.availableSubjects.map(subject => {
-                                                  const isSelected = reviewData.subjects?.includes(subject);
+                                                  const isSelected = reviewData.subjects?.includes(subject.name);
                                                   return (
                                                       <button
-                                                          key={subject}
-                                                          onClick={() => toggleSubjectInReview(subject)}
+                                                          key={subject.name}
+                                                          onClick={() => toggleSubjectInReview(subject.name)}
                                                           className={`text-xs px-2 py-1 rounded-full border transition-all ${
                                                               isSelected 
                                                               ? 'bg-purple-600 text-white border-purple-600' 
                                                               : 'bg-white text-gray-600 border-gray-300 hover:border-purple-400'
                                                           }`}
                                                       >
-                                                          {subject} {isSelected && '✓'}
+                                                          {subject.name} {isSelected && '✓'}
                                                       </button>
                                                   )
                                               })}
@@ -507,51 +493,22 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                       <h3 className="text-xl font-bold">Manage Active Users</h3>
                       
                       <div className="flex gap-3 w-full md:w-auto items-center">
-                          {/* Subject Manager Button */}
-                          <button 
-                              onClick={() => setShowSubjectManager(true)}
-                              className="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                              title="Manage System Subjects"
-                          >
-                              <BookOpen size={18} />
-                              <span className="hidden md:inline text-sm font-medium">Subjects</span>
+                          <button onClick={() => setShowSubjectManager(true)} className="px-3 py-2 border rounded-lg hover:bg-gray-50 flex items-center gap-2">
+                              <BookOpen size={18} /><span className="hidden md:inline text-sm">Subjects</span>
                           </button>
 
-                          {/* Class Manager Button */}
-                          <button 
-                              onClick={() => setShowClassManager(true)}
-                              className="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                              title="Manage Classes & Sections"
-                          >
-                              <Layout size={18} />
-                              <span className="hidden md:inline text-sm font-medium">Classes</span>
+                          <button onClick={() => setShowClassManager(true)} className="px-3 py-2 border rounded-lg hover:bg-gray-50 flex items-center gap-2">
+                              <Layout size={18} /><span className="hidden md:inline text-sm">Classes</span>
                           </button>
 
                           <div className="relative flex-1 md:w-64">
                               <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
                               <input 
-                                type="text" 
-                                placeholder="Search..." 
-                                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-galaxy-500 outline-none"
+                                type="text" placeholder="Search..." 
+                                className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                               />
-                          </div>
-                          
-                          <div className="relative">
-                              <select 
-                                className="pl-3 pr-8 py-2 border rounded-lg bg-white focus:ring-2 focus:ring-galaxy-500 outline-none appearance-none"
-                                value={filterRole}
-                                onChange={(e) => setFilterRole(e.target.value)}
-                              >
-                                  <option value="all">All Roles</option>
-                                  <option value="student">Student</option>
-                                  <option value="teacher">Teacher</option>
-                                  <option value="accountant">Accountant</option>
-                                  {roleHierarchy[currentUser?.role || 'guest'] > 80 && <option value="administrator">Administrator</option>}
-                                  {roleHierarchy[currentUser?.role || 'guest'] > 90 && <option value="admin">Admin</option>}
-                              </select>
-                              <Filter className="absolute right-3 top-2.5 text-gray-400 pointer-events-none" size={16} />
                           </div>
                       </div>
                   </div>
@@ -567,48 +524,29 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                               </tr>
                           </thead>
                           <tbody className="divide-y">
-                              {usersToManage.length === 0 ? (
-                                  <tr>
-                                      <td colSpan={4} className="p-8 text-center text-gray-500">
-                                          No users found matching your search (or you do not have permission to view them).
-                                      </td>
-                                  </tr>
-                              ) : (
-                                  usersToManage.map(u => (
+                                  {usersToManage.map(u => (
                                       <tr key={u.id} className="hover:bg-gray-50 transition-colors">
                                           <td className="p-3 font-medium">
-                                              {u.name} 
-                                              <br/>
-                                              <span className="text-xs text-gray-500 font-normal">{u.email}</span>
+                                              {u.name} <br/> <span className="text-xs text-gray-500 font-normal">{u.email}</span>
                                           </td>
                                           <td className="p-3">
                                               <span className={`px-2 py-1 rounded text-xs font-bold uppercase
-                                                  ${u.role === 'student' ? 'bg-blue-100 text-blue-700' : 
-                                                    u.role === 'teacher' ? 'bg-purple-100 text-purple-700' :
-                                                    u.role === 'accountant' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
-                                                  }`}
+                                                  ${u.role === 'student' ? 'bg-blue-100 text-blue-700' : u.role === 'teacher' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700'}`}
                                               >
                                                   {u.role}
                                               </span>
                                           </td>
                                           <td className="p-3 text-sm">
-                                              {u.role === 'student' && (
-                                                  <div>
-                                                    <span className="bg-blue-50 text-blue-800 text-xs px-2 py-1 rounded border border-blue-100 mr-2">{u.classId} {u.section ? `- ${u.section}` : ''}</span>
-                                                    <span className="text-xs text-gray-500">Fee: {u.annualFee}</span>
-                                                  </div>
-                                              )}
+                                              {u.role === 'student' && <div>{u.classId} {u.section ? `- ${u.section}` : ''}</div>}
                                               {u.role === 'teacher' && <span className="text-xs text-gray-600">{u.subjects?.join(', ')}</span>}
-                                              {(u.role === 'admin' || u.role === 'administrator') && <span className="text-xs text-gray-400">System User</span>}
                                           </td>
                                           <td className="p-3">
-                                              <button onClick={() => openReviewModal(u)} className="text-galaxy-600 hover:bg-galaxy-100 p-2 rounded transition-colors" title="Edit User">
+                                              <button onClick={() => openReviewModal(u)} className="text-galaxy-600 hover:bg-galaxy-100 p-2 rounded transition-colors">
                                                   <Edit2 size={16} />
                                               </button>
                                           </td>
                                       </tr>
-                                  ))
-                              )}
+                                  ))}
                           </tbody>
                       </table>
                   </div>
@@ -617,13 +555,12 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       );
   }
 
-  // --- Financials (Reuse Accountant View) ---
-  if (activeTab === 'finance_overview' && (role === 'admin' || role === 'administrator')) {
+  // --- Financials ---
+  if (activeTab === 'finance_overview' && role === 'admin') {
       return <AccountantView activeTab="finance_overview" />;
   }
 
   if (activeTab === 'approvals') {
-       // This tab is specifically for Fee Approvals (Admin Only) or general approvals if we merged logic
        const pendingFees = state.fees.filter(f => f.status === 'pending_delete' || f.status === 'pending_edit');
        
        return (
@@ -673,19 +610,16 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                       <div className="flex-1 min-w-[200px]">
                           <label className="text-sm font-bold text-gray-600 block mb-1">Session Name</label>
                           <input 
-                              type="text" 
-                              placeholder="e.g. Second Term 2024" 
+                              type="text" placeholder="e.g. Second Term 2024" 
                               className="w-full border p-2 rounded"
-                              value={newSessionName}
-                              onChange={e => setNewSessionName(e.target.value)}
+                              value={newSessionName} onChange={e => setNewSessionName(e.target.value)}
                           />
                       </div>
                       <div className="min-w-[150px]">
                            <label className="text-sm font-bold text-gray-600 block mb-1">Exam Type</label>
                            <select 
                               className="w-full border p-2 rounded"
-                              value={newSessionType}
-                              onChange={e => setNewSessionType(e.target.value as ExamType)}
+                              value={newSessionType} onChange={e => setNewSessionType(e.target.value as ExamType)}
                            >
                                <option value="Monthly Test">Monthly Test</option>
                                <option value="Unit Test">Unit Test</option>
@@ -729,41 +663,45 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                   </div>
               </div>
 
-              {/* Existing Reports Publishing */}
+              {/* Class-wise Result Publishing */}
               <div className="bg-white p-6 rounded-xl border border-galaxy-200 shadow-sm">
-                  <h3 className="text-xl font-bold mb-4">Publish Results</h3>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {state.examReports.map(report => {
-                          const student = state.users.find(u => u.id === report.studentId);
-                          return (
-                              <div key={report.id} className="border rounded-xl p-4 bg-white shadow-sm relative">
-                                  <div className="flex justify-between mb-2">
-                                      <h4 className="font-bold text-lg">{student?.name}</h4>
-                                      <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${report.published ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                                          {report.published ? 'Published' : 'Draft'}
-                                      </span>
-                                  </div>
-                                  <p className="text-sm text-gray-600 mb-2">{report.term}</p>
-                                  <div className="mb-4">
-                                      {Object.entries(report.scores).map(([s, score]) => (
-                                          <div key={s} className="flex justify-between text-sm border-b border-gray-100 py-1">
-                                              <span>{s}</span>
-                                              <span className="font-mono">{score}</span>
-                                          </div>
-                                      ))}
-                                  </div>
-                                  <div className="flex justify-end gap-2 mt-4 pt-2 border-t">
-                                      <button 
-                                        onClick={() => dispatch({ type: 'PUBLISH_REPORT', payload: { id: report.id, published: !report.published } })}
-                                        className={`w-full py-2 px-4 rounded text-white flex items-center justify-center gap-2 ${report.published ? 'bg-amber-500 hover:bg-amber-600' : 'bg-green-600 hover:bg-green-700'}`}
-                                      >
-                                          {report.published ? <><Lock size={16} /> Unpublish</> : <><Unlock size={16} /> Publish Result</>}
-                                      </button>
-                                  </div>
-                              </div>
-                          );
-                      })}
+                  <h3 className="text-xl font-bold mb-4">Publish Class Results</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                       <div className="md:col-span-1">
+                           <label className="text-sm font-bold text-gray-600 block mb-1">Select Class</label>
+                           <select className="w-full border p-2 rounded" value={publishClassId} onChange={e => { setPublishClassId(e.target.value); setPublishSection(''); }}>
+                               <option value="">-- Choose Class --</option>
+                               {state.systemClasses.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                           </select>
+                       </div>
+                       <div className="md:col-span-1">
+                           <label className="text-sm font-bold text-gray-600 block mb-1">Select Section</label>
+                           <select 
+                             className="w-full border p-2 rounded" 
+                             value={publishSection} 
+                             onChange={e => setPublishSection(e.target.value)}
+                             disabled={!publishClassId}
+                           >
+                               <option value="">All Sections</option>
+                               {state.systemClasses.find(c => c.name === publishClassId)?.sections.map(s => <option key={s} value={s}>{s}</option>)}
+                           </select>
+                       </div>
+                       <div className="md:col-span-2">
+                           <p className="text-xs text-gray-500 mb-2">Publishing will make results visible to all students in the selected class/section for respective active sessions.</p>
+                           <div className="flex gap-2">
+                               {state.examSessions.map(session => (
+                                   <div key={session.id} className="flex items-center gap-2">
+                                       <button 
+                                         onClick={() => handlePublishClassResult(session.id, true)}
+                                         className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700"
+                                         disabled={!publishClassId}
+                                       >
+                                           Publish {session.name}
+                                       </button>
+                                   </div>
+                               ))}
+                           </div>
+                       </div>
                   </div>
               </div>
           </div>
@@ -793,21 +731,18 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                           <input 
                             className="w-full border p-2 rounded" 
                             placeholder="Title" 
-                            value={noticeForm.title}
-                            onChange={e => setNoticeForm({...noticeForm, title: e.target.value})}
+                            value={noticeForm.title} onChange={e => setNoticeForm({...noticeForm, title: e.target.value})}
                             required
                           />
                           <textarea 
                             className="w-full border p-2 rounded h-32" 
                             placeholder="Notice content..."
-                            value={noticeForm.content}
-                            onChange={e => setNoticeForm({...noticeForm, content: e.target.value})}
+                            value={noticeForm.content} onChange={e => setNoticeForm({...noticeForm, content: e.target.value})}
                             required
                           />
                           <select 
                             className="w-full border p-2 rounded"
-                            value={noticeForm.audience}
-                            onChange={e => setNoticeForm({...noticeForm, audience: e.target.value})}
+                            value={noticeForm.audience} onChange={e => setNoticeForm({...noticeForm, audience: e.target.value})}
                           >
                               <option value="all">All School</option>
                               <option value="students">Students Only</option>
@@ -834,7 +769,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                   <h4 className="font-bold mb-2">Receipt Counter Reset</h4>
                   <p className="text-sm text-gray-600 mb-4">
                       Current Next Receipt #: <strong>{state.receiptCounter}</strong><br/>
-                      Resetting this will cause future receipts to start from the defined number. Ensure no duplication occurs manually.
                   </p>
                   <div className="flex gap-2">
                       <input 
@@ -855,27 +789,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       )
   }
 
-  // Fallback Dashboard
-  return (
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-l-4 border-l-blue-500">
-              <h3 className="text-gray-500 text-sm">Total Students</h3>
-              <p className="text-3xl font-bold">{state.users.filter(u => u.role === 'student').length}</p>
-          </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-l-4 border-l-green-500">
-              <h3 className="text-gray-500 text-sm">Fees Collected</h3>
-              <p className="text-3xl font-bold">Rs. {state.fees.reduce((acc, curr) => acc + curr.amount, 0).toLocaleString()}</p>
-          </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-l-4 border-l-red-500">
-              <h3 className="text-gray-500 text-sm">Pending Approvals</h3>
-              <p className="text-3xl font-bold">{getPendingUsers().length}</p>
-          </div>
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-l-4 border-l-purple-500">
-              <h3 className="text-gray-500 text-sm">Pending Assignments</h3>
-              <p className="text-3xl font-bold">{state.assignments.length}</p>
-          </div>
-      </div>
-  );
+  return <div>Welcome Admin</div>;
 };
 
 export default AdminView;
