@@ -17,6 +17,7 @@ export interface User {
   
   // Student specific
   classId?: string; 
+  section?: string; // Added section support
   annualFee?: number; // Total agreed fee for the year
   discount?: number; // Discount amount
   totalPaid?: number; // Calculated field
@@ -99,6 +100,11 @@ export interface Notice {
   audience: 'all' | 'students' | 'teachers';
 }
 
+export interface SystemClass {
+  name: string;
+  sections: string[];
+}
+
 export interface AppState {
   currentUser: User | null;
   users: User[];
@@ -111,4 +117,5 @@ export interface AppState {
   notices: Notice[];
   receiptCounter: number;
   availableSubjects: string[];
+  systemClasses: SystemClass[];
 }

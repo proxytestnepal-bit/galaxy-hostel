@@ -9,24 +9,26 @@ export const INITIAL_USERS: User[] = [
   { id: 'u5', name: 'Bishal Gurung', role: 'teacher', email: 'bishal@galaxy.edu.np', password: 'password', status: 'active', subjects: ['Chemistry', 'Food Science'] },
   { 
     id: 'u6', 
-    name: 'Ram Thapa', 
+    name: 'Ram Kafle', 
     role: 'student', 
     email: 'ram@galaxy.edu.np', 
     password: 'password',
     status: 'active',
-    classId: 'Class 10A',
+    classId: '12',
+    section: 'Emirates',
     annualFee: 100000,
     discount: 5000,
     totalPaid: 30000
   },
   { 
     id: 'u7', 
-    name: 'Sita Karki', 
+    name: 'Gita Acharya', 
     role: 'student', 
-    email: 'sita@galaxy.edu.np', 
+    email: 'gita@galaxy.edu.np', 
     password: 'password',
     status: 'active',
-    classId: 'Class 10A',
+    classId: '12',
+    section: 'Marriott',
     annualFee: 100000,
     discount: 20000, // Scholarship
     totalPaid: 0
@@ -44,7 +46,7 @@ export const INITIAL_STATE: AppState = {
       description: 'Write a 500-word essay on the evolution of 5-star hotels in Kathmandu and Pokhara.',
       subject: 'Hotel Management',
       teacherId: 'u4',
-      targetClassId: 'Class 10A',
+      targetClassId: '12',
       dueDate: '2023-11-15',
       createdAt: '2023-11-01',
     }
@@ -54,7 +56,7 @@ export const INITIAL_STATE: AppState = {
       id: 's1',
       assignmentId: 'a1',
       studentId: 'u7',
-      studentName: 'Sita Karki',
+      studentName: 'Gita Acharya',
       content: 'The hospitality industry in Nepal began with the opening of Royal Hotel...',
       submittedAt: '2023-11-02',
     }
@@ -63,7 +65,7 @@ export const INITIAL_STATE: AppState = {
      {
        id: 'inv1',
        studentId: 'u6',
-       studentName: 'Ram Thapa',
+       studentName: 'Ram Kafle',
        title: 'First Term Fee (30%)',
        amount: 30000,
        dueDate: '2023-10-15',
@@ -73,7 +75,7 @@ export const INITIAL_STATE: AppState = {
      {
       id: 'inv2',
       studentId: 'u7',
-      studentName: 'Sita Karki',
+      studentName: 'Gita Acharya',
       title: 'First Term Fee (30%)',
       amount: 24000, // (100k - 20k) * 30%
       dueDate: '2023-10-15',
@@ -87,7 +89,7 @@ export const INITIAL_STATE: AppState = {
       receiptNumber: 1001,
       invoiceId: 'inv1',
       studentId: 'u6',
-      studentName: 'Ram Thapa',
+      studentName: 'Ram Kafle',
       amount: 30000,
       description: 'First Term Fee Payment',
       date: '2023-10-05',
@@ -145,5 +147,12 @@ export const INITIAL_STATE: AppState = {
     'Hospitality Marketing',
     'Accounting',
     'Chemistry'
+  ],
+  systemClasses: [
+    { name: '11', sections: ['Accor', 'Jumeirah', 'Hyatt', 'Fourseasons'] },
+    { name: '12', sections: ['Emirates', 'Marriott', 'Sheraton'] },
+    { name: 'HDHM-SEM1', sections: [] },
+    { name: 'HDHM-SEM2', sections: [] },
+    { name: 'HDHM-SEM3', sections: [] }
   ]
 };

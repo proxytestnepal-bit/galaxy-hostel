@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
 import { User, Invoice, FeeRecord } from '../../types';
@@ -17,6 +18,7 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
   
   // Bulk Invoice State
   const [selectedClassId, setSelectedClassId] = useState<string>('');
+  const [selectedSection, setSelectedSection] = useState<string>('');
   
   // Payment Modal State
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -30,8 +32,9 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
   const students = state.users.filter(u => u.role === 'student' && u.status === 'active');
   const selectedStudent = students.find(s => s.id === selectedStudentId);
   
-  // Get unique classes
-  const classes = Array.from(new Set(students.map(s => s.classId).filter(Boolean))) as string[];
+  // Get system classes
+  const classes = state.systemClasses;
+  const selectedClassData = classes.find(c => c.name === selectedClassId);
 
   // Generate Single Invoice
   const handleGenerateInvoice = () => {
@@ -58,10 +61,15 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
   // Bulk Generate Invoice
   const handleBulkInvoice = () => {
       if (!selectedClassId) return;
-      const targetStudents = students.filter(s => s.classId === selectedClassId);
+      
+      const targetStudents = students.filter(s => {
+          const matchClass = s.classId === selectedClassId;
+          const matchSection = !selectedSection || s.section === selectedSection;
+          return matchClass && matchSection;
+      });
       
       if (targetStudents.length === 0) {
-          alert("No students found in this class.");
+          alert("No students found in this class/section.");
           return;
       }
       
@@ -86,7 +94,7 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
       });
 
       if (newInvoices.length > 0) {
-          if(window.confirm(`Generate ${newInvoices.length} invoices for ${selectedClassId}?`)) {
+          if(window.confirm(`Generate ${newInvoices.length} invoices for ${selectedClassId} ${selectedSection ? `(${selectedSection})` : ''}?`)) {
               dispatch({ type: 'BULK_GENERATE_INVOICE', payload: newInvoices });
               alert(`Successfully generated ${newInvoices.length} invoices.`);
           }
@@ -155,7 +163,7 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                           <div>
                               <p className="text-xs text-gray-500 uppercase">Received From</p>
                               <p className="text-lg font-bold">{showReceipt.studentName}</p>
-                              <p className="text-sm text-gray-600">{student?.classId}</p>
+                              <p className="text-sm text-gray-600">{student?.classId} {student?.section ? `- ${student.section}` : ''}</p>
                           </div>
                           <div className="text-right">
                               <p className="text-xs text-gray-500 uppercase">Payment Method</p>
@@ -229,27 +237,39 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                           <select 
                             className="w-full border p-2 rounded mt-1"
                             value={selectedClassId}
-                            onChange={e => setSelectedClassId(e.target.value)}
+                            onChange={e => { setSelectedClassId(e.target.value); setSelectedSection(''); }}
                           >
                               <option value="">-- Choose Class --</option>
-                              {classes.map(c => <option key={c} value={c}>{c}</option>)}
+                              {classes.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                          </select>
+                      </div>
+                      <div className="md:col-span-1">
+                          <label className="text-sm text-gray-600">Select Section (Optional)</label>
+                          <select 
+                            className="w-full border p-2 rounded mt-1"
+                            value={selectedSection}
+                            onChange={e => setSelectedSection(e.target.value)}
+                            disabled={!selectedClassData || selectedClassData.sections.length === 0}
+                          >
+                              <option value="">All Sections</option>
+                              {selectedClassData?.sections.map(s => <option key={s} value={s}>{s}</option>)}
                           </select>
                       </div>
                       <div className="md:col-span-1">
                           <label className="text-sm text-gray-600">Invoice Title</label>
                           <input type="text" value={invoiceTitle} onChange={e => setInvoiceTitle(e.target.value)} className="w-full border p-2 rounded mt-1" />
                       </div>
-                      <div className="md:col-span-1">
-                          <label className="text-sm text-gray-600">% to Clear</label>
-                          <input type="number" value={invoicePercent} onChange={e => setInvoicePercent(Number(e.target.value))} className="w-full border p-2 rounded mt-1" />
-                      </div>
-                      <div>
+                      <div className="md:col-span-1 flex gap-2">
+                          <div className="flex-1">
+                             <label className="text-sm text-gray-600">% to Clear</label>
+                             <input type="number" value={invoicePercent} onChange={e => setInvoicePercent(Number(e.target.value))} className="w-full border p-2 rounded mt-1" />
+                          </div>
                           <button 
                             onClick={handleBulkInvoice}
                             disabled={!selectedClassId}
-                            className="w-full bg-galaxy-600 text-white p-2 rounded hover:bg-galaxy-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                            className="bg-galaxy-600 text-white p-2 rounded hover:bg-galaxy-700 disabled:opacity-50 flex items-center justify-center gap-2 mt-6 h-10 w-24"
                           >
-                              <FileText size={16} /> Generate All
+                              Generate
                           </button>
                       </div>
                   </div>
@@ -265,7 +285,7 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                         onChange={e => setSelectedStudentId(e.target.value)}
                       >
                           <option value="">-- Choose Student --</option>
-                          {students.map(s => <option key={s.id} value={s.id}>{s.name} ({s.classId})</option>)}
+                          {students.map(s => <option key={s.id} value={s.id}>{s.name} ({s.classId} {s.section ? `- ${s.section}` : ''})</option>)}
                       </select>
                   </div>
                   {selectedStudent && (

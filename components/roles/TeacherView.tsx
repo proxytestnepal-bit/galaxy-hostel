@@ -27,6 +27,7 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
   // Marks Entry State
   const [selectedSessionId, setSelectedSessionId] = useState('');
   const [selectedClassId, setSelectedClassId] = useState('');
+  const [selectedSection, setSelectedSection] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
 
   const handleCreateAssignment = (e: React.FormEvent) => {
@@ -95,12 +96,19 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
       });
   };
 
+  const selectedClassData = state.systemClasses.find(c => c.name === selectedClassId);
+
   if (activeTab === 'marks_entry') {
       const openSessions = state.examSessions.filter(s => s.status === 'open');
-      const uniqueClasses = Array.from(new Set(state.users.filter(u => u.role === 'student' && u.classId).map(u => u.classId as string)));
+      const uniqueClasses = state.systemClasses.map(c => c.name);
       
       const filteredStudents = selectedClassId 
-          ? state.users.filter(u => u.role === 'student' && u.classId === selectedClassId)
+          ? state.users.filter(u => {
+              const isStudent = u.role === 'student';
+              const matchesClass = u.classId === selectedClassId;
+              const matchesSection = !selectedSection || u.section === selectedSection;
+              return isStudent && matchesClass && matchesSection;
+          })
           : [];
 
       return (
@@ -116,7 +124,7 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                       </div>
                   ) : (
                       <div className="space-y-6">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                               <div>
                                   <label className="block text-sm font-bold text-gray-700 mb-1">Select Exam Session</label>
                                   <select 
@@ -133,10 +141,22 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                                   <select 
                                       className="w-full border p-2 rounded"
                                       value={selectedClassId}
-                                      onChange={e => setSelectedClassId(e.target.value)}
+                                      onChange={e => { setSelectedClassId(e.target.value); setSelectedSection(''); }}
                                   >
                                       <option value="">-- Choose Class --</option>
                                       {uniqueClasses.map(c => <option key={c} value={c}>{c}</option>)}
+                                  </select>
+                              </div>
+                              <div>
+                                  <label className="block text-sm font-bold text-gray-700 mb-1">Select Section</label>
+                                  <select 
+                                      className="w-full border p-2 rounded"
+                                      value={selectedSection}
+                                      onChange={e => setSelectedSection(e.target.value)}
+                                      disabled={!selectedClassData || selectedClassData.sections.length === 0}
+                                  >
+                                      <option value="">All Sections</option>
+                                      {selectedClassData?.sections.map(s => <option key={s} value={s}>{s}</option>)}
                                   </select>
                               </div>
                               <div>
@@ -163,6 +183,7 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                                           <thead className="bg-gray-50 text-gray-700">
                                               <tr>
                                                   <th className="p-3">Student Name</th>
+                                                  <th className="p-3">Section</th>
                                                   <th className="p-3 w-32 text-right">Marks Obtained</th>
                                               </tr>
                                           </thead>
@@ -177,6 +198,7 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                                                   return (
                                                       <tr key={student.id}>
                                                           <td className="p-3">{student.name}</td>
+                                                          <td className="p-3 text-sm text-gray-500">{student.section || '-'}</td>
                                                           <td className="p-3 text-right">
                                                               <input 
                                                                   type="number" 
@@ -192,7 +214,7 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                                           </tbody>
                                       </table>
                                       {filteredStudents.length === 0 && (
-                                          <div className="p-4 text-center text-gray-500">No students found in this class.</div>
+                                          <div className="p-4 text-center text-gray-500">No students found in this class/section.</div>
                                       )}
                                   </div>
                               </div>

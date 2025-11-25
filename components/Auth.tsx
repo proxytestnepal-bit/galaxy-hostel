@@ -16,7 +16,7 @@ const Auth: React.FC = () => {
   // Register State
   const [regForm, setRegForm] = useState<Partial<User>>({
     name: '', email: '', role: 'student', phone: '', address: '',
-    classId: '', annualFee: 0, discount: 0, subjects: []
+    classId: '', section: '', annualFee: 0, discount: 0, subjects: []
   });
   const [regSuccess, setRegSuccess] = useState('');
 
@@ -58,6 +58,7 @@ const Auth: React.FC = () => {
         phone: regForm.phone,
         address: regForm.address,
         classId: regForm.role === 'student' ? regForm.classId : undefined,
+        section: regForm.role === 'student' ? regForm.section : undefined,
         // Fee assignment is handled by admin during approval
         annualFee: 0, 
         discount: 0,
@@ -67,7 +68,7 @@ const Auth: React.FC = () => {
 
     dispatch({ type: 'ADD_USER', payload: newUser });
     setRegSuccess(isDev ? 'Developer Account Created! Please Login.' : 'Registration submitted. Please wait for approval.');
-    setRegForm({ name: '', email: '', role: 'student', phone: '', address: '', classId: '', annualFee: 0, discount: 0, subjects: [] });
+    setRegForm({ name: '', email: '', role: 'student', phone: '', address: '', classId: '', section: '', annualFee: 0, discount: 0, subjects: [] });
     setTimeout(() => {
         setRegSuccess('');
         setIsLogin(true);
@@ -82,6 +83,8 @@ const Auth: React.FC = () => {
           setRegForm({ ...regForm, subjects: [...currentSubjects, subject] });
       }
   };
+
+  const selectedClassData = state.systemClasses.find(c => c.name === regForm.classId);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-galaxy-900 via-galaxy-800 to-galaxy-600 flex items-center justify-center p-4">
@@ -171,12 +174,12 @@ const Auth: React.FC = () => {
                         defaultValue=""
                     >
                         <option value="" disabled>-- Quick Login As Role --</option>
-                        <option value="dheejan@gmail.com">Developer (Dheejan)</option>
+                        <option value="dheejan@gmail.com">Developer</option>
                         <option value="admin@galaxy.edu.np">Admin (Super Admin)</option>
                         <option value="suresh@galaxy.edu.np">Administrator (Suresh Pradhan)</option>
                         <option value="ramesh@galaxy.edu.np">Accountant (Ramesh Adhikari)</option>
                         <option value="sarita@galaxy.edu.np">Teacher (Sarita Sharma)</option>
-                        <option value="ram@galaxy.edu.np">Student (Ram Thapa)</option>
+                        <option value="ram@galaxy.edu.np">Student (Ram Kafle)</option>
                     </select>
                 </div>
                 </>
@@ -244,15 +247,37 @@ const Auth: React.FC = () => {
                      {regForm.role === 'student' && (
                         <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 space-y-2">
                             <h4 className="font-semibold text-blue-800 text-xs uppercase">Student Details</h4>
-                            <div>
-                                <label className="block text-xs font-medium text-gray-700">Class / Batch</label>
-                                <input 
-                                    type="text" required
-                                    className="w-full border p-2 rounded mt-1 text-sm"
-                                    placeholder="e.g. Batch 2024 - Sec A"
-                                    value={regForm.classId}
-                                    onChange={e => setRegForm({...regForm, classId: e.target.value})}
-                                />
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700">Class / Batch</label>
+                                    <select 
+                                        required
+                                        className="w-full border p-2 rounded mt-1 text-sm bg-white"
+                                        value={regForm.classId}
+                                        onChange={e => setRegForm({...regForm, classId: e.target.value, section: ''})}
+                                    >
+                                        <option value="">-- Select Class --</option>
+                                        {state.systemClasses.map(cls => (
+                                            <option key={cls.name} value={cls.name}>{cls.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                {selectedClassData && selectedClassData.sections.length > 0 && (
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700">Section</label>
+                                        <select 
+                                            required
+                                            className="w-full border p-2 rounded mt-1 text-sm bg-white"
+                                            value={regForm.section}
+                                            onChange={e => setRegForm({...regForm, section: e.target.value})}
+                                        >
+                                            <option value="">-- Select Section --</option>
+                                            {selectedClassData.sections.map(sec => (
+                                                <option key={sec} value={sec}>{sec}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
                             </div>
                             <div className="text-xs text-blue-600 italic mt-1">
                                 Fees and discounts will be assigned by the administration upon approval.

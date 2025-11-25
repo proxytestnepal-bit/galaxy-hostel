@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
 import { Role, User, ExamType } from '../../types';
 import AccountantView from './AccountantView';
-import { Check, X, Printer, Lock, Unlock, AlertTriangle, RefreshCw, UserCheck, Shield, BookOpen, Edit2, Search, Filter, Eye, Settings, Plus, Trash2, Calendar } from 'lucide-react';
+import { Check, X, Printer, Lock, Unlock, AlertTriangle, RefreshCw, UserCheck, Shield, BookOpen, Edit2, Search, Filter, Eye, Settings, Plus, Trash2, Calendar, Layout, ChevronRight, ChevronDown } from 'lucide-react';
 
 interface Props {
   activeTab: string;
@@ -25,9 +25,14 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   const [reviewUser, setReviewUser] = useState<User | null>(null);
   const [reviewData, setReviewData] = useState<Partial<User>>({});
   
-  // Subject Management Modal State
+  // System Management State
   const [showSubjectManager, setShowSubjectManager] = useState(false);
   const [newSubject, setNewSubject] = useState('');
+  
+  const [showClassManager, setShowClassManager] = useState(false);
+  const [newClass, setNewClass] = useState('');
+  const [newSection, setNewSection] = useState('');
+  const [activeClassForSection, setActiveClassForSection] = useState<string | null>(null);
 
   // Exam Session Form
   const [newSessionName, setNewSessionName] = useState('');
@@ -76,6 +81,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
           delete updates.annualFee;
           delete updates.discount;
           delete updates.classId;
+          delete updates.section;
       }
       if (updates.role !== 'teacher') {
           delete updates.subjects;
@@ -115,6 +121,20 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       }
   };
 
+  const handleAddClass = () => {
+    if(newClass.trim()) {
+        dispatch({ type: 'ADD_SYSTEM_CLASS', payload: newClass.trim() });
+        setNewClass('');
+    }
+  };
+
+  const handleAddSection = (className: string) => {
+      if(newSection.trim()) {
+          dispatch({ type: 'ADD_CLASS_SECTION', payload: { className, section: newSection.trim() } });
+          setNewSection('');
+      }
+  }
+
   const postNotice = (e: React.FormEvent) => {
       e.preventDefault();
       dispatch({
@@ -153,6 +173,8 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
           dispatch({ type: 'RESET_RECEIPT_COUNTER', payload: Number(resetVal) });
       }
   }
+
+  const selectedClassData = state.systemClasses.find(c => c.name === reviewData.classId);
 
   // --- Registration / User Management ---
   if (activeTab === 'registration' || activeTab === 'users') {
@@ -244,6 +266,82 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                   </div>
               )}
 
+              {/* Class & Section Manager Modal */}
+              {showClassManager && (
+                  <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+                      <div className="bg-white rounded-xl shadow-xl max-w-lg w-full">
+                          <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
+                              <h3 className="font-bold">Class & Section Library</h3>
+                              <button onClick={() => setShowClassManager(false)}><X size={18} /></button>
+                          </div>
+                          <div className="p-6">
+                              <div className="flex gap-2 mb-6">
+                                  <input 
+                                      type="text" 
+                                      placeholder="New Class (e.g. 11)" 
+                                      className="flex-1 border p-2 rounded"
+                                      value={newClass}
+                                      onChange={e => setNewClass(e.target.value)}
+                                  />
+                                  <button onClick={handleAddClass} className="bg-green-600 text-white px-3 py-2 rounded flex items-center gap-1">
+                                      <Plus size={16} /> Add Class
+                                  </button>
+                              </div>
+                              
+                              <div className="max-h-96 overflow-y-auto space-y-4">
+                                  {state.systemClasses.map(c => (
+                                      <div key={c.name} className="border rounded-lg overflow-hidden">
+                                          <div className="bg-gray-100 p-3 flex justify-between items-center font-bold">
+                                              <span>{c.name}</span>
+                                              <button 
+                                                  onClick={() => dispatch({ type: 'DELETE_SYSTEM_CLASS', payload: c.name })}
+                                                  className="text-red-500 hover:text-red-700 p-1"
+                                                  title="Delete Class"
+                                              >
+                                                  <Trash2 size={16} />
+                                              </button>
+                                          </div>
+                                          <div className="p-3 bg-white">
+                                              <div className="flex flex-wrap gap-2 mb-2">
+                                                  {c.sections.map(sec => (
+                                                      <div key={sec} className="bg-blue-50 text-blue-800 text-xs px-2 py-1 rounded border border-blue-200 flex items-center gap-1">
+                                                          {sec}
+                                                          <button 
+                                                            onClick={() => dispatch({ type: 'DELETE_CLASS_SECTION', payload: { className: c.name, section: sec } })}
+                                                            className="text-red-400 hover:text-red-600"
+                                                          >
+                                                              <X size={12} />
+                                                          </button>
+                                                      </div>
+                                                  ))}
+                                                  {c.sections.length === 0 && <span className="text-xs text-gray-400 italic">No sections</span>}
+                                              </div>
+                                              
+                                              {/* Add Section Input */}
+                                              <div className="flex gap-2 mt-2">
+                                                  <input 
+                                                      type="text" 
+                                                      placeholder={`Add section to ${c.name}`} 
+                                                      className="flex-1 border p-1 rounded text-sm"
+                                                      value={activeClassForSection === c.name ? newSection : ''}
+                                                      onChange={e => { setActiveClassForSection(c.name); setNewSection(e.target.value); }}
+                                                  />
+                                                  <button 
+                                                    onClick={() => { setActiveClassForSection(c.name); handleAddSection(c.name); }}
+                                                    className="bg-blue-600 text-white px-2 py-1 rounded text-xs"
+                                                  >
+                                                      Add
+                                                  </button>
+                                              </div>
+                                          </div>
+                                      </div>
+                                  ))}
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              )}
+
               {/* Review / Edit Modal */}
               {reviewUser && (
                   <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
@@ -314,15 +412,34 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                           <h4 className="font-bold text-blue-900 flex items-center gap-2">
                                               <BookOpen size={16}/> Student Configuration
                                           </h4>
-                                          <div>
-                                              <label className="block text-xs font-bold text-gray-500 uppercase">Assigned Class</label>
-                                              <input 
-                                                  type="text" 
-                                                  value={reviewData.classId || ''}
-                                                  onChange={e => setReviewData({...reviewData, classId: e.target.value})}
-                                                  className="w-full border p-2 rounded mt-1"
-                                                  placeholder="e.g. Batch 2024"
-                                              />
+                                          <div className="grid grid-cols-2 gap-4">
+                                              <div>
+                                                  <label className="block text-xs font-bold text-gray-500 uppercase">Assigned Class</label>
+                                                  <select
+                                                      value={reviewData.classId || ''}
+                                                      onChange={e => setReviewData({...reviewData, classId: e.target.value, section: ''})}
+                                                      className="w-full border p-2 rounded mt-1 bg-white"
+                                                  >
+                                                      <option value="">-- Select Class --</option>
+                                                      {state.systemClasses.map(cls => (
+                                                          <option key={cls.name} value={cls.name}>{cls.name}</option>
+                                                      ))}
+                                                  </select>
+                                              </div>
+                                              <div>
+                                                  <label className="block text-xs font-bold text-gray-500 uppercase">Section</label>
+                                                  <select
+                                                      value={reviewData.section || ''}
+                                                      onChange={e => setReviewData({...reviewData, section: e.target.value})}
+                                                      className="w-full border p-2 rounded mt-1 bg-white"
+                                                      disabled={!selectedClassData || selectedClassData.sections.length === 0}
+                                                  >
+                                                      <option value="">{selectedClassData && selectedClassData.sections.length > 0 ? '-- Select Section --' : 'N/A'}</option>
+                                                      {selectedClassData?.sections.map(sec => (
+                                                          <option key={sec} value={sec}>{sec}</option>
+                                                      ))}
+                                                  </select>
+                                              </div>
                                           </div>
                                           <div className="grid grid-cols-2 gap-4">
                                               <div>
@@ -400,6 +517,16 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                               <span className="hidden md:inline text-sm font-medium">Subjects</span>
                           </button>
 
+                          {/* Class Manager Button */}
+                          <button 
+                              onClick={() => setShowClassManager(true)}
+                              className="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                              title="Manage Classes & Sections"
+                          >
+                              <Layout size={18} />
+                              <span className="hidden md:inline text-sm font-medium">Classes</span>
+                          </button>
+
                           <div className="relative flex-1 md:w-64">
                               <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
                               <input 
@@ -467,7 +594,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                           <td className="p-3 text-sm">
                                               {u.role === 'student' && (
                                                   <div>
-                                                    <span className="bg-blue-50 text-blue-800 text-xs px-2 py-1 rounded border border-blue-100 mr-2">{u.classId}</span>
+                                                    <span className="bg-blue-50 text-blue-800 text-xs px-2 py-1 rounded border border-blue-100 mr-2">{u.classId} {u.section ? `- ${u.section}` : ''}</span>
                                                     <span className="text-xs text-gray-500">Fee: {u.annualFee}</span>
                                                   </div>
                                               )}

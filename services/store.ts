@@ -26,7 +26,11 @@ type Action =
   | { type: 'ADD_NOTICE'; payload: Notice }
   | { type: 'RESET_RECEIPT_COUNTER'; payload: number }
   | { type: 'ADD_SYSTEM_SUBJECT'; payload: string }
-  | { type: 'DELETE_SYSTEM_SUBJECT'; payload: string };
+  | { type: 'DELETE_SYSTEM_SUBJECT'; payload: string }
+  | { type: 'ADD_SYSTEM_CLASS'; payload: string }
+  | { type: 'DELETE_SYSTEM_CLASS'; payload: string }
+  | { type: 'ADD_CLASS_SECTION'; payload: { className: string; section: string } }
+  | { type: 'DELETE_CLASS_SECTION'; payload: { className: string; section: string } };
 
 const AppContext = createContext<{
   state: AppState;
@@ -172,6 +176,29 @@ const reducer = (state: AppState, action: Action): AppState => {
         return { ...state, availableSubjects: [...state.availableSubjects, action.payload] };
     case 'DELETE_SYSTEM_SUBJECT':
         return { ...state, availableSubjects: state.availableSubjects.filter(s => s !== action.payload) };
+    case 'ADD_SYSTEM_CLASS':
+        if(state.systemClasses.find(c => c.name === action.payload)) return state;
+        return { ...state, systemClasses: [...state.systemClasses, { name: action.payload, sections: [] }] };
+    case 'DELETE_SYSTEM_CLASS':
+        return { ...state, systemClasses: state.systemClasses.filter(c => c.name !== action.payload) };
+    case 'ADD_CLASS_SECTION':
+        return {
+            ...state,
+            systemClasses: state.systemClasses.map(c => 
+                c.name === action.payload.className 
+                ? { ...c, sections: [...c.sections, action.payload.section] }
+                : c
+            )
+        };
+    case 'DELETE_CLASS_SECTION':
+        return {
+            ...state,
+            systemClasses: state.systemClasses.map(c => 
+                c.name === action.payload.className 
+                ? { ...c, sections: c.sections.filter(s => s !== action.payload.section) }
+                : c
+            )
+        };
     default:
       return state;
   }
