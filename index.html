@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Galaxy Hotel & Tourism School</title>
+    <!-- Tailwind CDN is kept for simplicity, though a local build is recommended for production -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+            colors: {
+              galaxy: {
+                50: '#f0f9ff',
+                100: '#e0f2fe',
+                500: '#0ea5e9',
+                600: '#0284c7',
+                800: '#075985',
+                900: '#0c4a6e',
+              },
+              gold: {
+                400: '#fbbf24',
+                500: '#f59e0b',
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        background-color: #f8fafc;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
+    "vite": "https://aistudiocdn.com/vite@^7.2.4"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyBNw_NPWWMRuD4vVQlKCyT_yxQpw9LZt48",
+        authDomain: "galaxy-hotel-tourism.firebaseapp.com",
+        projectId: "galaxy-hotel-tourism",
+        storageBucket: "galaxy-hotel-tourism.firebasestorage.app",
+        messagingSenderId: "767481983596",
+        appId: "1:767481983596:web:06106d26006c218f199e49"
+      };
+
+      // Initialize Firebase (Client Side Only for now)
+      try {
+        const app = initializeApp(firebaseConfig);
+        console.log("Firebase initialized successfully");
+      } catch (error) {
+        console.error("Firebase initialization failed:", error);
+      }
+    </script>
+  </body>
+</html>
