@@ -16,6 +16,7 @@ type Action =
   | { type: 'GRADE_SUBMISSION'; payload: { id: string; grade: string; feedback: string } }
   | { type: 'GENERATE_INVOICE'; payload: Invoice }
   | { type: 'BULK_GENERATE_INVOICE'; payload: Invoice[] }
+  | { type: 'DELETE_INVOICE'; payload: string }
   | { type: 'ADD_FEE'; payload: FeeRecord }
   | { type: 'UPDATE_FEE_STATUS'; payload: { id: string; status: FeeRecord['status'] } }
   | { type: 'DELETE_FEE'; payload: string }
@@ -78,6 +79,8 @@ const reducer = (state: AppState, action: Action): AppState => {
       return { ...state, invoices: [action.payload, ...state.invoices] };
     case 'BULK_GENERATE_INVOICE':
       return { ...state, invoices: [...action.payload, ...state.invoices] };
+    case 'DELETE_INVOICE':
+      return { ...state, invoices: state.invoices.filter(i => i.id !== action.payload) };
     case 'ADD_FEE': {
       const nextCounter = state.receiptCounter + 1;
       const updatedUsers = state.users.map(u => {

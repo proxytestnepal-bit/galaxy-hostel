@@ -1,5 +1,6 @@
 
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../services/store';
 import { User, Invoice, FeeRecord, InvoiceItem } from '../../types';
 import { Plus, Trash2, Edit2, AlertTriangle, Printer, FileText, Download, User as UserIcon, Users, X } from 'lucide-react';
@@ -8,6 +9,22 @@ interface Props {
   activeTab: string;
 }
 
+const PREDEFINED_FEE_HEADS = [
+    "Admission Fee",
+    "Monthly Fee",
+    "Exam Fee",
+    "Viva Fee",
+    "Practical Fee", 
+    "Tour Fee", 
+    "Transportation", 
+    "Medical", 
+    "Fine", 
+    "ID Card", 
+    "Uniform", 
+    "Books", 
+    "Other"
+];
+
 const AccountantView: React.FC<Props> = ({ activeTab }) => {
   const { state, dispatch } = useAppStore();
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
@@ -15,8 +32,10 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
   // Invoice Form State
   const [invoicePercent, setInvoicePercent] = useState<number>(30);
   const [invoiceTitle, setInvoiceTitle] = useState('Term Fee');
+  
   // Breakdown State
   const [feeBreakdown, setFeeBreakdown] = useState<InvoiceItem[]>([]);
+  const [selectedHead, setSelectedHead] = useState('');
   const [newFeeItem, setNewFeeItem] = useState({ description: '', amount: 0 });
   
   // Bulk Invoice State
@@ -39,10 +58,20 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
   const classes = state.systemClasses;
   const selectedClassData = classes.find(c => c.name === selectedClassId);
 
+  // Auto-fill description when dropdown changes
+  useEffect(() => {
+      if (selectedHead && selectedHead !== 'Other') {
+          setNewFeeItem(prev => ({ ...prev, description: selectedHead }));
+      } else if (selectedHead === 'Other') {
+          setNewFeeItem(prev => ({ ...prev, description: '' }));
+      }
+  }, [selectedHead]);
+
   const addFeeItem = () => {
       if(newFeeItem.description && newFeeItem.amount) {
           setFeeBreakdown([...feeBreakdown, { ...newFeeItem }]);
           setNewFeeItem({ description: '', amount: 0 });
+          setSelectedHead('');
       }
   };
 
@@ -80,6 +109,12 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
       alert(`Invoice generated for Rs. ${newInvoice.amount}`);
       setFeeBreakdown([]); // Reset
   };
+
+  const handleDeleteInvoice = (id: string) => {
+      if(window.confirm("Are you sure you want to delete this pending invoice?")) {
+          dispatch({ type: 'DELETE_INVOICE', payload: id });
+      }
+  }
 
   // Bulk Generate Invoice
   const handleBulkInvoice = () => {
@@ -234,41 +269,6 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
       );
   };
 
-  // Shared UI for Breakdown items
-  const BreakdownSection = () => (
-      <div className="bg-gray-50 p-4 rounded-lg border mb-4">
-          <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Additional Fee Heads (Optional)</label>
-          <div className="space-y-2 mb-2">
-              {feeBreakdown.map((item, idx) => (
-                  <div key={idx} className="flex justify-between items-center bg-white p-2 rounded border text-sm">
-                      <span>{item.description}</span>
-                      <div className="flex items-center gap-3">
-                          <span className="font-mono">Rs. {item.amount}</span>
-                          <button onClick={() => removeFeeItem(idx)} className="text-red-500 hover:text-red-700"><X size={14}/></button>
-                      </div>
-                  </div>
-              ))}
-          </div>
-          <div className="flex gap-2">
-              <input 
-                  type="text" 
-                  placeholder="e.g. Viva, Tour, Medicine" 
-                  className="flex-1 border p-1 text-sm rounded"
-                  value={newFeeItem.description}
-                  onChange={e => setNewFeeItem({...newFeeItem, description: e.target.value})}
-              />
-              <input 
-                  type="number" 
-                  placeholder="Amount" 
-                  className="w-24 border p-1 text-sm rounded"
-                  value={newFeeItem.amount || ''}
-                  onChange={e => setNewFeeItem({...newFeeItem, amount: Number(e.target.value)})}
-              />
-              <button onClick={addFeeItem} className="bg-blue-600 text-white px-2 py-1 rounded text-sm"><Plus size={16}/></button>
-          </div>
-      </div>
-  );
-
   if(activeTab === 'approvals') {
        const pendingFees = state.fees.filter(f => f.status === 'pending_delete' || f.status === 'pending_edit');
        return (
@@ -343,7 +343,47 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                       </div>
 
                       <div className="md:col-span-2">
-                          <BreakdownSection />
+                          <div className="bg-white p-4 rounded-lg border mb-4 shadow-sm">
+                              <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Additional Fee Heads (Optional)</label>
+                              <div className="space-y-2 mb-2">
+                                  {feeBreakdown.map((item, idx) => (
+                                      <div key={idx} className="flex justify-between items-center bg-gray-50 p-2 rounded border text-sm">
+                                          <span>{item.description}</span>
+                                          <div className="flex items-center gap-3">
+                                              <span className="font-mono">Rs. {item.amount}</span>
+                                              <button onClick={() => removeFeeItem(idx)} className="text-red-500 hover:text-red-700"><X size={14}/></button>
+                                          </div>
+                                      </div>
+                                  ))}
+                              </div>
+                              <div className="flex gap-2 mb-2">
+                                  <select 
+                                      className="flex-1 border p-1 text-sm rounded"
+                                      value={selectedHead}
+                                      onChange={e => setSelectedHead(e.target.value)}
+                                  >
+                                      <option value="">-- Select Fee Head --</option>
+                                      {PREDEFINED_FEE_HEADS.map(head => <option key={head} value={head}>{head}</option>)}
+                                  </select>
+                              </div>
+                              <div className="flex gap-2">
+                                  <input 
+                                      type="text" 
+                                      placeholder="Description" 
+                                      className="flex-1 border p-1 text-sm rounded"
+                                      value={newFeeItem.description}
+                                      onChange={e => setNewFeeItem({...newFeeItem, description: e.target.value})}
+                                  />
+                                  <input 
+                                      type="number" 
+                                      placeholder="Amount" 
+                                      className="w-24 border p-1 text-sm rounded"
+                                      value={newFeeItem.amount || ''}
+                                      onChange={e => setNewFeeItem({...newFeeItem, amount: Number(e.target.value)})}
+                                  />
+                                  <button onClick={addFeeItem} className="bg-blue-600 text-white px-2 py-1 rounded text-sm"><Plus size={16}/></button>
+                              </div>
+                          </div>
                           <div className="text-right">
                               <button 
                                 onClick={handleBulkInvoice}
@@ -417,7 +457,50 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                                           />
                                       </div>
                                   </div>
-                                  <BreakdownSection />
+                                  
+                                  {/* Inline Breakdown UI to prevent focus loss */}
+                                  <div className="bg-gray-50 p-4 rounded-lg border mb-4">
+                                      <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Additional Fee Heads (Optional)</label>
+                                      <div className="space-y-2 mb-2">
+                                          {feeBreakdown.map((item, idx) => (
+                                              <div key={idx} className="flex justify-between items-center bg-white p-2 rounded border text-sm">
+                                                  <span>{item.description}</span>
+                                                  <div className="flex items-center gap-3">
+                                                      <span className="font-mono">Rs. {item.amount}</span>
+                                                      <button onClick={() => removeFeeItem(idx)} className="text-red-500 hover:text-red-700"><X size={14}/></button>
+                                                  </div>
+                                              </div>
+                                          ))}
+                                      </div>
+                                      <div className="flex gap-2 mb-2">
+                                            <select 
+                                                className="flex-1 border p-1 text-sm rounded"
+                                                value={selectedHead}
+                                                onChange={e => setSelectedHead(e.target.value)}
+                                            >
+                                                <option value="">-- Select Fee Head --</option>
+                                                {PREDEFINED_FEE_HEADS.map(head => <option key={head} value={head}>{head}</option>)}
+                                            </select>
+                                      </div>
+                                      <div className="flex gap-2">
+                                          <input 
+                                              type="text" 
+                                              placeholder="e.g. Viva, Tour, Medicine" 
+                                              className="flex-1 border p-1 text-sm rounded"
+                                              value={newFeeItem.description}
+                                              onChange={e => setNewFeeItem({...newFeeItem, description: e.target.value})}
+                                          />
+                                          <input 
+                                              type="number" 
+                                              placeholder="Amount" 
+                                              className="w-24 border p-1 text-sm rounded"
+                                              value={newFeeItem.amount || ''}
+                                              onChange={e => setNewFeeItem({...newFeeItem, amount: Number(e.target.value)})}
+                                          />
+                                          <button onClick={addFeeItem} className="bg-blue-600 text-white px-2 py-1 rounded text-sm"><Plus size={16}/></button>
+                                      </div>
+                                  </div>
+
                                   <button 
                                     onClick={handleGenerateInvoice}
                                     className="w-full bg-galaxy-600 text-white px-4 py-2 rounded hover:bg-galaxy-700"
@@ -431,7 +514,7 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                               <div className="p-4 bg-gray-50 border-b font-bold text-gray-700">Pending Invoices</div>
                               <div className="divide-y max-h-64 overflow-y-auto">
                                   {studentInvoices.filter(i => i.status !== 'paid').map(inv => (
-                                      <div key={inv.id} className="p-4 flex justify-between items-center">
+                                      <div key={inv.id} className="p-4 flex justify-between items-center group">
                                           <div>
                                               <p className="font-medium">{inv.title}</p>
                                               <p className="text-xs text-gray-500">Due: {inv.dueDate}</p>
@@ -443,17 +526,26 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                                           </div>
                                           <div className="flex items-center gap-4">
                                               <span className="font-bold">Rs. {inv.amount.toLocaleString()}</span>
-                                              <button 
-                                                onClick={() => {
-                                                    setPaymentAmount(inv.amount.toString());
-                                                    setPaymentDesc(`Payment for ${inv.title}`);
-                                                    setSelectedInvoiceId(inv.id);
-                                                    setShowPaymentModal(true);
-                                                }}
-                                                className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
-                                              >
-                                                  Pay
-                                              </button>
+                                              <div className="flex gap-2">
+                                                  <button 
+                                                    onClick={() => handleDeleteInvoice(inv.id)}
+                                                    className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                                                    title="Delete Invoice"
+                                                  >
+                                                      <Trash2 size={16} />
+                                                  </button>
+                                                  <button 
+                                                    onClick={() => {
+                                                        setPaymentAmount(inv.amount.toString());
+                                                        setPaymentDesc(`Payment for ${inv.title}`);
+                                                        setSelectedInvoiceId(inv.id);
+                                                        setShowPaymentModal(true);
+                                                    }}
+                                                    className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
+                                                  >
+                                                      Pay
+                                                  </button>
+                                              </div>
                                           </div>
                                       </div>
                                   ))}

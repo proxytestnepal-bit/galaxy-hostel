@@ -1,7 +1,9 @@
 
+
 import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
 import { CheckCircle, AlertCircle, FileText, Send, Crown } from 'lucide-react';
+import { ScoreData } from '../../types';
 
 interface Props {
   activeTab: string;
@@ -147,16 +149,19 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
                                           </tr>
                                       </thead>
                                       <tbody>
-                                          {Object.entries(report.scores).map(([subj, data]) => (
-                                              <tr key={subj} className="border-b last:border-0">
-                                                  <td className="py-3 text-gray-800 font-medium">{subj}</td>
-                                                  <td className="py-3 text-center text-gray-500">{data.fullMarks}</td>
-                                                  <td className="py-3 text-center text-gray-500">{data.passMarks}</td>
-                                                  <td className={`py-3 text-right font-bold ${data.obtained < data.passMarks ? 'text-red-600' : 'text-gray-900'}`}>
-                                                      {data.obtained}
-                                                  </td>
-                                              </tr>
-                                          ))}
+                                          {Object.entries(report.scores).map(([subj, data]) => {
+                                              const score = data as ScoreData;
+                                              return (
+                                                <tr key={subj} className="border-b last:border-0">
+                                                    <td className="py-3 text-gray-800 font-medium">{subj}</td>
+                                                    <td className="py-3 text-center text-gray-500">{score.fullMarks}</td>
+                                                    <td className="py-3 text-center text-gray-500">{score.passMarks}</td>
+                                                    <td className={`py-3 text-right font-bold ${score.obtained < score.passMarks ? 'text-red-600' : 'text-gray-900'}`}>
+                                                        {score.obtained}
+                                                    </td>
+                                                </tr>
+                                              );
+                                          })}
                                       </tbody>
                                   </table>
                                   <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100 text-sm text-yellow-800">
@@ -194,8 +199,8 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
 
                   // Calculate totals
                   const leaderboard = classReports.map(r => {
-                      const totalObtained = Object.values(r.scores).reduce((acc, curr) => acc + curr.obtained, 0);
-                      const totalFull = Object.values(r.scores).reduce((acc, curr) => acc + curr.fullMarks, 0);
+                      const totalObtained = Object.values(r.scores).reduce((acc, curr) => acc + (curr as ScoreData).obtained, 0);
+                      const totalFull = Object.values(r.scores).reduce((acc, curr) => acc + (curr as ScoreData).fullMarks, 0);
                       return {
                           studentId: r.studentId,
                           studentName: state.users.find(u => u.id === r.studentId)?.name,
