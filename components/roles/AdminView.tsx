@@ -4,7 +4,9 @@ import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
 import { Role, User, ExamType, SubjectType } from '../../types';
 import AccountantView from './AccountantView';
-import { Check, X, Printer, Lock, Unlock, AlertTriangle, RefreshCw, UserCheck, Shield, BookOpen, Edit2, Search, Filter, Eye, Settings, Plus, Trash2, Calendar, Layout, ChevronRight, ChevronDown } from 'lucide-react';
+import { Check, X, Printer, Lock, Unlock, AlertTriangle, RefreshCw, UserCheck, Shield, BookOpen, Edit2, Search, Filter, Eye, Settings, Plus, Trash2, Calendar, Layout, ChevronRight, ChevronDown, UploadCloud, Database } from 'lucide-react';
+import { resetDatabase, seedDatabase } from '../../services/db';
+import { INITIAL_STATE } from '../../services/mockData';
 
 interface Props {
   activeTab: string;
@@ -71,6 +73,10 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       if (!reviewUser) return;
       
       const updates: Partial<User> = { ...reviewData };
+      
+      // CRITICAL FIX: Remove status from updates to prevent overwriting 'active' with 'pending'
+      delete updates.status; 
+
       if (updates.role === 'student') {
           updates.annualFee = Number(updates.annualFee || 0);
           updates.discount = Number(updates.discount || 0);
@@ -166,16 +172,36 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       }
   }
 
-  const handlePublishClassResult = (examSessionId: string, published: boolean) => {
+  const handleHardReset = async () => {
+      if(window.confirm("WARNING: THIS WILL DELETE ALL DATA FROM THE DATABASE (Users, Fees, Everything) and restore defaults. Are you absolutely sure?")) {
+          await resetDatabase();
+          await seedDatabase(INITIAL_STATE);
+          dispatch({ type: 'RESET_DATABASE' }); // Updates local state
+          alert("Database reset complete. Please refresh.");
+      }
+  }
+
+  const handlePublishClassResult = (session: any, published: boolean, reportCount: number) => {
       if (!publishClassId) {
           alert("Please select a class first");
           return;
       }
-      if(window.confirm(`${published ? 'Publish' : 'Unpublish'} results for ${publishClassId} ${publishSection ? publishSection : ''}?`)) {
+      if (reportCount === 0) {
+          alert("No marks found for this session in the selected class. Teachers must enter marks before you can publish results.");
+          return;
+      }
+      if(window.confirm(`${published ? 'Publish' : 'Unpublish'} results for ${publishClassId} ${publishSection ? publishSection : ''}? This will update ${reportCount} student reports.`)) {
           dispatch({
               type: 'PUBLISH_CLASS_RESULT',
-              payload: { examSessionId, classId: publishClassId, section: publishSection || undefined, published }
+              payload: { 
+                  examSessionId: session.id,
+                  sessionName: session.name, 
+                  classId: publishClassId, 
+                  section: publishSection || undefined, 
+                  published 
+              }
           });
+          // alert(`Request processed. Check console for details.`);
       }
   }
 
@@ -671,7 +697,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
               {/* Class-wise Result Publishing */}
               <div className="bg-white p-6 rounded-xl border border-galaxy-200 shadow-sm">
                   <h3 className="text-xl font-bold mb-4">Publish Class Results</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end mb-6">
                        <div className="md:col-span-1">
                            <label className="text-sm font-bold text-gray-600 block mb-1">Select Class</label>
                            <select className="w-full border p-2 rounded" value={publishClassId} onChange={e => { setPublishClassId(e.target.value); setPublishSection(''); }}>
@@ -692,22 +718,82 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                            </select>
                        </div>
                        <div className="md:col-span-2">
-                           <p className="text-xs text-gray-500 mb-2">Publishing will make results visible to all students in the selected class/section for respective active sessions.</p>
-                           <div className="flex gap-2">
-                               {state.examSessions.map(session => (
-                                   <div key={session.id} className="flex items-center gap-2">
-                                       <button 
-                                         onClick={() => handlePublishClassResult(session.id, true)}
-                                         className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700"
-                                         disabled={!publishClassId}
-                                       >
-                                           Publish {session.name}
-                                       </button>
-                                   </div>
-                               ))}
-                           </div>
+                           <p className="text-xs text-gray-500 mb-2">
+                               Results are hidden from students until published. Publishing applies to all students in the selected class/section.
+                           </p>
                        </div>
                   </div>
+
+                  {/* Status Cards */}
+                  {publishClassId && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in">
+                        {state.examSessions.map(session => {
+                            // Logic to determine status
+                            // Matches matching logic in store: ID OR Name
+                            const reportsForSession = state.examReports.filter(r => 
+                                (r.examSessionId && r.examSessionId === session.id) || r.term === session.name
+                            );
+                            
+                            // Get IDs of target students
+                            const studentsInClass = state.users.filter(u => 
+                                u.role === 'student' && 
+                                u.classId === publishClassId && 
+                                (!publishSection || u.section === publishSection)
+                            );
+                            
+                            // Filter reports belonging to these students
+                            const reportsForClass = reportsForSession.filter(r => studentsInClass.some(s => s.id === r.studentId));
+                            
+                            const publishedCount = reportsForClass.filter(r => r.published).length;
+                            const totalReports = reportsForClass.length;
+                            
+                            const isFullyPublished = totalReports > 0 && publishedCount === totalReports;
+                            const isPartiallyPublished = publishedCount > 0 && !isFullyPublished;
+                            const hasNoReports = totalReports === 0;
+
+                            return (
+                                <div key={session.id} className={`border rounded-xl p-4 transition-all ${
+                                    isFullyPublished ? 'bg-green-50 border-green-200' : 
+                                    hasNoReports ? 'bg-gray-50 border-gray-200 opacity-70' : 'bg-white border-yellow-200 shadow-sm'
+                                }`}>
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h4 className="font-bold text-gray-800">{session.name}</h4>
+                                        {isFullyPublished ? <Check size={18} className="text-green-600" /> : <UploadCloud size={18} className="text-gray-400"/>}
+                                    </div>
+                                    
+                                    <div className="text-xs space-y-1 mb-4">
+                                        <p className="flex justify-between">
+                                            <span className="text-gray-500">Students:</span>
+                                            <span className="font-mono">{studentsInClass.length}</span>
+                                        </p>
+                                        <p className="flex justify-between">
+                                            <span className="text-gray-500">Reports Found:</span>
+                                            <span className="font-mono">{totalReports}</span>
+                                        </p>
+                                        <p className="flex justify-between font-bold">
+                                            <span className="text-gray-500">Published:</span>
+                                            <span className={`${isFullyPublished ? 'text-green-600' : isPartiallyPublished ? 'text-yellow-600' : 'text-gray-400'}`}>
+                                                {publishedCount} / {totalReports}
+                                            </span>
+                                        </p>
+                                    </div>
+
+                                    <button 
+                                      onClick={() => handlePublishClassResult(session, !isFullyPublished, totalReports)}
+                                      disabled={hasNoReports}
+                                      className={`w-full py-2 rounded text-sm font-bold transition-colors ${
+                                          hasNoReports ? 'bg-gray-200 text-gray-400 cursor-not-allowed' :
+                                          isFullyPublished ? 'bg-white border border-red-200 text-red-600 hover:bg-red-50' :
+                                          'bg-galaxy-900 text-white hover:bg-galaxy-800'
+                                      }`}
+                                    >
+                                        {hasNoReports ? 'No Data' : isFullyPublished ? 'Unpublish Results' : 'Publish Results'}
+                                    </button>
+                                </div>
+                            );
+                        })}
+                      </div>
+                  )}
               </div>
           </div>
       );
@@ -770,23 +856,44 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                   <AlertTriangle /> Dangerous Zone
               </h3>
               
-              <div className="bg-white border border-red-200 p-6 rounded-xl shadow-sm max-w-md">
-                  <h4 className="font-bold mb-2">Receipt Counter Reset</h4>
-                  <p className="text-sm text-gray-600 mb-4">
-                      Current Next Receipt #: <strong>{state.receiptCounter}</strong><br/>
-                  </p>
-                  <div className="flex gap-2">
-                      <input 
-                        type="number" 
-                        value={resetVal} 
-                        onChange={e => setResetVal(parseInt(e.target.value))}
-                        className="border p-2 rounded w-24"
-                      />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Receipt Counter */}
+                  <div className="bg-white border border-red-200 p-6 rounded-xl shadow-sm">
+                      <h4 className="font-bold mb-2">Receipt Counter Reset</h4>
+                      <p className="text-sm text-gray-600 mb-4">
+                          Current Next Receipt #: <strong>{state.receiptCounter}</strong><br/>
+                      </p>
+                      <div className="flex gap-2">
+                          <input 
+                            type="number" 
+                            value={resetVal} 
+                            onChange={e => setResetVal(parseInt(e.target.value))}
+                            className="border p-2 rounded w-24"
+                          />
+                          <button 
+                            onClick={handleResetReceipt}
+                            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 flex items-center gap-2"
+                          >
+                              <RefreshCw size={16} /> Reset Counter
+                          </button>
+                      </div>
+                  </div>
+
+                  {/* Hard Database Reset */}
+                  <div className="bg-red-50 border border-red-300 p-6 rounded-xl shadow-sm">
+                      <h4 className="font-bold mb-2 text-red-900 flex items-center gap-2">
+                          <Database size={18}/> Hard Reset Database
+                      </h4>
+                      <p className="text-sm text-red-800 mb-4">
+                          This action will <strong>permanently delete all data</strong> from Firestore (Users, Assignments, Fees, etc.) and restore the initial system defaults.
+                          <br/><br/>
+                          <strong>Use this only if the database is corrupted or you want to restart the demo.</strong>
+                      </p>
                       <button 
-                        onClick={handleResetReceipt}
-                        className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 flex items-center gap-2"
+                        onClick={handleHardReset}
+                        className="w-full bg-red-700 text-white px-4 py-3 rounded hover:bg-red-800 flex items-center justify-center gap-2 font-bold shadow-sm"
                       >
-                          <RefreshCw size={16} /> Reset Counter
+                          <AlertTriangle size={18} /> WIPE & RESET DATABASE
                       </button>
                   </div>
               </div>

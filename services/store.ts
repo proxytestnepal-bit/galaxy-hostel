@@ -1,12 +1,14 @@
 
 
-import React, { createContext, useContext, useReducer } from 'react';
+import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { AppState, User, Assignment, Submission, FeeRecord, ExamReport, Notice, Invoice, ExamSession, Subject, ScoreData, WorkLog } from '../types';
 import { INITIAL_STATE } from './mockData';
+import { loadAllData, dbActions, seedDatabase, seedCollection, resetDatabase } from './db';
 
 type Action =
   | { type: 'LOGIN'; payload: User }
   | { type: 'LOGOUT' }
+  | { type: 'LOAD_DATA'; payload: Partial<AppState> }
   | { type: 'ADD_USER'; payload: User }
   | { type: 'UPDATE_USER_DETAILS'; payload: Partial<User> & { id: string } }
   | { type: 'APPROVE_USER'; payload: { id: string; updates?: Partial<User> } }
@@ -25,7 +27,7 @@ type Action =
   | { type: 'TOGGLE_EXAM_SESSION_STATUS'; payload: string } // id
   | { type: 'UPDATE_EXAM_MARKS'; payload: { studentId: string; examSessionId: string; sessionName: string; subject: string; scoreData: ScoreData } }
   | { type: 'PUBLISH_REPORT'; payload: { id: string; published: boolean } }
-  | { type: 'PUBLISH_CLASS_RESULT'; payload: { examSessionId: string; classId: string; section?: string; published: boolean } }
+  | { type: 'PUBLISH_CLASS_RESULT'; payload: { examSessionId: string; sessionName: string; classId: string; section?: string; published: boolean } }
   | { type: 'ADD_NOTICE'; payload: Notice }
   | { type: 'RESET_RECEIPT_COUNTER'; payload: number }
   | { type: 'ADD_SYSTEM_SUBJECT'; payload: Subject }
@@ -34,7 +36,8 @@ type Action =
   | { type: 'DELETE_SYSTEM_CLASS'; payload: string }
   | { type: 'ADD_CLASS_SECTION'; payload: { className: string; section: string } }
   | { type: 'DELETE_CLASS_SECTION'; payload: { className: string; section: string } }
-  | { type: 'ADD_WORK_LOG'; payload: WorkLog };
+  | { type: 'ADD_WORK_LOG'; payload: WorkLog }
+  | { type: 'RESET_DATABASE' };
 
 const AppContext = createContext<{
   state: AppState;
@@ -47,45 +50,60 @@ const reducer = (state: AppState, action: Action): AppState => {
       return { ...state, currentUser: action.payload };
     case 'LOGOUT':
       return { ...state, currentUser: null };
+    case 'LOAD_DATA':
+        return { ...state, ...action.payload };
     case 'ADD_USER':
+      dbActions.addUser(action.payload);
       return { ...state, users: [...state.users, action.payload] };
-    case 'UPDATE_USER_DETAILS':
-      return {
-          ...state,
-          users: state.users.map(u => u.id === action.payload.id ? { ...u, ...action.payload } : u)
-      };
-    case 'APPROVE_USER':
-      return {
-          ...state,
-          users: state.users.map(u => u.id === action.payload.id ? { ...u, status: 'active', ...action.payload.updates } : u)
-      };
+    case 'UPDATE_USER_DETAILS': {
+      const updatedUsers = state.users.map(u => u.id === action.payload.id ? { ...u, ...action.payload } : u);
+      const user = updatedUsers.find(u => u.id === action.payload.id);
+      if(user) dbActions.updateUser(user);
+      return { ...state, users: updatedUsers };
+    }
+    case 'APPROVE_USER': {
+      const updatedUsers = state.users.map(u => u.id === action.payload.id ? { ...u, status: 'active' as const, ...action.payload.updates } : u);
+      const user = updatedUsers.find(u => u.id === action.payload.id);
+      if(user) dbActions.updateUser(user);
+      return { ...state, users: updatedUsers };
+    }
     case 'REJECT_USER':
+        dbActions.deleteUser(action.payload);
         return {
             ...state,
             users: state.users.filter(u => u.id !== action.payload)
         };
     case 'ADD_ASSIGNMENT':
+      dbActions.addAssignment(action.payload);
       return { ...state, assignments: [action.payload, ...state.assignments] };
     case 'ADD_SUBMISSION':
+      dbActions.addSubmission(action.payload);
       return { ...state, submissions: [action.payload, ...state.submissions] };
-    case 'GRADE_SUBMISSION':
-      return {
-        ...state,
-        submissions: state.submissions.map(s =>
+    case 'GRADE_SUBMISSION': {
+      const updatedSubmissions = state.submissions.map(s =>
           s.id === action.payload.id ? { ...s, grade: action.payload.grade, feedback: action.payload.feedback } : s
-        ),
-      };
+      );
+      const sub = updatedSubmissions.find(s => s.id === action.payload.id);
+      if(sub) dbActions.updateSubmission(sub);
+      return { ...state, submissions: updatedSubmissions };
+    }
     case 'GENERATE_INVOICE':
+      dbActions.addInvoice(action.payload);
       return { ...state, invoices: [action.payload, ...state.invoices] };
     case 'BULK_GENERATE_INVOICE':
+      action.payload.forEach(inv => dbActions.addInvoice(inv));
       return { ...state, invoices: [...action.payload, ...state.invoices] };
     case 'DELETE_INVOICE':
+      dbActions.deleteInvoice(action.payload);
       return { ...state, invoices: state.invoices.filter(i => i.id !== action.payload) };
     case 'ADD_FEE': {
+      dbActions.addFee(action.payload);
       const nextCounter = state.receiptCounter + 1;
       const updatedUsers = state.users.map(u => {
           if (u.id === action.payload.studentId) {
-              return { ...u, totalPaid: (u.totalPaid || 0) + action.payload.amount };
+              const updatedUser = { ...u, totalPaid: (u.totalPaid || 0) + action.payload.amount };
+              dbActions.updateUser(updatedUser);
+              return updatedUser;
           }
           return u;
       });
@@ -93,7 +111,9 @@ const reducer = (state: AppState, action: Action): AppState => {
       if (action.payload.invoiceId) {
           updatedInvoices = state.invoices.map(inv => {
               if (inv.id === action.payload.invoiceId) {
-                  return { ...inv, status: 'paid' };
+                  const updatedInv = { ...inv, status: 'paid' as const };
+                  dbActions.addInvoice(updatedInv); // Invoice saver handles updates if ID exists
+                  return updatedInv;
               }
               return inv;
           });
@@ -106,46 +126,48 @@ const reducer = (state: AppState, action: Action): AppState => {
         receiptCounter: nextCounter
       };
     }
-    case 'UPDATE_FEE_STATUS':
-        return {
-            ...state,
-            fees: state.fees.map(f => f.id === action.payload.id ? { ...f, status: action.payload.status } : f)
-        };
-    case 'REQUEST_DELETE_FEE':
-        return {
-            ...state,
-            fees: state.fees.map(f => f.id === action.payload ? { ...f, status: 'pending_delete' } : f)
-        };
+    case 'UPDATE_FEE_STATUS': {
+        const updatedFees = state.fees.map(f => f.id === action.payload.id ? { ...f, status: action.payload.status } : f);
+        const fee = updatedFees.find(f => f.id === action.payload.id);
+        if(fee) dbActions.updateFee(fee);
+        return { ...state, fees: updatedFees };
+    }
+    case 'REQUEST_DELETE_FEE': {
+        const updatedFees = state.fees.map(f => f.id === action.payload ? { ...f, status: 'pending_delete' as const } : f);
+        const fee = updatedFees.find(f => f.id === action.payload);
+        if(fee) dbActions.updateFee(fee);
+        return { ...state, fees: updatedFees };
+    }
     case 'DELETE_FEE':
-        return {
-            ...state,
-            fees: state.fees.filter(f => f.id !== action.payload)
-        };
+        dbActions.deleteFee(action.payload);
+        return { ...state, fees: state.fees.filter(f => f.id !== action.payload) };
     case 'ADD_EXAM_SESSION':
+        dbActions.addExamSession(action.payload);
         return { ...state, examSessions: [action.payload, ...state.examSessions] };
-    case 'TOGGLE_EXAM_SESSION_STATUS':
-        return {
-            ...state,
-            examSessions: state.examSessions.map(s => 
-                s.id === action.payload ? { ...s, status: s.status === 'open' ? 'closed' : 'open' } : s
-            )
-        };
+    case 'TOGGLE_EXAM_SESSION_STATUS': {
+        const updatedSessions = state.examSessions.map(s => 
+            s.id === action.payload ? { ...s, status: s.status === 'open' ? 'closed' as const : 'open' as const } : s
+        );
+        const session = updatedSessions.find(s => s.id === action.payload);
+        if(session) dbActions.updateExamSession(session);
+        return { ...state, examSessions: updatedSessions };
+    }
     case 'UPDATE_EXAM_MARKS': {
         const { studentId, examSessionId, sessionName, subject, scoreData } = action.payload;
-        
         const existingReportIndex = state.examReports.findIndex(
             r => r.studentId === studentId && (r.examSessionId === examSessionId || r.term === sessionName)
         );
 
+        let newReports = [...state.examReports];
         if (existingReportIndex > -1) {
-            const updatedReports = [...state.examReports];
-            const report = updatedReports[existingReportIndex];
-            updatedReports[existingReportIndex] = {
+            const report = newReports[existingReportIndex];
+            const updatedReport = {
                 ...report,
                 examSessionId, 
                 scores: { ...report.scores, [subject]: scoreData }
             };
-            return { ...state, examReports: updatedReports };
+            newReports[existingReportIndex] = updatedReport;
+            dbActions.updateReport(updatedReport);
         } else {
             const newReport: ExamReport = {
                 id: `er_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
@@ -156,67 +178,103 @@ const reducer = (state: AppState, action: Action): AppState => {
                 remarks: '',
                 published: false
             };
-            return { ...state, examReports: [...state.examReports, newReport] };
+            newReports = [...newReports, newReport];
+            dbActions.addReport(newReport);
         }
+        return { ...state, examReports: newReports };
     }
-    case 'PUBLISH_REPORT':
-        return {
-            ...state,
-            examReports: state.examReports.map(r => r.id === action.payload.id ? { ...r, published: action.payload.published } : r)
-        };
+    case 'PUBLISH_REPORT': {
+        const updatedReports = state.examReports.map(r => r.id === action.payload.id ? { ...r, published: action.payload.published } : r);
+        const report = updatedReports.find(r => r.id === action.payload.id);
+        if(report) dbActions.updateReport(report);
+        return { ...state, examReports: updatedReports };
+    }
     case 'PUBLISH_CLASS_RESULT': {
-        const { examSessionId, classId, section, published } = action.payload;
+        const { examSessionId, sessionName, classId, section, published } = action.payload;
         
-        // Find all students in this class/section
+        console.log("Publishing Request:", action.payload);
+
+        // Find all student IDs that match class and section
         const studentIds = state.users
             .filter(u => u.role === 'student' && u.classId === classId && (!section || u.section === section))
             .map(u => u.id);
 
-        return {
-            ...state,
-            examReports: state.examReports.map(report => {
-                // If report belongs to one of these students AND matches the session
-                if (studentIds.includes(report.studentId) && report.examSessionId === examSessionId) {
-                    return { ...report, published };
+        console.log("Target Student IDs:", studentIds);
+
+        if (studentIds.length === 0) {
+            console.log("No students found for this class/section");
+            return state;
+        }
+
+        let hasChanges = false;
+        const updatedReports = state.examReports.map(report => {
+            const isStudentMatch = studentIds.includes(report.studentId);
+            // Match session by ID OR by Name (Term) to ensure legacy/migrated data is caught
+            const isSessionMatch = (report.examSessionId && report.examSessionId === examSessionId) || report.term === sessionName;
+
+            if (isStudentMatch && isSessionMatch) {
+                if (report.published !== !!published) {
+                    hasChanges = true;
+                    console.log(`Updating report ${report.id} for student ${report.studentId} to published=${published}`);
+                    const updated = { ...report, published: !!published };
+                    dbActions.updateReport(updated);
+                    return updated;
                 }
-                return report;
-            })
-        };
+            }
+            return report;
+        });
+        
+        if (!hasChanges) {
+            console.log("No reports needed updating.");
+            return state;
+        }
+        return { ...state, examReports: updatedReports };
     }
     case 'ADD_NOTICE':
+        dbActions.addNotice(action.payload);
         return { ...state, notices: [action.payload, ...state.notices] };
     case 'RESET_RECEIPT_COUNTER':
         return { ...state, receiptCounter: action.payload };
     case 'ADD_SYSTEM_SUBJECT':
         if(state.availableSubjects.find(s => s.name === action.payload.name)) return state;
+        dbActions.addSubject(action.payload);
         return { ...state, availableSubjects: [...state.availableSubjects, action.payload] };
     case 'DELETE_SYSTEM_SUBJECT':
+        dbActions.deleteSubject(action.payload);
         return { ...state, availableSubjects: state.availableSubjects.filter(s => s.name !== action.payload) };
     case 'ADD_SYSTEM_CLASS':
         if(state.systemClasses.find(c => c.name === action.payload)) return state;
-        return { ...state, systemClasses: [...state.systemClasses, { name: action.payload, sections: [] }] };
+        const newClass = { name: action.payload, sections: [] };
+        dbActions.addClass(newClass);
+        return { ...state, systemClasses: [...state.systemClasses, newClass] };
     case 'DELETE_SYSTEM_CLASS':
+        dbActions.deleteClass(action.payload);
         return { ...state, systemClasses: state.systemClasses.filter(c => c.name !== action.payload) };
-    case 'ADD_CLASS_SECTION':
-        return {
-            ...state,
-            systemClasses: state.systemClasses.map(c => 
-                c.name === action.payload.className 
-                ? { ...c, sections: [...c.sections, action.payload.section] }
-                : c
-            )
-        };
-    case 'DELETE_CLASS_SECTION':
-        return {
-            ...state,
-            systemClasses: state.systemClasses.map(c => 
-                c.name === action.payload.className 
-                ? { ...c, sections: c.sections.filter(s => s !== action.payload.section) }
-                : c
-            )
-        };
+    case 'ADD_CLASS_SECTION': {
+        const updatedClasses = state.systemClasses.map(c => 
+            c.name === action.payload.className 
+            ? { ...c, sections: [...c.sections, action.payload.section] }
+            : c
+        );
+        const cls = updatedClasses.find(c => c.name === action.payload.className);
+        if(cls) dbActions.updateClass(cls);
+        return { ...state, systemClasses: updatedClasses };
+    }
+    case 'DELETE_CLASS_SECTION': {
+        const updatedClasses = state.systemClasses.map(c => 
+            c.name === action.payload.className 
+            ? { ...c, sections: c.sections.filter(s => s !== action.payload.section) }
+            : c
+        );
+        const cls = updatedClasses.find(c => c.name === action.payload.className);
+        if(cls) dbActions.updateClass(cls);
+        return { ...state, systemClasses: updatedClasses };
+    }
     case 'ADD_WORK_LOG':
+        dbActions.addWorkLog(action.payload);
         return { ...state, workLogs: [action.payload, ...state.workLogs] };
+    case 'RESET_DATABASE':
+        return INITIAL_STATE;
     default:
       return state;
   }
@@ -224,6 +282,47 @@ const reducer = (state: AppState, action: Action): AppState => {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
+
+  // Load Data on Mount
+  useEffect(() => {
+    const fetchData = async () => {
+        const data = await loadAllData();
+        
+        // 1. Check if ANY data exists (Users is a good proxy)
+        if(!data.users || data.users.length === 0) {
+            console.log("Empty DB detected, seeding initial data...");
+            await seedDatabase(INITIAL_STATE);
+            dispatch({ type: 'LOAD_DATA', payload: INITIAL_STATE });
+        } else {
+            // 2. Data Repair Logic:
+            // Sometimes only users exist but system classes/subjects/notices are missing due to partial loads/errors
+            const missingSubjects = !data.availableSubjects || data.availableSubjects.length === 0;
+            const missingClasses = !data.systemClasses || data.systemClasses.length === 0;
+            const missingNotices = !data.notices || data.notices.length === 0;
+
+            if (missingSubjects) {
+                console.log("Repaired: Missing Subjects");
+                await seedCollection('subjects', INITIAL_STATE.availableSubjects);
+                data.availableSubjects = INITIAL_STATE.availableSubjects;
+            }
+            
+            if (missingClasses) {
+                 console.log("Repaired: Missing Classes");
+                 await seedCollection('classes', INITIAL_STATE.systemClasses);
+                 data.systemClasses = INITIAL_STATE.systemClasses;
+            }
+
+            if (missingNotices) {
+                console.log("Repaired: Missing Notices");
+                await seedCollection('notices', INITIAL_STATE.notices);
+                data.notices = INITIAL_STATE.notices;
+            }
+
+            dispatch({ type: 'LOAD_DATA', payload: data });
+        }
+    };
+    fetchData();
+  }, []);
 
   return React.createElement(
     AppContext.Provider,

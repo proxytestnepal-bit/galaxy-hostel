@@ -1,8 +1,6 @@
-
-
 import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
-import { CheckCircle, AlertCircle, FileText, Send, Crown } from 'lucide-react';
+import { CheckCircle, AlertCircle, FileText, Send, Crown, Bell } from 'lucide-react';
 import { ScoreData } from '../../types';
 
 interface Props {
@@ -199,14 +197,16 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
 
                   // Calculate totals
                   const leaderboard = classReports.map(r => {
-                      const totalObtained = Object.values(r.scores).reduce((acc: number, curr: unknown) => acc + (curr as ScoreData).obtained, 0);
-                      const totalFull = Object.values(r.scores).reduce((acc: number, curr: unknown) => acc + (curr as ScoreData).fullMarks, 0);
+                      const scores = Object.values(r.scores) as ScoreData[];
+                      const totalObtained = scores.reduce((acc: number, curr: ScoreData) => acc + (curr.obtained || 0), 0);
+                      const totalFull = scores.reduce((acc: number, curr: ScoreData) => acc + (curr.fullMarks || 0), 0);
+                      
                       return {
                           studentId: r.studentId,
                           studentName: state.users.find(u => u.id === r.studentId)?.name,
                           totalObtained,
                           totalFull,
-                          percentage: (totalObtained / totalFull) * 100
+                          percentage: totalFull > 0 ? (totalObtained / totalFull) * 100 : 0
                       };
                   }).sort((a, b) => b.percentage - a.percentage);
 
@@ -283,6 +283,34 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
                       </tbody>
                   </table>
               </div>
+          </div>
+      )
+  }
+
+  if (activeTab === 'notices') {
+      const relevantNotices = state.notices.filter(n => n.audience === 'all' || n.audience === 'students');
+      
+      return (
+          <div className="space-y-6">
+               <h3 className="font-bold text-xl mb-4 flex items-center gap-2">
+                   <Bell className="text-galaxy-600" /> School Notices
+               </h3>
+               {relevantNotices.length === 0 ? (
+                   <div className="p-8 text-center text-gray-500 bg-white rounded-lg border">No new notices.</div>
+               ) : (
+                   relevantNotices.map(n => (
+                      <div key={n.id} className="bg-white border-l-4 border-galaxy-500 p-6 rounded-r-lg shadow-sm">
+                          <div className="flex justify-between items-start">
+                              <h4 className="font-bold text-lg text-galaxy-900">{n.title}</h4>
+                              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">{n.date}</span>
+                          </div>
+                          <p className="mt-3 text-gray-700 leading-relaxed">{n.content}</p>
+                          <div className="mt-4 flex items-center gap-2 text-xs text-gray-400">
+                              <span className="font-medium">Posted By:</span> {n.postedBy}
+                          </div>
+                      </div>
+                  ))
+               )}
           </div>
       )
   }

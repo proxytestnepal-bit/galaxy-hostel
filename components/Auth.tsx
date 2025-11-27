@@ -1,9 +1,10 @@
 
-
 import React, { useState } from 'react';
 import { useAppStore } from '../services/store';
 import { User, Role } from '../types';
 import { Shield, BookOpen, Calculator, UserCheck, Lock, Mail, User as UserIcon, TestTube, Check } from 'lucide-react';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../services/firebase';
 
 const Auth: React.FC = () => {
   const { state, dispatch } = useAppStore();
@@ -17,62 +18,104 @@ const Auth: React.FC = () => {
   // Register State
   const [regForm, setRegForm] = useState<Partial<User>>({
     name: '', email: '', role: 'student', phone: '', address: '',
-    classId: '', section: '', annualFee: 0, discount: 0, subjects: []
+    classId: '', section: '', annualFee: 0, discount: 0, subjects: [], password: ''
   });
   const [regSuccess, setRegSuccess] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     
-    // Find user in mock data
-    const user = state.users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    
-    if (user) {
-        if (user.password !== password) {
-            setError('Invalid credentials');
-            return;
+    try {
+        // 1. Attempt Firebase Auth Login
+        await signInWithEmailAndPassword(auth, email, password);
+        
+        // 2. If successful, find the user profile in our loaded state
+        // Note: In a real app, you might fetch this specific user doc here if not loaded.
+        const user = state.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+        
+        if (user) {
+            if (user.status !== 'active' && user.role !== 'developer') {
+                setError('Your account is pending approval by an administrator.');
+                return;
+            }
+            dispatch({ type: 'LOGIN', payload: user });
+        } else {
+            // Edge case: Auth exists but Firestore profile missing/not loaded
+            setError('User profile not found in database.');
         }
-        if (user.status !== 'active') {
-            setError('Your account is pending approval by an administrator.');
-            return;
+
+    } catch (firebaseError: any) {
+        console.log("Firebase auth failed, trying mock fallback...", firebaseError.code);
+        
+        // 3. Fallback for Pre-seeded Demo Users (who don't exist in Firebase Auth)
+        const user = state.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+        
+        if (user && user.password === password) {
+            if (user.status !== 'active') {
+                setError('Your account is pending approval by an administrator.');
+                return;
+            }
+            dispatch({ type: 'LOGIN', payload: user });
+        } else {
+            setError(firebaseError.code === 'auth/invalid-credential' ? 'Invalid credentials' : 'Login failed: ' + firebaseError.message);
         }
-        dispatch({ type: 'LOGIN', payload: user });
-    } else {
-        setError('User not found');
     }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+
+    if (!regForm.password || regForm.password.length < 6) {
+        setError('Password must be at least 6 characters long.');
+        return;
+    }
     
     // Developer role logic kept in backend logic for extensibility
     const isDev = regForm.role === 'developer';
 
-    const newUser: User = {
-        id: `u${Date.now()}`,
-        name: regForm.name || '',
-        email: regForm.email || '',
-        role: regForm.role as Role,
-        password: 'password', // Default password for demo
-        status: isDev ? 'active' : 'pending',
-        phone: regForm.phone,
-        address: regForm.address,
-        classId: regForm.role === 'student' ? regForm.classId : undefined,
-        section: regForm.role === 'student' ? regForm.section : undefined,
-        annualFee: 0, 
-        discount: 0,
-        totalPaid: 0,
-        subjects: regForm.role === 'teacher' ? regForm.subjects : undefined
-    };
+    try {
+        // 1. Create User in Firebase Auth
+        const userCredential = await createUserWithEmailAndPassword(auth, regForm.email!, regForm.password);
+        const uid = userCredential.user.uid;
 
-    dispatch({ type: 'ADD_USER', payload: newUser });
-    setRegSuccess(isDev ? 'Developer Account Created! Please Login.' : 'Registration submitted. Please wait for approval.');
-    setRegForm({ name: '', email: '', role: 'student', phone: '', address: '', classId: '', section: '', annualFee: 0, discount: 0, subjects: [] });
-    setTimeout(() => {
-        setRegSuccess('');
-        setIsLogin(true);
-    }, 3000);
+        // 2. Create User Profile in Firestore
+        const newUser: User = {
+            id: uid, // Use the Firebase Auth UID
+            name: regForm.name || '',
+            email: regForm.email || '',
+            role: regForm.role as Role,
+            password: 'password', // Store dummy in DB, actual auth handled by Firebase
+            status: isDev ? 'active' : 'pending',
+            phone: regForm.phone,
+            address: regForm.address,
+            annualFee: 0, 
+            discount: 0,
+            totalPaid: 0,
+            // Use conditional spread to avoid undefined values
+            ...(regForm.role === 'student' && regForm.classId ? { classId: regForm.classId } : {}),
+            ...(regForm.role === 'student' && regForm.section ? { section: regForm.section } : {}),
+            ...(regForm.role === 'teacher' && regForm.subjects ? { subjects: regForm.subjects } : {})
+        };
+
+        dispatch({ type: 'ADD_USER', payload: newUser });
+        setRegSuccess(isDev ? 'Developer Account Created! Please Login.' : 'Registration submitted. Please wait for approval.');
+        setRegForm({ name: '', email: '', role: 'student', phone: '', address: '', classId: '', section: '', annualFee: 0, discount: 0, subjects: [], password: '' });
+        
+        setTimeout(() => {
+            setRegSuccess('');
+            setIsLogin(true);
+        }, 3000);
+
+    } catch (err: any) {
+        console.error("Registration Error:", err);
+        if (err.code === 'auth/email-already-in-use') {
+            setError('This email is already registered.');
+        } else {
+            setError(err.message || 'Registration failed.');
+        }
+    }
   };
 
   const toggleSubject = (subjectName: string) => {
@@ -152,7 +195,7 @@ const Auth: React.FC = () => {
                         </div>
                     </div>
                     <div className="text-right">
-                        <span className="text-xs text-gray-400">(Default password: password)</span>
+                        <span className="text-xs text-gray-400">(Default password for demo: password)</span>
                     </div>
                     <button type="submit" className="w-full bg-galaxy-900 text-white py-3 rounded-lg hover:bg-galaxy-800 font-bold shadow-lg transform transition active:scale-95">
                         Login to Portal
@@ -233,15 +276,27 @@ const Auth: React.FC = () => {
                                 onChange={e => setRegForm({...regForm, phone: e.target.value})}
                             />
                         </div>
-                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Address</label>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Set Password</label>
                             <input 
-                                type="text"
+                                type="password" required
                                 className="w-full border p-2 rounded mt-1"
-                                value={regForm.address}
-                                onChange={e => setRegForm({...regForm, address: e.target.value})}
+                                value={regForm.password}
+                                onChange={e => setRegForm({...regForm, password: e.target.value})}
+                                minLength={6}
+                                placeholder="Min 6 chars"
                             />
                         </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700">Address</label>
+                        <input 
+                            type="text"
+                            className="w-full border p-2 rounded mt-1"
+                            value={regForm.address}
+                            onChange={e => setRegForm({...regForm, address: e.target.value})}
+                        />
                     </div>
 
                      {/* Student Specific Fields */}
