@@ -191,6 +191,93 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
       setSelectedInvoiceId('');
   };
 
+  const handlePrint = () => {
+    if (!showReceipt) return;
+    const student = state.users.find(u => u.id === showReceipt.studentId);
+    
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (printWindow) {
+        const content = `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <title>Receipt #${showReceipt.receiptNumber}</title>
+              <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+              <style>
+                body { font-family: 'Inter', sans-serif; padding: 40px; background: #fff; color: #1f2937; }
+                .container { max-width: 800px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; box-sizing: border-box; }
+                .header { background: #0c4a6e; color: white; padding: 32px; display: flex; justify-content: space-between; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                .logo { background: #fbbf24; color: #0c4a6e; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; border-radius: 8px; margin-right: 16px; }
+                .table { width: 100%; border-collapse: collapse; margin-top: 24px; }
+                .table th { text-align: left; background: #f3f4f6; padding: 12px; font-size: 12px; text-transform: uppercase; color: #6b7280; -webkit-print-color-adjust: exact; print-color-adjust: exact; border-bottom: 1px solid #e5e7eb; }
+                .table td { padding: 12px; border-bottom: 1px solid #e5e7eb; }
+                .footer { background-color: #f9fafb; padding: 16px; text-align: center; font-size: 12px; color: #9ca3af; border-top: 1px solid #e5e7eb; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="header">
+                   <div style="display: flex; align-items: center;">
+                      <div class="logo">G</div>
+                      <div>
+                         <h1 style="margin: 0; font-size: 20px;">Galaxy Hotel</h1>
+                         <p style="margin: 0; opacity: 0.8; font-size: 14px;">& Tourism School</p>
+                      </div>
+                   </div>
+                   <div style="text-align: right;">
+                      <h2 style="margin: 0; font-family: monospace; font-size: 24px;">RECEIPT</h2>
+                      <p style="margin: 0; font-size: 14px;">#${showReceipt.receiptNumber}</p>
+                      <p style="margin: 0; font-size: 14px;">${showReceipt.date}</p>
+                   </div>
+                </div>
+                <div style="padding: 32px;">
+                   <div style="display: flex; justify-content: space-between; margin-bottom: 32px;">
+                      <div>
+                         <div style="font-size: 12px; color: #6b7280; text-transform: uppercase;">Received From</div>
+                         <div style="font-size: 18px; font-weight: bold; margin-top: 4px;">${showReceipt.studentName}</div>
+                         <div style="color: #4b5563; font-size: 14px;">${student?.classId || ''} ${student?.section ? `- ${student.section}` : ''}</div>
+                      </div>
+                      <div style="text-align: right;">
+                         <div style="font-size: 12px; color: #6b7280; text-transform: uppercase;">Payment Method</div>
+                         <div style="font-size: 16px; font-weight: 600; margin-top: 4px;">Cash / Bank Transfer</div>
+                      </div>
+                   </div>
+                   <table class="table">
+                      <thead>
+                         <tr><th>Description</th><th style="text-align: right;">Amount</th></tr>
+                      </thead>
+                      <tbody>
+                         <tr>
+                            <td>${showReceipt.description}</td>
+                            <td style="text-align: right; font-weight: bold;">Rs. ${showReceipt.amount.toLocaleString()}</td>
+                         </tr>
+                      </tbody>
+                   </table>
+                   <div style="margin-top: 40px; display: flex; justify-content: space-between; align-items: flex-end;">
+                      <div style="font-size: 14px; color: #4b5563;">
+                         <div style="color: #dc2626; font-weight: bold;">Remaining Due: Rs. ${showReceipt.remainingDueSnapshot?.toLocaleString() || 'N/A'}</div>
+                      </div>
+                      <div style="text-align: center;">
+                         <div style="border-bottom: 1px solid #9ca3af; width: 200px; margin-bottom: 8px;"></div>
+                         <div style="font-size: 12px; text-transform: uppercase; color: #6b7280;">Authorized Signature</div>
+                      </div>
+                   </div>
+                </div>
+                <div class="footer">
+                  Thank you for your payment. This is a computer generated receipt.
+                </div>
+              </div>
+              <script>window.onload = () => { window.print(); window.close(); }</script>
+            </body>
+          </html>
+        `;
+        printWindow.document.write(content);
+        printWindow.document.close();
+    } else {
+        alert("Please allow popups to print receipt.");
+    }
+  };
+
   // Render Cash Receipt
   const renderReceipt = () => {
       if (!showReceipt) return null;
@@ -246,8 +333,6 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
 
                       <div className="flex justify-between items-end pt-4">
                           <div className="text-sm text-gray-600 space-y-1">
-                              <p>Annual Fee: Rs. {student?.annualFee?.toLocaleString()}</p>
-                              <p>Discount: Rs. {student?.discount?.toLocaleString()}</p>
                               <p className="font-bold text-red-600">Remaining Due: Rs. {showReceipt.remainingDueSnapshot?.toLocaleString()}</p>
                           </div>
                           <div className="text-center">
@@ -260,7 +345,7 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                   {/* Footer */}
                   <div className="bg-gray-50 p-4 border-t flex justify-end gap-3 print:hidden">
                       <button onClick={() => setShowReceipt(null)} className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg">Close</button>
-                      <button onClick={() => window.print()} className="px-4 py-2 bg-galaxy-600 text-white hover:bg-galaxy-700 rounded-lg flex items-center gap-2">
+                      <button onClick={handlePrint} className="px-4 py-2 bg-galaxy-600 text-white hover:bg-galaxy-700 rounded-lg flex items-center gap-2">
                           <Printer size={16} /> Print Receipt
                       </button>
                   </div>
@@ -468,7 +553,7 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                                                   <div className="flex items-center gap-3">
                                                       <span className="font-mono">Rs. {item.amount}</span>
                                                       <button onClick={() => removeFeeItem(idx)} className="text-red-500 hover:text-red-700"><X size={14}/></button>
-                                                  </div>
+                                          </div>
                                               </div>
                                           ))}
                                       </div>
