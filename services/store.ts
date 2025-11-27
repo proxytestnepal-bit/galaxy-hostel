@@ -1,5 +1,3 @@
-
-
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { AppState, User, Assignment, Submission, FeeRecord, ExamReport, Notice, Invoice, ExamSession, Subject, ScoreData, WorkLog } from '../types';
 import { INITIAL_STATE } from './mockData';
@@ -23,6 +21,7 @@ type Action =
   | { type: 'UPDATE_FEE_STATUS'; payload: { id: string; status: FeeRecord['status'] } }
   | { type: 'DELETE_FEE'; payload: string }
   | { type: 'REQUEST_DELETE_FEE'; payload: string }
+  | { type: 'DELETE_FEE'; payload: string }
   | { type: 'ADD_EXAM_SESSION'; payload: ExamSession }
   | { type: 'TOGGLE_EXAM_SESSION_STATUS'; payload: string } // id
   | { type: 'UPDATE_EXAM_MARKS'; payload: { studentId: string; examSessionId: string; sessionName: string; subject: string; scoreData: ScoreData } }
@@ -192,42 +191,68 @@ const reducer = (state: AppState, action: Action): AppState => {
     case 'PUBLISH_CLASS_RESULT': {
         const { examSessionId, sessionName, classId, section, published } = action.payload;
         
-        console.log("Publishing Request:", action.payload);
+        // Normalize inputs
+        const targetClass = classId?.trim();
+        // Treat empty string and undefined the same: means "All Sections"
+        const targetSection = (section && section.trim().length > 0) ? section.trim() : null;
 
-        // Find all student IDs that match class and section
+        // Find matching students
         const studentIds = state.users
-            .filter(u => u.role === 'student' && u.classId === classId && (!section || u.section === section))
+            .filter(u => {
+                const isStudent = u.role === 'student';
+                const matchClass = u.classId?.trim() === targetClass;
+                // If targetSection exists, user section must match. If targetSection is null, ignore section.
+                const matchSection = targetSection ? u.section?.trim() === targetSection : true;
+                return isStudent && matchClass && matchSection;
+            })
             .map(u => u.id);
 
-        console.log("Target Student IDs:", studentIds);
-
         if (studentIds.length === 0) {
-            console.log("No students found for this class/section");
+            console.warn("Publish failed: No students found in class", targetClass);
             return state;
         }
 
         let hasChanges = false;
         const updatedReports = state.examReports.map(report => {
-            const isStudentMatch = studentIds.includes(report.studentId);
-            // Match session by ID OR by Name (Term) to ensure legacy/migrated data is caught
-            const isSessionMatch = (report.examSessionId && report.examSessionId === examSessionId) || report.term === sessionName;
+            // Only affect reports for students in this class
+            if (!studentIds.includes(report.studentId)) return report;
 
-            if (isStudentMatch && isSessionMatch) {
-                if (report.published !== !!published) {
+            // Check if report belongs to the session
+            // We match by ID or Name to handle legacy data
+            const reportTerm = report.term?.trim();
+            const reportSessionId = report.examSessionId;
+            const targetSessionName = sessionName?.trim();
+
+            const isIdMatch = reportSessionId === examSessionId;
+            const isNameMatch = reportTerm && targetSessionName && reportTerm === targetSessionName;
+
+            if (isIdMatch || isNameMatch) {
+                // Determine current status (handling string/boolean legacy data)
+                const currentPublished = report.published === true || String(report.published) === 'true';
+                
+                // Determine if update is needed
+                // 1. Status change?
+                // 2. ID Repair needed? (Old reports might lack examSessionId)
+                if (currentPublished !== published || report.examSessionId !== examSessionId) {
                     hasChanges = true;
-                    console.log(`Updating report ${report.id} for student ${report.studentId} to published=${published}`);
-                    const updated = { ...report, published: !!published };
+                    const updated = {
+                        ...report,
+                        published: published,
+                        examSessionId: examSessionId // Self-heal: ensure ID is linked
+                    };
+                    // Trigger DB save immediately for this record
                     dbActions.updateReport(updated);
                     return updated;
                 }
             }
             return report;
         });
-        
+
         if (!hasChanges) {
-            console.log("No reports needed updating.");
-            return state;
+             console.log("No reports required updates (State already matches).");
+             return state;
         }
+
         return { ...state, examReports: updatedReports };
     }
     case 'ADD_NOTICE':
@@ -295,25 +320,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             dispatch({ type: 'LOAD_DATA', payload: INITIAL_STATE });
         } else {
             // 2. Data Repair Logic:
-            // Sometimes only users exist but system classes/subjects/notices are missing due to partial loads/errors
             const missingSubjects = !data.availableSubjects || data.availableSubjects.length === 0;
             const missingClasses = !data.systemClasses || data.systemClasses.length === 0;
             const missingNotices = !data.notices || data.notices.length === 0;
 
             if (missingSubjects) {
-                console.log("Repaired: Missing Subjects");
                 await seedCollection('subjects', INITIAL_STATE.availableSubjects);
                 data.availableSubjects = INITIAL_STATE.availableSubjects;
             }
             
             if (missingClasses) {
-                 console.log("Repaired: Missing Classes");
                  await seedCollection('classes', INITIAL_STATE.systemClasses);
                  data.systemClasses = INITIAL_STATE.systemClasses;
             }
 
             if (missingNotices) {
-                console.log("Repaired: Missing Notices");
                 await seedCollection('notices', INITIAL_STATE.notices);
                 data.notices = INITIAL_STATE.notices;
             }

@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
 import { Role, User, ExamType, SubjectType } from '../../types';
@@ -190,19 +188,19 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
           alert("No marks found for this session in the selected class. Teachers must enter marks before you can publish results.");
           return;
       }
-      if(window.confirm(`${published ? 'Publish' : 'Unpublish'} results for ${publishClassId} ${publishSection ? publishSection : ''}? This will update ${reportCount} student reports.`)) {
-          dispatch({
-              type: 'PUBLISH_CLASS_RESULT',
-              payload: { 
-                  examSessionId: session.id,
-                  sessionName: session.name, 
-                  classId: publishClassId, 
-                  section: publishSection || undefined, 
-                  published 
-              }
-          });
-          // alert(`Request processed. Check console for details.`);
-      }
+      
+      // Dispatch immediately. Logic for string vs boolean and db updates is handled in store.
+      // Passing undefined for section if it's an empty string to match Store logic
+      dispatch({
+          type: 'PUBLISH_CLASS_RESULT',
+          payload: { 
+              examSessionId: session.id,
+              sessionName: session.name, 
+              classId: publishClassId, 
+              section: publishSection === '' ? undefined : publishSection, 
+              published 
+          }
+      });
   }
 
   const selectedClassData = state.systemClasses.find(c => c.name === reviewData.classId);
@@ -729,22 +727,24 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in">
                         {state.examSessions.map(session => {
                             // Logic to determine status
-                            // Matches matching logic in store: ID OR Name
+                            // Matches matching logic in store: ID OR Name (Trimmed)
                             const reportsForSession = state.examReports.filter(r => 
-                                (r.examSessionId && r.examSessionId === session.id) || r.term === session.name
+                                (r.examSessionId && r.examSessionId === session.id) || 
+                                r.term?.trim() === session.name?.trim()
                             );
                             
-                            // Get IDs of target students
+                            // Get IDs of target students (Trimmed)
                             const studentsInClass = state.users.filter(u => 
                                 u.role === 'student' && 
-                                u.classId === publishClassId && 
-                                (!publishSection || u.section === publishSection)
+                                u.classId?.trim() === publishClassId?.trim() && 
+                                (!publishSection || u.section?.trim() === publishSection.trim())
                             );
                             
                             // Filter reports belonging to these students
                             const reportsForClass = reportsForSession.filter(r => studentsInClass.some(s => s.id === r.studentId));
                             
-                            const publishedCount = reportsForClass.filter(r => r.published).length;
+                            // Robust check for published (boolean or string 'true')
+                            const publishedCount = reportsForClass.filter(r => r.published === true || String(r.published) === 'true').length;
                             const totalReports = reportsForClass.length;
                             
                             const isFullyPublished = totalReports > 0 && publishedCount === totalReports;

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
 import { CheckCircle, AlertCircle, FileText, Send, Crown, Bell } from 'lucide-react';
@@ -121,7 +122,11 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
   }
 
   if (activeTab === 'reports') {
-      const myReports = state.examReports.filter(r => r.studentId === currentUser?.id && r.published);
+      // Robust check for published status: checks strictly boolean true OR string "true"
+      const myReports = state.examReports.filter(r => 
+        r.studentId === currentUser?.id && 
+        (r.published === true || String(r.published) === 'true')
+      );
 
       return (
           <div>
@@ -162,9 +167,11 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
                                           })}
                                       </tbody>
                                   </table>
-                                  <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100 text-sm text-yellow-800">
-                                      <strong>Remarks:</strong> {report.remarks}
-                                  </div>
+                                  {report.remarks && (
+                                    <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100 text-sm text-yellow-800">
+                                        <strong>Remarks:</strong> {report.remarks}
+                                    </div>
+                                  )}
                               </div>
                           </div>
                       ))}
@@ -179,7 +186,7 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
       // Find all published reports for my class's sessions
       // Filter sessions that have at least one report for me
       const mySessions = state.examReports
-          .filter(r => r.studentId === currentUser?.id && r.published)
+          .filter(r => r.studentId === currentUser?.id && (r.published === true || String(r.published) === 'true'))
           .map(r => r.term);
       const uniqueSessions = [...new Set(mySessions)];
 
@@ -191,7 +198,7 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
                   // Get reports for all students in my class for this session
                   const classReports = state.examReports.filter(r => 
                       r.term === sessionName && 
-                      r.published && 
+                      (r.published === true || String(r.published) === 'true') && 
                       state.users.find(u => u.id === r.studentId)?.classId === currentUser?.classId
                   );
 
