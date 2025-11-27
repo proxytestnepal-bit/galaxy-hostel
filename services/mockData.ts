@@ -48,7 +48,7 @@ export const INITIAL_USERS: User[] = [
     discount: 20000, // Scholarship
     totalPaid: 0
   },
-  { id: 'u8', name: 'Dheejan Developer', role: 'developer', email: 'dheejan@gmail.com', password: 'password', status: 'active' },
+  { id: 'u8', name: 'Gita Singh', role: 'developer', email: 'dheejan@gmail.com', password: 'password', status: 'active' },
   { id: 'u9', name: 'Hari Shrestha', role: 'intern', email: 'hari@galaxy.edu.np', password: 'password', status: 'active' },
 ];
 

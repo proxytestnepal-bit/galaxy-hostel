@@ -199,8 +199,8 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
 
                   // Calculate totals
                   const leaderboard = classReports.map(r => {
-                      const totalObtained = Object.values(r.scores).reduce((acc, curr) => acc + (curr as ScoreData).obtained, 0);
-                      const totalFull = Object.values(r.scores).reduce((acc, curr) => acc + (curr as ScoreData).fullMarks, 0);
+                      const totalObtained = Object.values(r.scores).reduce((acc: number, curr: unknown) => acc + (curr as ScoreData).obtained, 0);
+                      const totalFull = Object.values(r.scores).reduce((acc: number, curr: unknown) => acc + (curr as ScoreData).fullMarks, 0);
                       return {
                           studentId: r.studentId,
                           studentName: state.users.find(u => u.id === r.studentId)?.name,
