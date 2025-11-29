@@ -591,12 +591,35 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
 
   if (activeTab === 'approvals') {
        const pendingFees = state.fees.filter(f => f.status === 'pending_delete' || f.status === 'pending_edit');
+       const pendingInvoices = state.invoices.filter(i => i.status === 'pending_delete');
        
        return (
           <div>
               <h3 className="text-xl font-bold mb-4">Financial Approvals</h3>
-              {pendingFees.length === 0 ? <p className="text-gray-500">No pending financial requests.</p> : (
+              {pendingFees.length === 0 && pendingInvoices.length === 0 ? <p className="text-gray-500">No pending financial requests.</p> : (
                   <div className="space-y-4">
+                      {pendingInvoices.map(inv => (
+                          <div key={inv.id} className="border border-orange-200 bg-orange-50 p-4 rounded-lg flex justify-between items-center">
+                              <div>
+                                  <p className="font-bold text-orange-900">Request: Delete Invoice</p>
+                                  <p className="text-sm">{inv.title} - {inv.studentName} - Rs. {inv.amount}</p>
+                              </div>
+                              <div className="flex gap-2">
+                                  <button 
+                                    onClick={() => dispatch({ type: 'UPDATE_INVOICE_STATUS', payload: { id: inv.id, status: 'unpaid' } })} 
+                                    className="bg-white border hover:bg-gray-100 text-gray-700 px-3 py-1 rounded"
+                                  >
+                                      Reject
+                                  </button>
+                                  <button 
+                                    onClick={() => dispatch({ type: 'DELETE_INVOICE', payload: inv.id })}
+                                    className="bg-orange-600 text-white px-3 py-1 rounded hover:bg-orange-700"
+                                  >
+                                      Approve
+                                  </button>
+                              </div>
+                          </div>
+                      ))}
                       {pendingFees.map(fee => (
                           <div key={fee.id} className="border border-red-200 bg-red-50 p-4 rounded-lg flex justify-between items-center">
                               <div>

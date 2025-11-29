@@ -70,7 +70,7 @@ export interface Invoice {
   feeBreakdown?: InvoiceItem[]; // Details (Viva, Tour, etc.)
   dueDate: string;
   issuedAt: string;
-  status: 'unpaid' | 'paid' | 'partial';
+  status: 'unpaid' | 'paid' | 'partial' | 'pending_delete';
 }
 
 export interface FeeRecord {

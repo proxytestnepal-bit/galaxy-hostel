@@ -202,30 +202,32 @@ const Auth: React.FC = () => {
                     </button>
                 </form>
 
-                <div className="mt-8 pt-6 border-t border-gray-100">
-                    <label className="block text-xs font-bold text-red-500 uppercase mb-2 flex items-center gap-1">
-                        <TestTube size={14} /> For Testing Only
-                    </label>
-                    <select
-                        className="w-full text-sm border border-red-200 bg-red-50 text-red-800 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-red-300"
-                        onChange={(e) => {
-                            const selectedEmail = e.target.value;
-                            if(!selectedEmail) return;
-                            const user = state.users.find(u => u.email === selectedEmail);
-                            if(user) dispatch({ type: 'LOGIN', payload: user });
-                        }}
-                        defaultValue=""
-                    >
-                        <option value="" disabled>-- Quick Login As Role --</option>
-                        <option value="admin@galaxy.edu.np">Admin (Super Admin)</option>
-                        <option value="suresh@galaxy.edu.np">Admin (Suresh Pradhan)</option>
-                        <option value="ramesh@galaxy.edu.np">Accountant (Ramesh Adhikari)</option>
-                        <option value="sarita@galaxy.edu.np">Teacher (Sarita Sharma)</option>
-                        <option value="ram@galaxy.edu.np">Student (Ram Kafle)</option>
-                        <option value="hari@galaxy.edu.np">Intern (Hari Shrestha)</option>
-                        <option value="dheejan@gmail.com">Developer</option>
-                    </select>
-                </div>
+                {email === 'opentesting' && (
+                    <div className="mt-8 pt-6 border-t border-gray-100 animate-in fade-in slide-in-from-top-2">
+                        <label className="block text-xs font-bold text-red-500 uppercase mb-2 flex items-center gap-1">
+                            <TestTube size={14} /> For Testing Only
+                        </label>
+                        <select
+                            className="w-full text-sm border border-red-200 bg-red-50 text-red-800 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-red-300"
+                            onChange={(e) => {
+                                const selectedEmail = e.target.value;
+                                if(!selectedEmail) return;
+                                const user = state.users.find(u => u.email === selectedEmail);
+                                if(user) dispatch({ type: 'LOGIN', payload: user });
+                            }}
+                            defaultValue=""
+                        >
+                            <option value="" disabled>-- Quick Login As Role --</option>
+                            <option value="admin@galaxy.edu.np">Admin (Super Admin)</option>
+                            <option value="suresh@galaxy.edu.np">Admin (Suresh Pradhan)</option>
+                            <option value="ramesh@galaxy.edu.np">Accountant (Ramesh Adhikari)</option>
+                            <option value="sarita@galaxy.edu.np">Teacher (Sarita Sharma)</option>
+                            <option value="ram@galaxy.edu.np">Student (Ram Kafle)</option>
+                            <option value="hari@galaxy.edu.np">Intern (Hari Shrestha)</option>
+                            <option value="dheejan@gmail.com">Developer</option>
+                        </select>
+                    </div>
+                )}
                 </>
             ) : (
                 <form onSubmit={handleRegister} className="space-y-3 h-[400px] overflow-y-auto pr-2 custom-scrollbar">

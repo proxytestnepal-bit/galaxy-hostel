@@ -16,6 +16,8 @@ type Action =
   | { type: 'GRADE_SUBMISSION'; payload: { id: string; grade: string; feedback: string } }
   | { type: 'GENERATE_INVOICE'; payload: Invoice }
   | { type: 'BULK_GENERATE_INVOICE'; payload: Invoice[] }
+  | { type: 'REQUEST_DELETE_INVOICE'; payload: string }
+  | { type: 'UPDATE_INVOICE_STATUS'; payload: { id: string; status: Invoice['status'] } }
   | { type: 'DELETE_INVOICE'; payload: string }
   | { type: 'ADD_FEE'; payload: FeeRecord }
   | { type: 'UPDATE_FEE_STATUS'; payload: { id: string; status: FeeRecord['status'] } }
@@ -92,6 +94,18 @@ const reducer = (state: AppState, action: Action): AppState => {
     case 'BULK_GENERATE_INVOICE':
       action.payload.forEach(inv => dbActions.addInvoice(inv));
       return { ...state, invoices: [...action.payload, ...state.invoices] };
+    case 'REQUEST_DELETE_INVOICE': {
+        const updatedInvoices = state.invoices.map(inv => inv.id === action.payload ? { ...inv, status: 'pending_delete' as const } : inv);
+        const inv = updatedInvoices.find(i => i.id === action.payload);
+        if(inv) dbActions.addInvoice(inv);
+        return { ...state, invoices: updatedInvoices };
+    }
+    case 'UPDATE_INVOICE_STATUS': {
+        const updatedInvoices = state.invoices.map(inv => inv.id === action.payload.id ? { ...inv, status: action.payload.status } : inv);
+        const inv = updatedInvoices.find(i => i.id === action.payload.id);
+        if(inv) dbActions.addInvoice(inv);
+        return { ...state, invoices: updatedInvoices };
+    }
     case 'DELETE_INVOICE':
       dbActions.deleteInvoice(action.payload);
       return { ...state, invoices: state.invoices.filter(i => i.id !== action.payload) };

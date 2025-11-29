@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
 import { CheckCircle, AlertCircle, FileText, Send, Crown, Bell } from 'lucide-react';
@@ -258,7 +259,15 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
   }
 
   if (activeTab === 'fees') {
-      const myFees = state.fees.filter(f => f.studentId === currentUser?.id);
+      const myFees = state.fees
+        .filter(f => f.studentId === currentUser?.id)
+        .sort((a, b) => {
+            const dateA = new Date(a.date).getTime();
+            const dateB = new Date(b.date).getTime();
+            if (dateB !== dateA) return dateB - dateA;
+            return b.receiptNumber - a.receiptNumber;
+        });
+
       return (
           <div>
               <h3 className="text-xl font-bold text-galaxy-900 mb-6">Fee History</h3>

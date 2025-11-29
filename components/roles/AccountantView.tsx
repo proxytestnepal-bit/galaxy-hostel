@@ -110,9 +110,15 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
       setFeeBreakdown([]); // Reset
   };
 
-  const handleDeleteInvoice = (id: string) => {
-      if(window.confirm("Are you sure you want to delete this pending invoice?")) {
-          dispatch({ type: 'DELETE_INVOICE', payload: id });
+  const handleDeleteInvoiceRequest = (id: string) => {
+      if(window.confirm("Send request to delete this invoice?")) {
+          dispatch({ type: 'REQUEST_DELETE_INVOICE', payload: id });
+      }
+  }
+
+  const handleDeleteFeeRequest = (id: string) => {
+      if(window.confirm("Send request to delete this payment receipt?")) {
+          dispatch({ type: 'REQUEST_DELETE_FEE', payload: id });
       }
   }
 
@@ -356,11 +362,24 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
 
   if(activeTab === 'approvals') {
        const pendingFees = state.fees.filter(f => f.status === 'pending_delete' || f.status === 'pending_edit');
+       const pendingInvoices = state.invoices.filter(i => i.status === 'pending_delete');
+
        return (
           <div>
               <h3 className="text-xl font-bold mb-4">Pending Approvals</h3>
-              {pendingFees.length === 0 ? <p className="text-gray-500">No pending approvals for fees.</p> : (
+              {pendingFees.length === 0 && pendingInvoices.length === 0 ? <p className="text-gray-500">No pending approvals for fees or invoices.</p> : (
                   <div className="space-y-4">
+                      {pendingInvoices.map(inv => (
+                          <div key={inv.id} className="border border-orange-200 bg-orange-50 p-4 rounded-lg flex justify-between items-center">
+                              <div>
+                                  <p className="font-bold text-orange-900">Request: Delete Invoice</p>
+                                  <p className="text-sm">{inv.title} - {inv.studentName} - Rs. {inv.amount}</p>
+                              </div>
+                              <div className="flex gap-2">
+                                  <button className="bg-white border text-gray-600 px-3 py-1 rounded text-sm cursor-not-allowed">Wait for Admin</button>
+                              </div>
+                          </div>
+                      ))}
                       {pendingFees.map(fee => (
                           <div key={fee.id} className="border border-red-200 bg-red-50 p-4 rounded-lg flex justify-between items-center">
                               <div>
@@ -380,7 +399,14 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
 
   if(activeTab === 'ledger' || activeTab === 'fees' || activeTab === 'finance_overview') {
       const studentInvoices = state.invoices.filter(i => i.studentId === selectedStudentId);
-      const studentFees = state.fees.filter(f => f.studentId === selectedStudentId);
+      const studentFees = state.fees
+          .filter(f => f.studentId === selectedStudentId)
+          .sort((a, b) => {
+              const dateA = new Date(a.date).getTime();
+              const dateB = new Date(b.date).getTime();
+              if (dateB !== dateA) return dateB - dateA;
+              return b.receiptNumber - a.receiptNumber;
+          });
       
       const annualFee = selectedStudent?.annualFee || 0;
       const discount = selectedStudent?.discount || 0;
@@ -608,29 +634,34 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                                                       Includes: {inv.feeBreakdown.map(i => i.description).join(', ')}
                                                   </div>
                                               )}
+                                              {inv.status === 'pending_delete' && <span className="text-xs bg-red-100 text-red-600 px-1 rounded">Deletion Requested</span>}
                                           </div>
                                           <div className="flex items-center gap-4">
                                               <span className="font-bold">Rs. {inv.amount.toLocaleString()}</span>
-                                              <div className="flex gap-2">
-                                                  <button 
-                                                    onClick={() => handleDeleteInvoice(inv.id)}
-                                                    className="text-gray-400 hover:text-red-500 transition-colors p-1"
-                                                    title="Delete Invoice"
-                                                  >
-                                                      <Trash2 size={16} />
-                                                  </button>
-                                                  <button 
-                                                    onClick={() => {
-                                                        setPaymentAmount(inv.amount.toString());
-                                                        setPaymentDesc(`Payment for ${inv.title}`);
-                                                        setSelectedInvoiceId(inv.id);
-                                                        setShowPaymentModal(true);
-                                                    }}
-                                                    className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
-                                                  >
-                                                      Pay
-                                                  </button>
-                                              </div>
+                                              {inv.status === 'unpaid' ? (
+                                                  <div className="flex gap-2">
+                                                      <button 
+                                                        onClick={() => handleDeleteInvoiceRequest(inv.id)}
+                                                        className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                                                        title="Request Delete Invoice"
+                                                      >
+                                                          <Trash2 size={16} />
+                                                      </button>
+                                                      <button 
+                                                        onClick={() => {
+                                                            setPaymentAmount(inv.amount.toString());
+                                                            setPaymentDesc(`Payment for ${inv.title}`);
+                                                            setSelectedInvoiceId(inv.id);
+                                                            setShowPaymentModal(true);
+                                                        }}
+                                                        className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
+                                                      >
+                                                          Pay
+                                                      </button>
+                                                  </div>
+                                              ) : (
+                                                  <div className="text-xs text-gray-400 italic">Processing</div>
+                                              )}
                                           </div>
                                       </div>
                                   ))}
@@ -676,9 +707,18 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                                               <td className="p-3 font-mono">{fee.receiptNumber}</td>
                                               <td className="p-3 text-right font-bold">Rs. {fee.amount.toLocaleString()}</td>
                                               <td className="p-3 text-right">
-                                                  <button onClick={() => setShowReceipt(fee)} className="text-galaxy-600 hover:underline flex items-center justify-end gap-1 w-full">
-                                                      <Printer size={14} />
-                                                  </button>
+                                                  <div className="flex justify-end gap-2">
+                                                      <button onClick={() => setShowReceipt(fee)} className="text-galaxy-600 hover:text-galaxy-800" title="Print Receipt">
+                                                          <Printer size={16} />
+                                                      </button>
+                                                      {fee.status !== 'pending_delete' ? (
+                                                          <button onClick={() => handleDeleteFeeRequest(fee.id)} className="text-red-400 hover:text-red-600" title="Request Delete">
+                                                              <Trash2 size={16} />
+                                                          </button>
+                                                      ) : (
+                                                          <span className="text-xs text-red-300 cursor-not-allowed"><Trash2 size={16} /></span>
+                                                      )}
+                                                  </div>
                                               </td>
                                           </tr>
                                       ))}
