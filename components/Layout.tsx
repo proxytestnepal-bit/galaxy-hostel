@@ -28,6 +28,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
 
   const role = currentUser?.role;
   const allowedRoles = currentUser?.allowedRoles || [role];
+  const isDeveloper = currentUser?.role === 'developer' || currentUser?.allowedRoles?.includes('developer');
 
   const handleRoleSwitch = (newRole: Role) => {
       dispatch({ type: 'SWITCH_ACTIVE_ROLE', payload: newRole });
@@ -39,8 +40,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
       if (!currentUser) return;
 
       // Developer Privilege: Instant Access
-      const isDeveloper = currentUser.role === 'developer' || currentUser.allowedRoles?.includes('developer');
-
       if (isDeveloper) {
           const currentRoles = currentUser.allowedRoles || [currentUser.role];
           if (!currentRoles.includes(requestedRole)) {
@@ -134,6 +133,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
   const UserCheck = ({ size }: { size: number }) => (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></svg>
   );
+
+  const availableRolesToRequest: Role[] = isDeveloper 
+      ? ['teacher', 'admin', 'accountant', 'student', 'intern']
+      : ['teacher', 'admin', 'accountant'];
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
@@ -264,19 +267,18 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
               <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm">
                   <h3 className="text-lg font-bold mb-4">Request Additional Role</h3>
                   <p className="text-sm text-gray-600 mb-4">
-                      Need access to another dashboard? Select the role you need. An admin will review your request.
+                      Need access to another dashboard? Select the role you need. 
+                      {isDeveloper ? ' As a developer, you can self-grant roles.' : ' An admin will review your request.'}
                   </p>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Select Role</label>
                   <select 
-                      className="w-full border p-2 rounded mb-4"
+                      className="w-full border p-2 rounded mb-4 capitalize"
                       value={requestedRole}
                       onChange={e => setRequestedRole(e.target.value as Role)}
                   >
-                      <option value="teacher">Teacher</option>
-                      <option value="admin">Admin</option>
-                      <option value="accountant">Accountant</option>
-                      <option value="student">Student</option>
-                      <option value="intern">Intern</option>
+                      {availableRolesToRequest.map(r => (
+                          <option key={r} value={r}>{r}</option>
+                      ))}
                   </select>
                   <div className="flex gap-2">
                       <button 
@@ -289,7 +291,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
                         onClick={handleSubmitRoleRequest}
                         className="flex-1 py-2 bg-galaxy-600 text-white rounded hover:bg-galaxy-700"
                       >
-                          Submit Request
+                          {isDeveloper ? 'Grant Access' : 'Submit Request'}
                       </button>
                   </div>
               </div>
