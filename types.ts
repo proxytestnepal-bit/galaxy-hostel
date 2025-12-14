@@ -16,7 +16,8 @@ export interface Subject {
 export interface User {
   id: string;
   name: string;
-  role: Role;
+  role: Role; // The currently active role (View Mode)
+  allowedRoles: Role[]; // All roles this user is authorized to use
   email: string;
   password?: string; // Simulated for this demo
   status: UserStatus;
@@ -32,6 +33,16 @@ export interface User {
   
   // Teacher specific
   subjects?: string[]; // Subject Names
+}
+
+export interface RoleRequest {
+  id: string;
+  userId: string;
+  userName: string;
+  currentRole: Role;
+  requestedRole: Role;
+  status: 'pending' | 'approved' | 'rejected';
+  requestedAt: string;
 }
 
 export interface Assignment {
@@ -137,6 +148,7 @@ export interface WorkLog {
 
 export interface AppState {
   currentUser: User | null;
+  originalUser: User | null; // Tracks the developer when impersonating
   users: User[];
   assignments: Assignment[];
   submissions: Submission[];
@@ -145,6 +157,7 @@ export interface AppState {
   examSessions: ExamSession[];
   examReports: ExamReport[];
   notices: Notice[];
+  roleRequests: RoleRequest[];
   receiptCounter: number;
   availableSubjects: Subject[];
   systemClasses: SystemClass[];

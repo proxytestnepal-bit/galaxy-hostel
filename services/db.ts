@@ -2,7 +2,7 @@
 
 import { db } from './firebase';
 import { collection, doc, setDoc, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
-import { AppState, User, FeeRecord, Invoice, Assignment, Submission, ExamSession, ExamReport, Notice, Subject, SystemClass, WorkLog } from '../types';
+import { AppState, User, FeeRecord, Invoice, Assignment, Submission, ExamSession, ExamReport, Notice, Subject, SystemClass, WorkLog, RoleRequest } from '../types';
 
 // Helper to remove undefined fields which Firestore doesn't support
 const sanitize = (data: any) => {
@@ -39,12 +39,12 @@ export const loadAllData = async (): Promise<Partial<AppState>> => {
         const [
             users, assignments, submissions, invoices, fees, 
             examSessions, examReports, notices, availableSubjects, 
-            systemClasses, workLogs
+            systemClasses, workLogs, roleRequests
         ] = await Promise.all([
             loadCol('users'), loadCol('assignments'), loadCol('submissions'),
             loadCol('invoices'), loadCol('fees'), loadCol('examSessions'),
             loadCol('examReports'), loadCol('notices'), loadCol('subjects'),
-            loadCol('classes'), loadCol('workLogs')
+            loadCol('classes'), loadCol('workLogs'), loadCol('roleRequests')
         ]);
 
         return {
@@ -59,6 +59,7 @@ export const loadAllData = async (): Promise<Partial<AppState>> => {
             availableSubjects: availableSubjects as Subject[],
             systemClasses: systemClasses as SystemClass[],
             workLogs: workLogs as WorkLog[],
+            roleRequests: roleRequests as RoleRequest[],
         };
     } catch (error) {
         console.error("Critical: Failed to load database:", error);
@@ -100,6 +101,9 @@ export const dbActions = {
     deleteClass: (name: string) => deleteCollectionItem('classes', name),
     
     addWorkLog: (w: WorkLog) => saveCollectionItem('workLogs', w),
+
+    addRoleRequest: (r: RoleRequest) => saveCollectionItem('roleRequests', r),
+    deleteRoleRequest: (id: string) => deleteCollectionItem('roleRequests', id),
 };
 
 // Helper for Auto-Repair
@@ -135,6 +139,8 @@ export const seedDatabase = async (initialState: AppState) => {
     addToBatch('examReports', initialState.examReports);
     addToBatch('notices', initialState.notices);
     addToBatch('workLogs', initialState.workLogs);
+    // Role Requests start empty usually, but if mock data had them:
+    addToBatch('roleRequests', initialState.roleRequests);
 
     await batch.commit();
     console.log("Database Seeded Successfully");
@@ -144,7 +150,7 @@ export const resetDatabase = async () => {
     // 1. Load all IDs
     // 2. Batch delete
     // This is expensive but necessary for a HARD reset tool
-    const cols = ['users', 'subjects', 'classes', 'assignments', 'submissions', 'invoices', 'fees', 'examSessions', 'examReports', 'notices', 'workLogs'];
+    const cols = ['users', 'subjects', 'classes', 'assignments', 'submissions', 'invoices', 'fees', 'examSessions', 'examReports', 'notices', 'workLogs', 'roleRequests'];
     
     for (const colName of cols) {
         const snapshot = await getDocs(collection(db, colName));

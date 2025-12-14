@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { useAppStore } from '../services/store';
 import { User, Role } from '../types';
@@ -86,6 +87,7 @@ const Auth: React.FC = () => {
             name: regForm.name || '',
             email: regForm.email || '',
             role: regForm.role as Role,
+            allowedRoles: [regForm.role as Role],
             password: 'password', // Store dummy in DB, actual auth handled by Firebase
             status: isDev ? 'active' : 'pending',
             phone: regForm.phone,

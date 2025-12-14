@@ -3,29 +3,38 @@
 import { AppState, User, Subject } from '../types';
 
 const INITIAL_SUBJECTS: Subject[] = [
+  { name: 'Account', type: 'Theory' },
+  { name: 'English', type: 'Theory' },
+  { name: 'Nepali', type: 'Theory' },
+  { name: 'Social Studies', type: 'Theory' },
+  { name: 'Travel Tourism and Mountaineering', type: 'Theory' },
   { name: 'Hotel Management', type: 'Theory' },
-  { name: 'Culinary Arts', type: 'Practical' },
-  { name: 'Food & Beverage Service', type: 'Practical' },
-  { name: 'Front Office Operations', type: 'Theory' },
-  { name: 'Housekeeping', type: 'Practical' },
-  { name: 'Travel & Tourism', type: 'Theory' },
-  { name: 'Food Science', type: 'Theory' },
-  { name: 'Business Communication', type: 'Theory' },
-  { name: 'Hospitality Marketing', type: 'Theory' },
-  { name: 'Accounting', type: 'Theory' },
-  { name: 'Chemistry', type: 'Theory' }
+  { name: 'Front Office', type: 'Theory' },
+  { name: 'Food and Beverage Service', type: 'Practical' },
+  { name: 'House Keeping', type: 'Practical' },
+  { name: 'Food Production', type: 'Practical' },
+  { name: 'English for Hospitality', type: 'Theory' },
+  { name: 'Personal Development', type: 'Theory' },
+  { name: 'Entrepreneurship', type: 'Theory' },
+  { name: 'Event Management', type: 'Theory' },
+  { name: 'Hospitality Management', type: 'Theory' },
+  { name: 'Food Science and Nutrition', type: 'Theory' },
+  { name: 'French for Hospitality', type: 'Theory' },
+  { name: 'Chemistry', type: 'Theory' },
+  { name: 'Business Communication', type: 'Theory' }
 ];
 
 export const INITIAL_USERS: User[] = [
-  { id: 'u1', name: 'Super Admin', role: 'admin', email: 'admin@galaxy.edu.np', password: 'password', status: 'active' },
-  { id: 'u2', name: 'Suresh Pradhan', role: 'admin', email: 'suresh@galaxy.edu.np', password: 'password', status: 'active' }, // Changed to admin
-  { id: 'u3', name: 'Ramesh Adhikari', role: 'accountant', email: 'ramesh@galaxy.edu.np', password: 'password', status: 'active' },
-  { id: 'u4', name: 'Sarita Sharma', role: 'teacher', email: 'sarita@galaxy.edu.np', password: 'password', status: 'active', subjects: ['Hotel Management', 'Culinary Arts'] },
-  { id: 'u5', name: 'Bishal Gurung', role: 'teacher', email: 'bishal@galaxy.edu.np', password: 'password', status: 'active', subjects: ['Chemistry', 'Food Science'] },
+  { id: 'u1', name: 'Super Admin', role: 'admin', allowedRoles: ['admin', 'teacher', 'accountant'], email: 'admin@galaxy.edu.np', password: 'password', status: 'active' },
+  { id: 'u2', name: 'Suresh Pradhan', role: 'admin', allowedRoles: ['admin'], email: 'suresh@galaxy.edu.np', password: 'password', status: 'active' }, 
+  { id: 'u3', name: 'Ramesh Adhikari', role: 'accountant', allowedRoles: ['accountant'], email: 'ramesh@galaxy.edu.np', password: 'password', status: 'active' },
+  { id: 'u4', name: 'Sarita Sharma', role: 'teacher', allowedRoles: ['teacher'], email: 'sarita@galaxy.edu.np', password: 'password', status: 'active', subjects: ['Hotel Management', 'Food Production'] },
+  { id: 'u5', name: 'Bishal Gurung', role: 'teacher', allowedRoles: ['teacher'], email: 'bishal@galaxy.edu.np', password: 'password', status: 'active', subjects: ['Chemistry', 'Food Science and Nutrition'] },
   { 
     id: 'u6', 
     name: 'Ram Kafle', 
-    role: 'student', 
+    role: 'student',
+    allowedRoles: ['student'],
     email: 'ram@galaxy.edu.np', 
     password: 'password',
     status: 'active',
@@ -39,6 +48,7 @@ export const INITIAL_USERS: User[] = [
     id: 'u7', 
     name: 'Gita Acharya', 
     role: 'student', 
+    allowedRoles: ['student'],
     email: 'gita@galaxy.edu.np', 
     password: 'password',
     status: 'active',
@@ -48,12 +58,13 @@ export const INITIAL_USERS: User[] = [
     discount: 20000, // Scholarship
     totalPaid: 0
   },
-  { id: 'u8', name: 'Gita Singh', role: 'developer', email: 'dheejan@gmail.com', password: 'password', status: 'active' },
-  { id: 'u9', name: 'Hari Shrestha', role: 'intern', email: 'hari@galaxy.edu.np', password: 'password', status: 'active' },
+  { id: 'u8', name: 'Gita Singh', role: 'developer', allowedRoles: ['developer', 'admin'], email: 'dheejan@gmail.com', password: 'password', status: 'active' },
+  { id: 'u9', name: 'Hari Shrestha', role: 'intern', allowedRoles: ['intern'], email: 'hari@galaxy.edu.np', password: 'password', status: 'active' },
 ];
 
 export const INITIAL_STATE: AppState = {
   currentUser: null,
+  originalUser: null,
   users: INITIAL_USERS,
   assignments: [
     {
@@ -137,7 +148,7 @@ export const INITIAL_STATE: AppState = {
       examSessionId: 'es1',
       scores: { 
         'Hotel Management': { obtained: 95, fullMarks: 100, passMarks: 40 }, 
-        'Food Science': { obtained: 98, fullMarks: 100, passMarks: 40 } 
+        'Food Science and Nutrition': { obtained: 98, fullMarks: 100, passMarks: 40 } 
       },
       remarks: 'Excellent performance.',
       published: true,
@@ -153,6 +164,7 @@ export const INITIAL_STATE: AppState = {
       audience: 'all',
     }
   ],
+  roleRequests: [],
   receiptCounter: 1002,
   availableSubjects: INITIAL_SUBJECTS,
   systemClasses: [

@@ -1,11 +1,16 @@
+
+
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { AppState, User, Assignment, Submission, FeeRecord, ExamReport, Notice, Invoice, ExamSession, Subject, ScoreData, WorkLog } from '../types';
+import { AppState, User, Assignment, Submission, FeeRecord, ExamReport, Notice, Invoice, ExamSession, Subject, ScoreData, WorkLog, RoleRequest, Role } from '../types';
 import { INITIAL_STATE } from './mockData';
 import { loadAllData, dbActions, seedDatabase, seedCollection, resetDatabase } from './db';
 
 type Action =
   | { type: 'LOGIN'; payload: User }
   | { type: 'LOGOUT' }
+  | { type: 'SWITCH_ACTIVE_ROLE'; payload: Role }
+  | { type: 'IMPERSONATE_USER'; payload: User }
+  | { type: 'STOP_IMPERSONATION' }
   | { type: 'LOAD_DATA'; payload: Partial<AppState> }
   | { type: 'ADD_USER'; payload: User }
   | { type: 'UPDATE_USER_DETAILS'; payload: Partial<User> & { id: string } }
@@ -38,6 +43,8 @@ type Action =
   | { type: 'ADD_CLASS_SECTION'; payload: { className: string; section: string } }
   | { type: 'DELETE_CLASS_SECTION'; payload: { className: string; section: string } }
   | { type: 'ADD_WORK_LOG'; payload: WorkLog }
+  | { type: 'ADD_ROLE_REQUEST'; payload: RoleRequest }
+  | { type: 'RESOLVE_ROLE_REQUEST'; payload: { id: string; status: 'approved' | 'rejected' } }
   | { type: 'RESET_DATABASE' };
 
 const AppContext = createContext<{
@@ -50,17 +57,42 @@ const reducer = (state: AppState, action: Action): AppState => {
     case 'LOGIN':
       return { ...state, currentUser: action.payload };
     case 'LOGOUT':
-      return { ...state, currentUser: null };
+      return { ...state, currentUser: null, originalUser: null };
+    case 'SWITCH_ACTIVE_ROLE': {
+      if (!state.currentUser) return state;
+      if (!state.currentUser.allowedRoles?.includes(action.payload)) return state;
+      return { ...state, currentUser: { ...state.currentUser, role: action.payload } };
+    }
+    case 'IMPERSONATE_USER':
+      return { ...state, originalUser: state.currentUser, currentUser: action.payload };
+    case 'STOP_IMPERSONATION':
+        return { ...state, currentUser: state.originalUser || state.currentUser, originalUser: null };
     case 'LOAD_DATA':
+        // Migration: Ensure allowedRoles exists on loaded users if data is old
+        if (action.payload.users) {
+            action.payload.users = action.payload.users.map(u => ({
+                ...u,
+                allowedRoles: u.allowedRoles || [u.role]
+            }));
+        }
         return { ...state, ...action.payload };
     case 'ADD_USER':
-      dbActions.addUser(action.payload);
-      return { ...state, users: [...state.users, action.payload] };
+      // Ensure new users have allowedRoles set
+      const newUser = { ...action.payload, allowedRoles: action.payload.allowedRoles || [action.payload.role] };
+      dbActions.addUser(newUser);
+      return { ...state, users: [...state.users, newUser] };
     case 'UPDATE_USER_DETAILS': {
       const updatedUsers = state.users.map(u => u.id === action.payload.id ? { ...u, ...action.payload } : u);
       const user = updatedUsers.find(u => u.id === action.payload.id);
       if(user) dbActions.updateUser(user);
-      return { ...state, users: updatedUsers };
+      
+      // If current user is updated, sync local state
+      let current = state.currentUser;
+      if (current && current.id === action.payload.id) {
+          current = { ...current, ...action.payload };
+      }
+
+      return { ...state, users: updatedUsers, currentUser: current };
     }
     case 'APPROVE_USER': {
       const updatedUsers = state.users.map(u => u.id === action.payload.id ? { ...u, status: 'active' as const, ...action.payload.updates } : u);
@@ -312,6 +344,42 @@ const reducer = (state: AppState, action: Action): AppState => {
     case 'ADD_WORK_LOG':
         dbActions.addWorkLog(action.payload);
         return { ...state, workLogs: [action.payload, ...state.workLogs] };
+    case 'ADD_ROLE_REQUEST':
+        dbActions.addRoleRequest(action.payload);
+        return { ...state, roleRequests: [...state.roleRequests, action.payload] };
+    case 'RESOLVE_ROLE_REQUEST': {
+        const { id, status } = action.payload;
+        // 1. Update the request status
+        const updatedRequests = state.roleRequests.map(r => r.id === id ? { ...r, status } : r);
+        
+        // 2. If approved, update the user's allowedRoles
+        const request = state.roleRequests.find(r => r.id === id);
+        let updatedUsers = state.users;
+        
+        if (request && status === 'approved') {
+            updatedUsers = state.users.map(u => {
+                if (u.id === request.userId) {
+                    const currentRoles = u.allowedRoles || [u.role];
+                    // Add only if not already there
+                    if (!currentRoles.includes(request.requestedRole)) {
+                        const updatedUser = { ...u, allowedRoles: [...currentRoles, request.requestedRole] };
+                        dbActions.updateUser(updatedUser);
+                        // If it's the current user, update session too
+                        if (state.currentUser?.id === u.id) {
+                            state.currentUser.allowedRoles = updatedUser.allowedRoles;
+                        }
+                        return updatedUser;
+                    }
+                }
+                return u;
+            });
+        }
+        
+        // Save request status update to DB (delete or keep history? let's delete for cleanliness in this simple app, or keep as log. Let's delete to keep list small)
+        dbActions.deleteRoleRequest(id);
+        
+        return { ...state, roleRequests: state.roleRequests.filter(r => r.id !== id), users: updatedUsers };
+    }
     case 'RESET_DATABASE':
         return INITIAL_STATE;
     default:

@@ -1,8 +1,10 @@
+
+
 import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
 import { Role, User, ExamType, SubjectType } from '../../types';
 import AccountantView from './AccountantView';
-import { Check, X, Printer, Lock, Unlock, AlertTriangle, RefreshCw, UserCheck, Shield, BookOpen, Edit2, Search, Filter, Eye, Settings, Plus, Trash2, Calendar, Layout, ChevronRight, ChevronDown, UploadCloud, Database } from 'lucide-react';
+import { Check, X, Printer, Lock, Unlock, AlertTriangle, RefreshCw, UserCheck, Shield, BookOpen, Edit2, Search, Filter, Eye, Settings, Plus, Trash2, Calendar, Layout, ChevronRight, ChevronDown, UploadCloud, Database, ScanFace, LogIn, Briefcase, GraduationCap, Calculator, ChevronLeft } from 'lucide-react';
 import { resetDatabase, seedDatabase } from '../../services/db';
 import { INITIAL_STATE } from '../../services/mockData';
 
@@ -21,6 +23,11 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   // Search and Filter State
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<string>('all');
+
+  // Impersonation State
+  const [viewMode, setViewMode] = useState<'roles' | 'users'>('roles');
+  const [selectedRoleForImp, setSelectedRoleForImp] = useState<Role | null>(null);
+  const [impSearch, setImpSearch] = useState('');
 
   // Approval / Edit Modal State
   const [reviewUser, setReviewUser] = useState<User | null>(null);
@@ -64,7 +71,8 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
 
   const openReviewModal = (user: User) => {
       setReviewUser(user);
-      setReviewData({ ...user });
+      // Ensure allowedRoles is populated in the edit form
+      setReviewData({ ...user, allowedRoles: user.allowedRoles || [user.role] });
   };
 
   const confirmApprovalOrEdit = () => {
@@ -84,6 +92,11 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       }
       if (updates.role !== 'teacher') {
           delete updates.subjects;
+      }
+      
+      // Ensure current role is within allowedRoles
+      if (updates.allowedRoles && updates.role && !updates.allowedRoles.includes(updates.role)) {
+          updates.allowedRoles.push(updates.role);
       }
 
       if (reviewUser.status === 'pending') {
@@ -110,6 +123,18 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       }
   };
 
+  const toggleAllowedRoleInReview = (roleName: Role) => {
+      const currentAllowed = reviewData.allowedRoles || [];
+      // Cannot remove the primary role
+      if (roleName === reviewData.role) return;
+
+      if (currentAllowed.includes(roleName)) {
+          setReviewData({ ...reviewData, allowedRoles: currentAllowed.filter(r => r !== roleName) });
+      } else {
+          setReviewData({ ...reviewData, allowedRoles: [...currentAllowed, roleName] });
+      }
+  };
+
   const handleAddSubject = () => {
       if(newSubject.trim()) {
           dispatch({ type: 'ADD_SYSTEM_SUBJECT', payload: { name: newSubject.trim(), type: newSubjectType } });
@@ -129,22 +154,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
           dispatch({ type: 'ADD_CLASS_SECTION', payload: { className, section: newSection.trim() } });
           setNewSection('');
       }
-  }
-
-  const postNotice = (e: React.FormEvent) => {
-      e.preventDefault();
-      dispatch({
-          type: 'ADD_NOTICE',
-          payload: {
-              id: Date.now().toString(),
-              title: noticeForm.title,
-              content: noticeForm.content,
-              audience: noticeForm.audience as 'all' | 'students' | 'teachers',
-              date: new Date().toISOString().split('T')[0],
-              postedBy: state.currentUser?.name || 'Admin'
-          }
-      });
-      setNoticeForm({ title: '', content: '', audience: 'all' });
   }
 
   const handleCreateSession = () => {
@@ -189,8 +198,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
           return;
       }
       
-      // Dispatch immediately. Logic for string vs boolean and db updates is handled in store.
-      // Passing undefined for section if it's an empty string to match Store logic
       dispatch({
           type: 'PUBLISH_CLASS_RESULT',
           payload: { 
@@ -204,6 +211,84 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   }
 
   const selectedClassData = state.systemClasses.find(c => c.name === reviewData.classId);
+
+  // --- IMPERSONATION LOGIC ---
+  if (activeTab === 'impersonate' && role === 'developer') {
+    // ... (Existing impersonation logic)
+    if (viewMode === 'roles') {
+        const roles: { id: Role, label: string, icon: any, color: string }[] = [
+            { id: 'admin', label: 'Admin', icon: Shield, color: 'bg-red-100 text-red-700' },
+            { id: 'teacher', label: 'Teacher', icon: BookOpen, color: 'bg-purple-100 text-purple-700' },
+            { id: 'student', label: 'Student', icon: GraduationCap, color: 'bg-blue-100 text-blue-700' },
+            { id: 'accountant', label: 'Accountant', icon: Calculator, color: 'bg-green-100 text-green-700' },
+            { id: 'intern', label: 'Intern', icon: Briefcase, color: 'bg-teal-100 text-teal-700' },
+        ];
+
+        return (
+            <div className="space-y-6">
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                    <ScanFace className="text-galaxy-600" /> Act As User
+                </h3>
+                <p className="text-gray-500 text-sm">
+                    Select a role to see available users. You can switch to their view without logging out.
+                </p>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+                    {roles.map((r) => (
+                        <button 
+                            key={r.id}
+                            onClick={() => { setSelectedRoleForImp(r.id); setViewMode('users'); setImpSearch(''); }}
+                            className="flex flex-col items-center justify-center p-6 bg-white border rounded-xl shadow-sm hover:shadow-md transition-all hover:-translate-y-1"
+                        >
+                            <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${r.color}`}>
+                                <r.icon size={32} />
+                            </div>
+                            <span className="font-bold text-gray-800">{r.label}</span>
+                        </button>
+                    ))}
+                </div>
+            </div>
+        )
+    }
+    // ... (Same user list logic as before, omitting to save space if no changes needed, but keeping flow consistency)
+    const filteredUsers = state.users.filter(u => {
+        if (u.id === currentUser?.id) return false;
+        const matchesRole = u.role === selectedRoleForImp;
+        const searchLower = impSearch.toLowerCase();
+        const matchesSearch = u.name.toLowerCase().includes(searchLower) || u.email.toLowerCase().includes(searchLower);
+        return matchesRole && matchesSearch;
+    });
+
+    const handleImpersonate = (user: User) => {
+        if(window.confirm(`Switch view to ${user.name}? You can return here later.`)) {
+            dispatch({ type: 'IMPERSONATE_USER', payload: user });
+        }
+    };
+    
+    return (
+        <div className="space-y-6">
+            <div className="flex items-center gap-4 mb-6">
+                <button onClick={() => setViewMode('roles')} className="p-2 rounded-full hover:bg-gray-200 transition-colors"><ChevronLeft size={24} /></button>
+                <div><h3 className="text-xl font-bold">Select User</h3></div>
+            </div>
+            <div className="bg-white p-4 rounded-xl shadow-sm border">
+                <div className="relative">
+                    <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
+                    <input type="text" placeholder={`Search ${selectedRoleForImp}...`} className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none" value={impSearch} onChange={(e) => setImpSearch(e.target.value)} autoFocus />
+                </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredUsers.map(user => (
+                    <div key={user.id} className="bg-white p-4 rounded-xl border hover:shadow-md transition-shadow">
+                        <div className="flex justify-between items-start mb-2">
+                            <div><h4 className="font-bold text-gray-800">{user.name}</h4><p className="text-xs text-gray-500">{user.email}</p></div>
+                        </div>
+                        <button onClick={() => handleImpersonate(user)} className="w-full bg-galaxy-900 text-white py-2 rounded-lg hover:bg-galaxy-700 mt-2 text-sm">Act as {user.name.split(' ')[0]}</button>
+                    </div>
+                ))}
+            </div>
+        </div>
+    )
+  }
 
   // --- Registration / User Management ---
   if (activeTab === 'registration' || activeTab === 'users') {
@@ -252,7 +337,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                   )}
               </div>
 
-              {/* Subject Manager Modal */}
+              {/* Subject Manager Modal (Keep as is) */}
               {showSubjectManager && (
                   <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
                       <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
@@ -262,35 +347,17 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                           </div>
                           <div className="p-6">
                               <div className="flex gap-2 mb-4">
-                                  <input 
-                                      type="text" 
-                                      placeholder="Subject Name" 
-                                      className="flex-1 border p-2 rounded"
-                                      value={newSubject}
-                                      onChange={e => setNewSubject(e.target.value)}
-                                  />
-                                  <select 
-                                    className="border p-2 rounded"
-                                    value={newSubjectType}
-                                    onChange={e => setNewSubjectType(e.target.value as SubjectType)}
-                                  >
-                                      <option value="Theory">Theory</option>
-                                      <option value="Practical">Practical</option>
+                                  <input type="text" placeholder="Subject Name" className="flex-1 border p-2 rounded" value={newSubject} onChange={e => setNewSubject(e.target.value)} />
+                                  <select className="border p-2 rounded" value={newSubjectType} onChange={e => setNewSubjectType(e.target.value as SubjectType)}>
+                                      <option value="Theory">Theory</option><option value="Practical">Practical</option>
                                   </select>
-                                  <button onClick={handleAddSubject} className="bg-green-600 text-white px-3 py-2 rounded">
-                                      <Plus size={18} />
-                                  </button>
+                                  <button onClick={handleAddSubject} className="bg-green-600 text-white px-3 py-2 rounded"><Plus size={18} /></button>
                               </div>
                               <div className="max-h-60 overflow-y-auto space-y-2">
                                   {state.availableSubjects.map(s => (
                                       <div key={s.name} className="flex justify-between items-center p-2 bg-gray-50 rounded border">
                                           <span>{s.name} <span className="text-xs text-gray-400">({s.type})</span></span>
-                                          <button 
-                                              onClick={() => dispatch({ type: 'DELETE_SYSTEM_SUBJECT', payload: s.name })}
-                                              className="text-red-500 hover:text-red-700"
-                                          >
-                                              <Trash2 size={16} />
-                                          </button>
+                                          <button onClick={() => dispatch({ type: 'DELETE_SYSTEM_SUBJECT', payload: s.name })} className="text-red-500 hover:text-red-700"><Trash2 size={16} /></button>
                                       </div>
                                   ))}
                               </div>
@@ -299,7 +366,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                   </div>
               )}
 
-              {/* Class & Section Manager Modal */}
+              {/* Class & Section Manager Modal (Keep as is) */}
               {showClassManager && (
                   <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
                       <div className="bg-white rounded-xl shadow-xl max-w-lg w-full">
@@ -309,59 +376,18 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                           </div>
                           <div className="p-6">
                               <div className="flex gap-2 mb-6">
-                                  <input 
-                                      type="text" 
-                                      placeholder="New Class (e.g. 11)" 
-                                      className="flex-1 border p-2 rounded"
-                                      value={newClass}
-                                      onChange={e => setNewClass(e.target.value)}
-                                  />
-                                  <button onClick={handleAddClass} className="bg-green-600 text-white px-3 py-2 rounded flex items-center gap-1">
-                                      <Plus size={16} /> Add Class
-                                  </button>
+                                  <input type="text" placeholder="New Class (e.g. 11)" className="flex-1 border p-2 rounded" value={newClass} onChange={e => setNewClass(e.target.value)} />
+                                  <button onClick={handleAddClass} className="bg-green-600 text-white px-3 py-2 rounded flex items-center gap-1"><Plus size={16} /> Add Class</button>
                               </div>
-                              
                               <div className="max-h-96 overflow-y-auto space-y-4">
                                   {state.systemClasses.map(c => (
                                       <div key={c.name} className="border rounded-lg overflow-hidden">
-                                          <div className="bg-gray-100 p-3 flex justify-between items-center font-bold">
-                                              <span>{c.name}</span>
-                                              <button 
-                                                  onClick={() => dispatch({ type: 'DELETE_SYSTEM_CLASS', payload: c.name })}
-                                                  className="text-red-500 hover:text-red-700 p-1"
-                                              >
-                                                  <Trash2 size={16} />
-                                              </button>
-                                          </div>
+                                          <div className="bg-gray-100 p-3 flex justify-between items-center font-bold"><span>{c.name}</span><button onClick={() => dispatch({ type: 'DELETE_SYSTEM_CLASS', payload: c.name })} className="text-red-500 hover:text-red-700 p-1"><Trash2 size={16} /></button></div>
                                           <div className="p-3 bg-white">
-                                              <div className="flex flex-wrap gap-2 mb-2">
-                                                  {c.sections.map(sec => (
-                                                      <div key={sec} className="bg-blue-50 text-blue-800 text-xs px-2 py-1 rounded border border-blue-200 flex items-center gap-1">
-                                                          {sec}
-                                                          <button 
-                                                            onClick={() => dispatch({ type: 'DELETE_CLASS_SECTION', payload: { className: c.name, section: sec } })}
-                                                            className="text-red-400 hover:text-red-600"
-                                                          >
-                                                              <X size={12} />
-                                                          </button>
-                                                      </div>
-                                                  ))}
-                                              </div>
-                                              
+                                              <div className="flex flex-wrap gap-2 mb-2">{c.sections.map(sec => (<div key={sec} className="bg-blue-50 text-blue-800 text-xs px-2 py-1 rounded border border-blue-200 flex items-center gap-1">{sec}<button onClick={() => dispatch({ type: 'DELETE_CLASS_SECTION', payload: { className: c.name, section: sec } })} className="text-red-400 hover:text-red-600"><X size={12} /></button></div>))}</div>
                                               <div className="flex gap-2 mt-2">
-                                                  <input 
-                                                      type="text" 
-                                                      placeholder={`Add section to ${c.name}`} 
-                                                      className="flex-1 border p-1 rounded text-sm"
-                                                      value={activeClassForSection === c.name ? newSection : ''}
-                                                      onChange={e => { setActiveClassForSection(c.name); setNewSection(e.target.value); }}
-                                                  />
-                                                  <button 
-                                                    onClick={() => { setActiveClassForSection(c.name); handleAddSection(c.name); }}
-                                                    className="bg-blue-600 text-white px-2 py-1 rounded text-xs"
-                                                  >
-                                                      Add
-                                                  </button>
+                                                  <input type="text" placeholder={`Add section to ${c.name}`} className="flex-1 border p-1 rounded text-sm" value={activeClassForSection === c.name ? newSection : ''} onChange={e => { setActiveClassForSection(c.name); setNewSection(e.target.value); }} />
+                                                  <button onClick={() => { setActiveClassForSection(c.name); handleAddSection(c.name); }} className="bg-blue-600 text-white px-2 py-1 rounded text-xs">Add</button>
                                               </div>
                                           </div>
                                       </div>
@@ -394,7 +420,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                       />
                                   </div>
                                   <div>
-                                      <label className="block text-xs font-bold text-gray-500 uppercase">Role</label>
+                                      <label className="block text-xs font-bold text-gray-500 uppercase">Primary Role</label>
                                       <select 
                                           value={reviewData.role || 'student'}
                                           onChange={e => setReviewData({...reviewData, role: e.target.value as any})}
@@ -416,6 +442,35 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                           className="w-full border p-2 rounded mt-1 outline-none"
                                       />
                                   </div>
+                              </div>
+                              
+                              {/* Multi-Role Assignment Section */}
+                              <div className="bg-gray-50 p-3 rounded-lg border">
+                                  <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Allowed Roles (Access Control)</label>
+                                  <div className="flex flex-wrap gap-2">
+                                      {(['admin', 'teacher', 'accountant', 'student', 'intern'] as Role[]).map(r => {
+                                          const isPrimary = reviewData.role === r;
+                                          const isAllowed = reviewData.allowedRoles?.includes(r) || isPrimary;
+                                          
+                                          return (
+                                              <button
+                                                  key={r}
+                                                  onClick={() => toggleAllowedRoleInReview(r)}
+                                                  className={`px-3 py-1 text-xs rounded-full border transition-all ${
+                                                      isPrimary 
+                                                        ? 'bg-galaxy-800 text-white border-galaxy-800 cursor-not-allowed opacity-80' 
+                                                        : isAllowed 
+                                                            ? 'bg-galaxy-500 text-white border-galaxy-500' 
+                                                            : 'bg-white text-gray-500 border-gray-300'
+                                                  }`}
+                                                  title={isPrimary ? "Primary role cannot be removed" : "Click to toggle access"}
+                                              >
+                                                  {r} {isAllowed && '✓'}
+                                              </button>
+                                          )
+                                      })}
+                                  </div>
+                                  <p className="text-[10px] text-gray-400 mt-1">Users can switch between allowed roles in their dashboard.</p>
                               </div>
 
                               <div className="border-t pt-4">
@@ -461,7 +516,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                                       value={reviewData.annualFee || 0}
                                                       onChange={e => setReviewData({...reviewData, annualFee: Number(e.target.value)})}
                                                       className="w-full border p-2 rounded mt-1"
-                                                      // Accountant can't edit fees here if restricted, but sticking to prompt "Admins approval to remove or edit"
                                                   />
                                               </div>
                                               <div>
@@ -477,7 +531,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                       </div>
                                   )}
 
-                                  {reviewData.role === 'teacher' && (
+                                  {(reviewData.role === 'teacher' || reviewData.allowedRoles?.includes('teacher')) && (
                                       <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
                                           <h4 className="font-bold text-purple-900 mb-2">Teacher Configuration</h4>
                                           <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Assign Subjects</label>
@@ -516,6 +570,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
 
               {/* User Management Section */}
               <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                  {/* ... Existing User Table Header ... */}
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                       <h3 className="text-xl font-bold">Manage Active Users</h3>
                       
@@ -557,13 +612,19 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                               {u.name} <br/> <span className="text-xs text-gray-500 font-normal">{u.email}</span>
                                           </td>
                                           <td className="p-3">
-                                              <span className={`px-2 py-1 rounded text-xs font-bold uppercase
-                                                  ${u.role === 'student' ? 'bg-blue-100 text-blue-700' : 
-                                                    u.role === 'teacher' ? 'bg-purple-100 text-purple-700' : 
-                                                    u.role === 'intern' ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 text-gray-700'}`}
-                                              >
-                                                  {u.role}
-                                              </span>
+                                              <div className="flex flex-wrap gap-1">
+                                                <span className={`px-2 py-1 rounded text-xs font-bold uppercase
+                                                    ${u.role === 'student' ? 'bg-blue-100 text-blue-700' : 
+                                                        u.role === 'teacher' ? 'bg-purple-100 text-purple-700' : 
+                                                        u.role === 'intern' ? 'bg-teal-100 text-teal-700' : 'bg-gray-100 text-gray-700'}`}
+                                                >
+                                                    {u.role}
+                                                </span>
+                                                {/* Show other allowed roles if they exist */}
+                                                {u.allowedRoles && u.allowedRoles.filter(r => r !== u.role).map(r => (
+                                                    <span key={r} className="px-2 py-1 rounded text-xs border border-gray-300 text-gray-500 uppercase">{r[0]}</span>
+                                                ))}
+                                              </div>
                                           </td>
                                           <td className="p-3 text-sm">
                                               {u.role === 'student' && <div>{u.classId} {u.section ? `- ${u.section}` : ''}</div>}
@@ -592,63 +653,107 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   if (activeTab === 'approvals') {
        const pendingFees = state.fees.filter(f => f.status === 'pending_delete' || f.status === 'pending_edit');
        const pendingInvoices = state.invoices.filter(i => i.status === 'pending_delete');
+       const roleRequests = state.roleRequests; // Show all role requests (since we delete them on approval/reject in this simple flow)
        
        return (
-          <div>
-              <h3 className="text-xl font-bold mb-4">Financial Approvals</h3>
-              {pendingFees.length === 0 && pendingInvoices.length === 0 ? <p className="text-gray-500">No pending financial requests.</p> : (
-                  <div className="space-y-4">
-                      {pendingInvoices.map(inv => (
-                          <div key={inv.id} className="border border-orange-200 bg-orange-50 p-4 rounded-lg flex justify-between items-center">
-                              <div>
-                                  <p className="font-bold text-orange-900">Request: Delete Invoice</p>
-                                  <p className="text-sm">{inv.title} - {inv.studentName} - Rs. {inv.amount}</p>
+          <div className="space-y-8">
+              {/* Role Requests Section */}
+              {roleRequests.length > 0 && (
+                  <div>
+                      <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                          <UserCheck className="text-purple-600" /> Role Access Requests
+                      </h3>
+                      <div className="space-y-4">
+                          {roleRequests.map(req => (
+                              <div key={req.id} className="border border-purple-200 bg-purple-50 p-4 rounded-lg flex justify-between items-center shadow-sm">
+                                  <div>
+                                      <p className="font-bold text-purple-900">{req.userName}</p>
+                                      <p className="text-sm text-purple-700">
+                                          Current: <span className="font-bold uppercase">{req.currentRole}</span> 
+                                          <span className="mx-2">→</span> 
+                                          Requesting: <span className="font-bold uppercase text-galaxy-600">{req.requestedRole}</span>
+                                      </p>
+                                      <p className="text-xs text-purple-400 mt-1">Requested: {req.requestedAt}</p>
+                                  </div>
+                                  <div className="flex gap-2">
+                                      <button 
+                                        onClick={() => dispatch({ type: 'RESOLVE_ROLE_REQUEST', payload: { id: req.id, status: 'rejected' } })}
+                                        className="bg-white border hover:bg-gray-100 text-gray-700 px-4 py-2 rounded text-sm font-medium"
+                                      >
+                                          Reject
+                                      </button>
+                                      <button 
+                                        onClick={() => dispatch({ type: 'RESOLVE_ROLE_REQUEST', payload: { id: req.id, status: 'approved' } })}
+                                        className="bg-purple-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-purple-700 shadow-sm"
+                                      >
+                                          Approve Access
+                                      </button>
+                                  </div>
                               </div>
-                              <div className="flex gap-2">
-                                  <button 
-                                    onClick={() => dispatch({ type: 'UPDATE_INVOICE_STATUS', payload: { id: inv.id, status: 'unpaid' } })} 
-                                    className="bg-white border hover:bg-gray-100 text-gray-700 px-3 py-1 rounded"
-                                  >
-                                      Reject
-                                  </button>
-                                  <button 
-                                    onClick={() => dispatch({ type: 'DELETE_INVOICE', payload: inv.id })}
-                                    className="bg-orange-600 text-white px-3 py-1 rounded hover:bg-orange-700"
-                                  >
-                                      Approve
-                                  </button>
-                              </div>
-                          </div>
-                      ))}
-                      {pendingFees.map(fee => (
-                          <div key={fee.id} className="border border-red-200 bg-red-50 p-4 rounded-lg flex justify-between items-center">
-                              <div>
-                                  <p className="font-bold text-red-900">Request: {fee.status === 'pending_delete' ? 'Delete Receipt' : 'Edit Receipt'}</p>
-                                  <p className="text-sm">Receipt #{fee.receiptNumber} - {fee.studentName} - Rs. {fee.amount}</p>
-                              </div>
-                              <div className="flex gap-2">
-                                  <button 
-                                    onClick={() => dispatch({ type: 'UPDATE_FEE_STATUS', payload: { id: fee.id, status: 'paid' } })} 
-                                    className="bg-white border hover:bg-gray-100 text-gray-700 px-3 py-1 rounded"
-                                  >
-                                      Reject
-                                  </button>
-                                  <button 
-                                    onClick={() => dispatch({ type: 'DELETE_FEE', payload: fee.id })}
-                                    className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
-                                  >
-                                      Approve
-                                  </button>
-                              </div>
-                          </div>
-                      ))}
+                          ))}
+                      </div>
                   </div>
               )}
+
+              {/* Financial Approvals */}
+              <div>
+                  <h3 className="text-xl font-bold mb-4">Financial Approvals</h3>
+                  {pendingFees.length === 0 && pendingInvoices.length === 0 && roleRequests.length === 0 ? <p className="text-gray-500">No pending approvals.</p> : (
+                      <div className="space-y-4">
+                          {pendingInvoices.map(inv => (
+                              <div key={inv.id} className="border border-orange-200 bg-orange-50 p-4 rounded-lg flex justify-between items-center">
+                                  <div>
+                                      <p className="font-bold text-orange-900">Request: Delete Invoice</p>
+                                      <p className="text-sm">{inv.title} - {inv.studentName} - Rs. {inv.amount}</p>
+                                  </div>
+                                  <div className="flex gap-2">
+                                      <button 
+                                        onClick={() => dispatch({ type: 'UPDATE_INVOICE_STATUS', payload: { id: inv.id, status: 'unpaid' } })} 
+                                        className="bg-white border hover:bg-gray-100 text-gray-700 px-3 py-1 rounded"
+                                      >
+                                          Reject
+                                      </button>
+                                      <button 
+                                        onClick={() => dispatch({ type: 'DELETE_INVOICE', payload: inv.id })}
+                                        className="bg-orange-600 text-white px-3 py-1 rounded hover:bg-orange-700"
+                                      >
+                                          Approve
+                                      </button>
+                                  </div>
+                              </div>
+                          ))}
+                          {pendingFees.map(fee => (
+                              <div key={fee.id} className="border border-red-200 bg-red-50 p-4 rounded-lg flex justify-between items-center">
+                                  <div>
+                                      <p className="font-bold text-red-900">Request: {fee.status === 'pending_delete' ? 'Delete Receipt' : 'Edit Receipt'}</p>
+                                      <p className="text-sm">Receipt #{fee.receiptNumber} - {fee.studentName} - Rs. {fee.amount}</p>
+                                  </div>
+                                  <div className="flex gap-2">
+                                      <button 
+                                        onClick={() => dispatch({ type: 'UPDATE_FEE_STATUS', payload: { id: fee.id, status: 'paid' } })} 
+                                        className="bg-white border hover:bg-gray-100 text-gray-700 px-3 py-1 rounded"
+                                      >
+                                          Reject
+                                      </button>
+                                      <button 
+                                        onClick={() => dispatch({ type: 'DELETE_FEE', payload: fee.id })}
+                                        className="bg-red-600 text-white px-3 py-1 rounded hover:bg-red-700"
+                                      >
+                                          Approve
+                                      </button>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  )}
+              </div>
           </div>
        )
   }
 
+  // ... (Rest of the file remains same: Exam Management, System Tools, etc.)
   if (activeTab === 'reports' || activeTab === 'exam_management') {
+      // (Content of reports/exam_management block from previous file content, essentially unchanged logic-wise)
       return (
           <div className="space-y-8">
               {/* Exam Sessions Management */}
@@ -749,24 +854,16 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                   {publishClassId && (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in">
                         {state.examSessions.map(session => {
-                            // Logic to determine status
-                            // Matches matching logic in store: ID OR Name (Trimmed)
                             const reportsForSession = state.examReports.filter(r => 
                                 (r.examSessionId && r.examSessionId === session.id) || 
                                 r.term?.trim() === session.name?.trim()
                             );
-                            
-                            // Get IDs of target students (Trimmed)
                             const studentsInClass = state.users.filter(u => 
                                 u.role === 'student' && 
                                 u.classId?.trim() === publishClassId?.trim() && 
                                 (!publishSection || u.section?.trim() === publishSection.trim())
                             );
-                            
-                            // Filter reports belonging to these students
                             const reportsForClass = reportsForSession.filter(r => studentsInClass.some(s => s.id === r.studentId));
-                            
-                            // Robust check for published (boolean or string 'true')
                             const publishedCount = reportsForClass.filter(r => r.published === true || String(r.published) === 'true').length;
                             const totalReports = reportsForClass.length;
                             
@@ -783,24 +880,11 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                         <h4 className="font-bold text-gray-800">{session.name}</h4>
                                         {isFullyPublished ? <Check size={18} className="text-green-600" /> : <UploadCloud size={18} className="text-gray-400"/>}
                                     </div>
-                                    
                                     <div className="text-xs space-y-1 mb-4">
-                                        <p className="flex justify-between">
-                                            <span className="text-gray-500">Students:</span>
-                                            <span className="font-mono">{studentsInClass.length}</span>
-                                        </p>
-                                        <p className="flex justify-between">
-                                            <span className="text-gray-500">Reports Found:</span>
-                                            <span className="font-mono">{totalReports}</span>
-                                        </p>
-                                        <p className="flex justify-between font-bold">
-                                            <span className="text-gray-500">Published:</span>
-                                            <span className={`${isFullyPublished ? 'text-green-600' : isPartiallyPublished ? 'text-yellow-600' : 'text-gray-400'}`}>
-                                                {publishedCount} / {totalReports}
-                                            </span>
-                                        </p>
+                                        <p className="flex justify-between"><span className="text-gray-500">Students:</span><span className="font-mono">{studentsInClass.length}</span></p>
+                                        <p className="flex justify-between"><span className="text-gray-500">Reports Found:</span><span className="font-mono">{totalReports}</span></p>
+                                        <p className="flex justify-between font-bold"><span className="text-gray-500">Published:</span><span className={`${isFullyPublished ? 'text-green-600' : isPartiallyPublished ? 'text-yellow-600' : 'text-gray-400'}`}>{publishedCount} / {totalReports}</span></p>
                                     </div>
-
                                     <button 
                                       onClick={() => handlePublishClassResult(session, !isFullyPublished, totalReports)}
                                       disabled={hasNoReports}
@@ -822,56 +906,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       );
   }
 
-  if (activeTab === 'notices' || activeTab === 'issue_notices') {
-      return (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="md:col-span-2 space-y-4">
-                  <h3 className="font-bold text-lg">Posted Notices</h3>
-                  {state.notices.map(n => (
-                      <div key={n.id} className="border p-4 rounded bg-white">
-                          <div className="flex justify-between">
-                             <h4 className="font-bold">{n.title}</h4>
-                             <span className="text-xs text-gray-500">{n.audience.toUpperCase()}</span>
-                          </div>
-                          <p className="text-gray-700 mt-2">{n.content}</p>
-                          <p className="text-xs text-gray-400 mt-2">{n.date}</p>
-                      </div>
-                  ))}
-              </div>
-              <div>
-                  <div className="bg-white p-6 rounded-xl border shadow-sm sticky top-4">
-                      <h3 className="font-bold text-lg mb-4">Post New Notice</h3>
-                      <form onSubmit={postNotice} className="space-y-4">
-                          <input 
-                            className="w-full border p-2 rounded" 
-                            placeholder="Title" 
-                            value={noticeForm.title} onChange={e => setNoticeForm({...noticeForm, title: e.target.value})}
-                            required
-                          />
-                          <textarea 
-                            className="w-full border p-2 rounded h-32" 
-                            placeholder="Notice content..."
-                            value={noticeForm.content} onChange={e => setNoticeForm({...noticeForm, content: e.target.value})}
-                            required
-                          />
-                          <select 
-                            className="w-full border p-2 rounded"
-                            value={noticeForm.audience} onChange={e => setNoticeForm({...noticeForm, audience: e.target.value})}
-                          >
-                              <option value="all">All School</option>
-                              <option value="students">Students Only</option>
-                              <option value="teachers">Teachers Only</option>
-                          </select>
-                          <button type="submit" className="w-full bg-galaxy-900 text-white py-2 rounded hover:bg-galaxy-800">
-                              Publish Notice
-                          </button>
-                      </form>
-                  </div>
-              </div>
-          </div>
-      )
-  }
-
   if ((activeTab === 'system' || activeTab === 'debug') && role === 'developer') {
       return (
           <div>
@@ -887,18 +921,8 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                           Current Next Receipt #: <strong>{state.receiptCounter}</strong><br/>
                       </p>
                       <div className="flex gap-2">
-                          <input 
-                            type="number" 
-                            value={resetVal} 
-                            onChange={e => setResetVal(parseInt(e.target.value))}
-                            className="border p-2 rounded w-24"
-                          />
-                          <button 
-                            onClick={handleResetReceipt}
-                            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 flex items-center gap-2"
-                          >
-                              <RefreshCw size={16} /> Reset Counter
-                          </button>
+                          <input type="number" value={resetVal} onChange={e => setResetVal(parseInt(e.target.value))} className="border p-2 rounded w-24" />
+                          <button onClick={handleResetReceipt} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 flex items-center gap-2"><RefreshCw size={16} /> Reset Counter</button>
                       </div>
                   </div>
 
@@ -912,12 +936,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                           <br/><br/>
                           <strong>Use this only if the database is corrupted or you want to restart the demo.</strong>
                       </p>
-                      <button 
-                        onClick={handleHardReset}
-                        className="w-full bg-red-700 text-white px-4 py-3 rounded hover:bg-red-800 flex items-center justify-center gap-2 font-bold shadow-sm"
-                      >
-                          <AlertTriangle size={18} /> WIPE & RESET DATABASE
-                      </button>
+                      <button onClick={handleHardReset} className="w-full bg-red-700 text-white px-4 py-3 rounded hover:bg-red-800 flex items-center justify-center gap-2 font-bold shadow-sm"><AlertTriangle size={18} /> WIPE & RESET DATABASE</button>
                   </div>
               </div>
           </div>

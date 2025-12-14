@@ -1,8 +1,9 @@
 
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useAppStore } from '../services/store';
-import { LogOut, User, LayoutDashboard, FileText, CreditCard, Bell, GraduationCap, Settings, Shield, UserPlus, PenTool, ClipboardList } from 'lucide-react';
+import { LogOut, User, LayoutDashboard, FileText, CreditCard, Bell, GraduationCap, Settings, Shield, UserPlus, PenTool, ClipboardList, ScanFace, LogIn, ChevronDown, PlusCircle } from 'lucide-react';
+import { Role } from '../types';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -12,13 +13,67 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) => {
   const { state, dispatch } = useAppStore();
-  const { currentUser } = state;
+  const { currentUser, originalUser } = state;
+  const [showRoleMenu, setShowRoleMenu] = useState(false);
+  const [showRequestRoleModal, setShowRequestRoleModal] = useState(false);
+  const [requestedRole, setRequestedRole] = useState<Role>('teacher');
 
   const handleLogout = () => {
     dispatch({ type: 'LOGOUT' });
   };
 
+  const handleStopImpersonation = () => {
+    dispatch({ type: 'STOP_IMPERSONATION' });
+  };
+
   const role = currentUser?.role;
+  const allowedRoles = currentUser?.allowedRoles || [role];
+
+  const handleRoleSwitch = (newRole: Role) => {
+      dispatch({ type: 'SWITCH_ACTIVE_ROLE', payload: newRole });
+      setShowRoleMenu(false);
+      setActiveTab('dashboard'); // Reset tab to prevent broken views
+  };
+
+  const handleSubmitRoleRequest = () => {
+      if (!currentUser) return;
+
+      // Developer Privilege: Instant Access
+      const isDeveloper = currentUser.role === 'developer' || currentUser.allowedRoles?.includes('developer');
+
+      if (isDeveloper) {
+          const currentRoles = currentUser.allowedRoles || [currentUser.role];
+          if (!currentRoles.includes(requestedRole)) {
+              dispatch({
+                  type: 'UPDATE_USER_DETAILS',
+                  payload: {
+                      id: currentUser.id,
+                      allowedRoles: [...currentRoles, requestedRole]
+                  }
+              });
+              alert(`Role '${requestedRole}' added successfully (Developer Privilege).`);
+          } else {
+              alert(`You already have the '${requestedRole}' role.`);
+          }
+          setShowRequestRoleModal(false);
+          return;
+      }
+
+      dispatch({
+          type: 'ADD_ROLE_REQUEST',
+          payload: {
+              id: `req_${Date.now()}`,
+              userId: currentUser.id,
+              userName: currentUser.name,
+              currentRole: currentUser.role,
+              requestedRole: requestedRole,
+              status: 'pending',
+              requestedAt: new Date().toISOString().split('T')[0]
+          }
+      });
+      setShowRequestRoleModal(false);
+      alert('Role request submitted for approval.');
+  };
 
   const getNavItems = () => {
     const common = [{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }];
@@ -56,7 +111,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
           { id: 'finance_overview', label: 'Finance Overview', icon: CreditCard },
           { id: 'exam_management', label: 'Exam Management', icon: GraduationCap },
           { id: 'issue_notices', label: 'Issue Notices', icon: Bell },
-          // Removed System Control from Admin
         ];
       case 'intern':
           return [
@@ -68,6 +122,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
           return [
               ...common,
               { id: 'users', label: 'Manage Users', icon: User }, 
+              { id: 'impersonate', label: 'Act As User', icon: ScanFace },
               { id: 'debug', label: 'Debug & Reset', icon: Settings },
           ];
       default:
@@ -83,7 +138,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
       {/* Sidebar */}
-      <aside className="w-full md:w-64 bg-galaxy-900 text-white flex flex-col shadow-xl">
+      <aside className="w-full md:w-64 bg-galaxy-900 text-white flex flex-col shadow-xl z-20">
         <div className="p-6 border-b border-galaxy-800">
           <div className="flex items-center gap-3">
              <div className="w-10 h-10 bg-gold-400 rounded-lg flex items-center justify-center text-galaxy-900 font-bold text-xl">
@@ -96,16 +151,76 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
           </div>
         </div>
         
-        <div className="p-4 bg-galaxy-800">
-            <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-                    <User size={16} />
+        <div className="p-4 bg-galaxy-800 relative">
+            <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-3 overflow-hidden">
+                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+                        <User size={16} />
+                    </div>
+                    <div className="overflow-hidden">
+                        <p className="text-sm font-medium truncate">{currentUser?.name}</p>
+                        <p className="text-xs uppercase tracking-wider text-galaxy-200 opacity-70 flex items-center gap-1">
+                            {role}
+                            {allowedRoles.length > 1 && <ChevronDown size={10} className="inline" />}
+                        </p>
+                    </div>
                 </div>
-                <div className="overflow-hidden">
-                    <p className="text-sm font-medium truncate">{currentUser?.name}</p>
-                    <p className="text-xs uppercase tracking-wider text-galaxy-200 opacity-70">{role}</p>
-                </div>
+                
+                {allowedRoles.length > 1 && (
+                    <button 
+                        onClick={() => setShowRoleMenu(!showRoleMenu)} 
+                        className="text-galaxy-300 hover:text-white"
+                    >
+                        <Settings size={16} />
+                    </button>
+                )}
             </div>
+
+            {/* Role Switcher Menu */}
+            {showRoleMenu && (
+                <div className="absolute top-full left-0 right-0 bg-white text-gray-800 shadow-xl rounded-b-lg border border-galaxy-200 py-2 z-50">
+                    <p className="px-4 py-2 text-xs font-bold text-gray-500 uppercase border-b mb-1">Switch View</p>
+                    {allowedRoles.map(r => (
+                        <button
+                            key={r}
+                            onClick={() => handleRoleSwitch(r)}
+                            className={`w-full text-left px-4 py-2 text-sm flex items-center justify-between hover:bg-gray-100 ${role === r ? 'font-bold text-galaxy-600 bg-blue-50' : ''}`}
+                        >
+                            <span className="capitalize">{r}</span>
+                            {role === r && <div className="w-2 h-2 rounded-full bg-green-500"></div>}
+                        </button>
+                    ))}
+                    {role !== 'student' && (
+                        <div className="border-t mt-1 pt-1">
+                             <button 
+                                onClick={() => { setShowRoleMenu(false); setShowRequestRoleModal(true); }}
+                                className="w-full text-left px-4 py-2 text-xs text-blue-600 hover:bg-gray-100 flex items-center gap-1"
+                             >
+                                 <PlusCircle size={12} /> Request Access
+                             </button>
+                        </div>
+                    )}
+                </div>
+            )}
+            
+            {/* Single Role Request Button (if no multi-role) */}
+            {allowedRoles.length === 1 && role !== 'student' && (
+                 <button 
+                    onClick={() => setShowRequestRoleModal(true)}
+                    className="mt-2 text-xs text-galaxy-300 hover:text-white flex items-center gap-1 opacity-60 hover:opacity-100 transition-opacity"
+                 >
+                     <PlusCircle size={10} /> Add Role
+                 </button>
+            )}
+
+            {originalUser && (
+                <button 
+                    onClick={handleStopImpersonation}
+                    className="mt-3 w-full bg-red-600 hover:bg-red-700 text-white text-xs py-2 rounded flex items-center justify-center gap-2 font-bold animate-pulse"
+                >
+                    <LogOut size={12} /> Exit View Mode
+                </button>
+            )}
         </div>
 
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
@@ -142,6 +257,44 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
            {children}
         </div>
       </main>
+
+      {/* Role Request Modal */}
+      {showRequestRoleModal && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm">
+                  <h3 className="text-lg font-bold mb-4">Request Additional Role</h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                      Need access to another dashboard? Select the role you need. An admin will review your request.
+                  </p>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Select Role</label>
+                  <select 
+                      className="w-full border p-2 rounded mb-4"
+                      value={requestedRole}
+                      onChange={e => setRequestedRole(e.target.value as Role)}
+                  >
+                      <option value="teacher">Teacher</option>
+                      <option value="admin">Admin</option>
+                      <option value="accountant">Accountant</option>
+                      <option value="student">Student</option>
+                      <option value="intern">Intern</option>
+                  </select>
+                  <div className="flex gap-2">
+                      <button 
+                        onClick={() => setShowRequestRoleModal(false)}
+                        className="flex-1 py-2 border rounded hover:bg-gray-50"
+                      >
+                          Cancel
+                      </button>
+                      <button 
+                        onClick={handleSubmitRoleRequest}
+                        className="flex-1 py-2 bg-galaxy-600 text-white rounded hover:bg-galaxy-700"
+                      >
+                          Submit Request
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 };
