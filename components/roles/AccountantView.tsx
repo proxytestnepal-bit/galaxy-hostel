@@ -1,9 +1,8 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../services/store';
 import { User, Invoice, FeeRecord, InvoiceItem } from '../../types';
-import { Plus, Trash2, Edit2, AlertTriangle, Printer, FileText, Download, User as UserIcon, Users, X } from 'lucide-react';
+import { Plus, Trash2, Edit2, AlertTriangle, Printer, FileText, Download, User as UserIcon, Users, X, UserPlus, Eye, CheckCircle, GraduationCap, DollarSign } from 'lucide-react';
 
 interface Props {
   activeTab: string;
@@ -51,6 +50,10 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
   // Receipt Modal State
   const [showReceipt, setShowReceipt] = useState<FeeRecord | null>(null);
 
+  // --- NEW: Student Approval States ---
+  const [reviewUser, setReviewUser] = useState<User | null>(null);
+  const [reviewData, setReviewData] = useState<Partial<User>>({});
+
   const students = state.users.filter(u => u.role === 'student' && u.status === 'active');
   const selectedStudent = students.find(s => s.id === selectedStudentId);
   
@@ -79,7 +82,6 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
       setFeeBreakdown(feeBreakdown.filter((_, i) => i !== index));
   };
 
-  // Helper to calculate total amount for an invoice
   const calculateTotalInvoiceAmount = (student: User) => {
       const payableFee = (student.annualFee || 0) - (student.discount || 0);
       const percentAmount = (payableFee * invoicePercent) / 100;
@@ -87,7 +89,6 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
       return Math.round(percentAmount + extrasAmount);
   };
 
-  // Generate Single Invoice
   const handleGenerateInvoice = () => {
       if (!selectedStudent || !selectedStudent.annualFee) return;
       
@@ -100,14 +101,14 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
           title: invoiceTitle,
           amount: amount,
           feeBreakdown: [...feeBreakdown],
-          dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // +15 days
+          dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           issuedAt: new Date().toISOString().split('T')[0],
           status: 'unpaid'
       };
 
       dispatch({ type: 'GENERATE_INVOICE', payload: newInvoice });
       alert(`Invoice generated for Rs. ${newInvoice.amount}`);
-      setFeeBreakdown([]); // Reset
+      setFeeBreakdown([]); 
   };
 
   const handleDeleteInvoiceRequest = (id: string) => {
@@ -122,7 +123,6 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
       }
   }
 
-  // Bulk Generate Invoice
   const handleBulkInvoice = () => {
       if (!selectedClassId) return;
       
@@ -150,7 +150,7 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                studentName: student.name,
                title: invoiceTitle,
                amount: amount,
-               feeBreakdown: [...feeBreakdown], // Copy the breakdown
+               feeBreakdown: [...feeBreakdown],
                dueDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
                issuedAt: new Date().toISOString().split('T')[0],
                status: 'unpaid'
@@ -171,7 +171,6 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
       if (!selectedStudent) return;
       
       const amt = parseFloat(paymentAmount);
-      // Determine balance before this payment
       const totalPayable = (selectedStudent.annualFee || 0) - (selectedStudent.discount || 0);
       const previousPaid = selectedStudent.totalPaid || 0;
       const balanceAfterPayment = totalPayable - previousPaid - amt;
@@ -284,7 +283,6 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
     }
   };
 
-  // Render Cash Receipt
   const renderReceipt = () => {
       if (!showReceipt) return null;
       const student = state.users.find(u => u.id === showReceipt.studentId);
@@ -292,7 +290,6 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
       return (
           <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
               <div className="bg-white w-full max-w-2xl rounded-lg shadow-2xl overflow-hidden">
-                  {/* Receipt Header */}
                   <div className="bg-galaxy-900 text-white p-6 flex justify-between items-center print:bg-white print:text-black">
                       <div className="flex gap-4 items-center">
                           <div className="w-12 h-12 bg-gold-400 rounded-lg flex items-center justify-center text-galaxy-900 font-bold text-2xl">G</div>
@@ -308,7 +305,6 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                       </div>
                   </div>
 
-                  {/* Receipt Body */}
                   <div className="p-8 space-y-6">
                       <div className="flex justify-between border-b pb-4">
                           <div>
@@ -348,7 +344,6 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                       </div>
                   </div>
 
-                  {/* Footer */}
                   <div className="bg-gray-50 p-4 border-t flex justify-end gap-3 print:hidden">
                       <button onClick={() => setShowReceipt(null)} className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg">Close</button>
                       <button onClick={handlePrint} className="px-4 py-2 bg-galaxy-600 text-white hover:bg-galaxy-700 rounded-lg flex items-center gap-2">
@@ -360,37 +355,203 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
       );
   };
 
+  // --- NEW: Handle Student Approvals ---
+  const handleRejectStudent = (id: string) => {
+      if(window.confirm('Are you sure you want to reject this registration?')) {
+          dispatch({ type: 'REJECT_USER', payload: id });
+      }
+  };
+
+  const openReviewModal = (user: User) => {
+      setReviewUser(user);
+      setReviewData({ ...user });
+  };
+
+  const confirmStudentApproval = () => {
+      if (!reviewUser) return;
+      
+      const updates: Partial<User> = { 
+          ...reviewData,
+          annualFee: Number(reviewData.annualFee || 0),
+          discount: Number(reviewData.discount || 0)
+      };
+      
+      // Remove status from updates to let APPROVE_USER handle it
+      delete updates.status; 
+
+      dispatch({ type: 'APPROVE_USER', payload: { id: reviewUser.id, updates } });
+      setReviewUser(null);
+      setReviewData({});
+      alert("Student registration approved and financial profile created.");
+  };
+
   if(activeTab === 'approvals') {
        const pendingFees = state.fees.filter(f => f.status === 'pending_delete' || f.status === 'pending_edit');
        const pendingInvoices = state.invoices.filter(i => i.status === 'pending_delete');
+       const pendingStudents = state.users.filter(u => u.status === 'pending' && u.role === 'student');
 
        return (
-          <div>
-              <h3 className="text-xl font-bold mb-4">Pending Approvals</h3>
-              {pendingFees.length === 0 && pendingInvoices.length === 0 ? <p className="text-gray-500">No pending approvals for fees or invoices.</p> : (
-                  <div className="space-y-4">
-                      {pendingInvoices.map(inv => (
-                          <div key={inv.id} className="border border-orange-200 bg-orange-50 p-4 rounded-lg flex justify-between items-center">
-                              <div>
-                                  <p className="font-bold text-orange-900">Request: Delete Invoice</p>
-                                  <p className="text-sm">{inv.title} - {inv.studentName} - Rs. {inv.amount}</p>
+          <div className="space-y-8">
+              {/* Student Registration Approvals Section */}
+              <div className="bg-white p-6 rounded-xl border border-galaxy-100 shadow-sm">
+                  <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                      <UserPlus className="text-galaxy-600" /> New Student Registrations
+                  </h3>
+                  {pendingStudents.length === 0 ? (
+                      <p className="text-gray-500 italic text-sm">No new student registrations to approve.</p>
+                  ) : (
+                      <div className="grid gap-4">
+                          {pendingStudents.map(u => (
+                              <div key={u.id} className="flex items-center justify-between border p-4 rounded-lg bg-blue-50/50 border-blue-100">
+                                  <div className="flex items-center gap-4">
+                                      <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center border border-blue-200 text-blue-600">
+                                          <GraduationCap size={20} />
+                                      </div>
+                                      <div>
+                                          <p className="font-bold text-gray-800">{u.name}</p>
+                                          <p className="text-sm text-gray-600">{u.email}</p>
+                                          <p className="text-xs text-gray-400">Class Interest: {u.classId || 'Not Specified'}</p>
+                                      </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                      <button onClick={() => handleRejectStudent(u.id)} className="px-3 py-1 bg-white border border-red-200 text-red-600 rounded hover:bg-red-50 text-sm">Reject</button>
+                                      <button onClick={() => openReviewModal(u)} className="px-3 py-1 bg-galaxy-600 text-white rounded hover:bg-galaxy-700 text-sm flex items-center gap-1 font-semibold">
+                                          <Eye size={14} /> Review & Approve
+                                      </button>
+                                  </div>
                               </div>
-                              <div className="flex gap-2">
-                                  <button className="bg-white border text-gray-600 px-3 py-1 rounded text-sm cursor-not-allowed">Wait for Admin</button>
+                          ))}
+                      </div>
+                  )}
+              </div>
+
+              {/* Financial Request Approvals Section */}
+              <div className="bg-white p-6 rounded-xl border border-gray-100 shadow-sm">
+                  <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                      <AlertTriangle className="text-orange-500" /> Pending Deletion Requests
+                  </h3>
+                  {pendingFees.length === 0 && pendingInvoices.length === 0 ? (
+                      <p className="text-gray-500 italic text-sm">No pending deletion requests.</p>
+                  ) : (
+                      <div className="space-y-4">
+                          {pendingInvoices.map(inv => (
+                              <div key={inv.id} className="border border-orange-200 bg-orange-50 p-4 rounded-lg flex justify-between items-center">
+                                  <div>
+                                      <p className="font-bold text-orange-900">Invoice Deletion Request</p>
+                                      <p className="text-sm">{inv.title} - {inv.studentName} - Rs. {inv.amount}</p>
+                                  </div>
+                                  <div className="flex gap-2">
+                                      <span className="bg-white border text-gray-400 px-3 py-1 rounded text-xs font-bold uppercase">Pending Admin</span>
+                                  </div>
+                              </div>
+                          ))}
+                          {pendingFees.map(fee => (
+                              <div key={fee.id} className="border border-red-200 bg-red-50 p-4 rounded-lg flex justify-between items-center">
+                                  <div>
+                                      <p className="font-bold text-red-900">Payment Deletion Request</p>
+                                      <p className="text-sm">Receipt #{fee.receiptNumber} - {fee.studentName} - Rs. {fee.amount}</p>
+                                  </div>
+                                  <div className="flex gap-2">
+                                      <span className="bg-white border text-gray-400 px-3 py-1 rounded text-xs font-bold uppercase">Pending Admin</span>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  )}
+              </div>
+
+              {/* Approval Modal for Accountants */}
+              {reviewUser && (
+                  <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+                      <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full overflow-hidden">
+                          <div className="bg-galaxy-900 text-white p-6 flex justify-between items-center">
+                              <div className="flex items-center gap-3">
+                                  <UserPlus className="text-gold-400" />
+                                  <h3 className="text-xl font-bold">Approve Student Registration</h3>
+                              </div>
+                              <button onClick={() => setReviewUser(null)} className="hover:bg-white/10 p-1 rounded"><X size={20} /></button>
+                          </div>
+                          
+                          <div className="p-8 space-y-6">
+                              <div className="flex items-center gap-4 bg-gray-50 p-4 rounded-xl border">
+                                  <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center border text-galaxy-900">
+                                      <UserIcon size={24} />
+                                  </div>
+                                  <div>
+                                      <p className="font-bold text-gray-900">{reviewUser.name}</p>
+                                      <p className="text-sm text-gray-500">{reviewUser.email}</p>
+                                  </div>
+                              </div>
+
+                              <div className="space-y-4">
+                                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                      <DollarSign size={14} /> Financial Configuration
+                                  </h4>
+                                  <div className="grid grid-cols-2 gap-4">
+                                      <div>
+                                          <label className="block text-sm font-medium text-gray-700 mb-1">Annual Fee (Rs)</label>
+                                          <input 
+                                              type="number" 
+                                              value={reviewData.annualFee || 0}
+                                              onChange={e => setReviewData({...reviewData, annualFee: Number(e.target.value)})}
+                                              className="w-full border p-2.5 rounded-lg focus:ring-2 focus:ring-galaxy-500 outline-none"
+                                              placeholder="100,000"
+                                          />
+                                      </div>
+                                      <div>
+                                          <label className="block text-sm font-medium text-gray-700 mb-1">Scholarship / Discount (Rs)</label>
+                                          <input 
+                                              type="number" 
+                                              value={reviewData.discount || 0}
+                                              onChange={e => setReviewData({...reviewData, discount: Number(e.target.value)})}
+                                              className="w-full border p-2.5 rounded-lg focus:ring-2 focus:ring-galaxy-500 outline-none"
+                                              placeholder="0"
+                                          />
+                                      </div>
+                                  </div>
+
+                                  <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest pt-2 flex items-center gap-2">
+                                      <GraduationCap size={14} /> Academic Assignment
+                                  </h4>
+                                  <div className="grid grid-cols-2 gap-4">
+                                      <div>
+                                          <label className="block text-sm font-medium text-gray-700 mb-1">Assign Class</label>
+                                          <select
+                                              value={reviewData.classId || ''}
+                                              onChange={e => setReviewData({...reviewData, classId: e.target.value, section: ''})}
+                                              className="w-full border p-2.5 rounded-lg focus:ring-2 focus:ring-galaxy-500 outline-none bg-white"
+                                          >
+                                              <option value="">-- Choose Class --</option>
+                                              {state.systemClasses.map(cls => (
+                                                  <option key={cls.name} value={cls.name}>{cls.name}</option>
+                                              ))}
+                                          </select>
+                                      </div>
+                                      <div>
+                                          <label className="block text-sm font-medium text-gray-700 mb-1">Section</label>
+                                          <select
+                                              value={reviewData.section || ''}
+                                              onChange={e => setReviewData({...reviewData, section: e.target.value})}
+                                              className="w-full border p-2.5 rounded-lg focus:ring-2 focus:ring-galaxy-500 outline-none bg-white"
+                                              disabled={!state.systemClasses.find(c => c.name === reviewData.classId)?.sections.length}
+                                          >
+                                              <option value="">-- Choose Section --</option>
+                                              {state.systemClasses.find(c => c.name === reviewData.classId)?.sections.map(sec => (
+                                                  <option key={sec} value={sec}>{sec}</option>
+                                              ))}
+                                          </select>
+                                      </div>
+                                  </div>
+                              </div>
+
+                              <div className="flex gap-3 pt-6 border-t">
+                                  <button onClick={() => setReviewUser(null)} className="flex-1 py-3 border rounded-xl hover:bg-gray-50 font-medium text-gray-600 transition-colors">Cancel</button>
+                                  <button onClick={confirmStudentApproval} className="flex-1 py-3 bg-galaxy-900 text-white rounded-xl hover:bg-galaxy-800 font-bold flex items-center justify-center gap-2 shadow-lg shadow-galaxy-900/20 transition-all">
+                                      <CheckCircle size={18} /> Confirm & Approve
+                                  </button>
                               </div>
                           </div>
-                      ))}
-                      {pendingFees.map(fee => (
-                          <div key={fee.id} className="border border-red-200 bg-red-50 p-4 rounded-lg flex justify-between items-center">
-                              <div>
-                                  <p className="font-bold text-red-900">Request: {fee.status === 'pending_delete' ? 'Delete Receipt' : 'Edit Receipt'}</p>
-                                  <p className="text-sm">Receipt #{fee.receiptNumber} - {fee.studentName} - Rs. {fee.amount}</p>
-                              </div>
-                              <div className="flex gap-2">
-                                  <button className="bg-white border text-gray-600 px-3 py-1 rounded text-sm cursor-not-allowed">Wait for Admin</button>
-                              </div>
-                          </div>
-                      ))}
+                      </div>
                   </div>
               )}
           </div>
@@ -418,7 +579,6 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
           <div className="space-y-6">
               {renderReceipt()}
 
-              {/* Bulk Operation Panel */}
               <div className="bg-galaxy-50 border border-galaxy-200 p-6 rounded-xl shadow-sm">
                   <h4 className="font-bold text-galaxy-900 mb-4 flex items-center gap-2">
                        <Users size={20} /> Class-wise Invoice Generation
@@ -508,7 +668,6 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                   </div>
               </div>
 
-              {/* Individual Student Selection */}
               <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex gap-4 items-center flex-wrap">
                   <div className="flex-1 min-w-[200px]">
                       <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Select Student</label>
@@ -541,8 +700,6 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
 
               {selectedStudent ? (
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      
-                      {/* Left: Individual Invoice Generation */}
                       <div className="space-y-6">
                           <div className="bg-white p-6 rounded-xl border shadow-sm">
                               <h4 className="font-bold text-lg mb-4 flex items-center gap-2">
@@ -569,7 +726,6 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                                       </div>
                                   </div>
                                   
-                                  {/* Inline Breakdown UI to prevent focus loss */}
                                   <div className="bg-gray-50 p-4 rounded-lg border mb-4">
                                       <label className="text-xs font-bold text-gray-500 uppercase block mb-2">Additional Fee Heads (Optional)</label>
                                       <div className="space-y-2 mb-2">
@@ -669,7 +825,6 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                           </div>
                       </div>
 
-                      {/* Right: Payment & Ledger */}
                       <div className="space-y-6">
                            <div className="bg-white p-6 rounded-xl border shadow-sm flex justify-between items-center">
                                <div>
@@ -726,7 +881,6 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                               </table>
                            </div>
                       </div>
-
                   </div>
               ) : (
                   <div className="flex flex-col items-center justify-center h-64 bg-gray-50 border-2 border-dashed border-gray-300 rounded-xl">
@@ -737,7 +891,6 @@ const AccountantView: React.FC<Props> = ({ activeTab }) => {
                   </div>
               )}
 
-              {/* Payment Modal */}
               {showPaymentModal && selectedStudent && (
                   <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
                       <div className="bg-white p-6 rounded-xl w-96 shadow-xl">

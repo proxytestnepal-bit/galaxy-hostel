@@ -1,10 +1,10 @@
 
-
 import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
-import { Role, User, ExamType, SubjectType } from '../../types';
+import { Role, User, ExamType, SubjectType, Notice } from '../../types';
 import AccountantView from './AccountantView';
-import { Check, X, Printer, Lock, Unlock, AlertTriangle, RefreshCw, UserCheck, Shield, BookOpen, Edit2, Search, Filter, Eye, Settings, Plus, Trash2, Calendar, Layout, ChevronRight, ChevronDown, UploadCloud, Database, ScanFace, LogIn, Briefcase, GraduationCap, Calculator, ChevronLeft } from 'lucide-react';
+// Added Clock to the lucide-react imports to fix the "Cannot find name 'Clock'" error.
+import { Check, X, Printer, Lock, Unlock, AlertTriangle, RefreshCw, UserCheck, Shield, BookOpen, Edit2, Search, Filter, Eye, Settings, Plus, Trash2, Calendar, Layout, ChevronRight, ChevronDown, UploadCloud, Database, ScanFace, LogIn, Briefcase, GraduationCap, Calculator, ChevronLeft, Bell, Send, Users, Clock } from 'lucide-react';
 import { resetDatabase, seedDatabase } from '../../services/db';
 import { INITIAL_STATE } from '../../services/mockData';
 
@@ -18,7 +18,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   const { currentUser } = state;
   
   // Notice Form
-  const [noticeForm, setNoticeForm] = useState({ title: '', content: '', audience: 'all' });
+  const [noticeForm, setNoticeForm] = useState({ title: '', content: '', audience: 'all' as 'all' | 'students' | 'teachers' });
 
   // Search and Filter State
   const [searchTerm, setSearchTerm] = useState('');
@@ -60,6 +60,24 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
     guest: 0
   };
 
+  const handlePostNotice = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!noticeForm.title || !noticeForm.content) return;
+
+      const newNotice: Notice = {
+          id: `n${Date.now()}`,
+          title: noticeForm.title,
+          content: noticeForm.content,
+          audience: noticeForm.audience,
+          date: new Date().toISOString().split('T')[0],
+          postedBy: currentUser?.name || 'Administrator'
+      };
+
+      dispatch({ type: 'ADD_NOTICE', payload: newNotice });
+      setNoticeForm({ title: '', content: '', audience: 'all' });
+      alert('Notice published successfully to the chosen audience.');
+  };
+
   // Approvals Logic
   const getPendingUsers = () => {
       return state.users.filter(u => u.status === 'pending').filter(u => {
@@ -71,16 +89,12 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
 
   const openReviewModal = (user: User) => {
       setReviewUser(user);
-      // Ensure allowedRoles is populated in the edit form
       setReviewData({ ...user, allowedRoles: user.allowedRoles || [user.role] });
   };
 
   const confirmApprovalOrEdit = () => {
       if (!reviewUser) return;
-      
       const updates: Partial<User> = { ...reviewData };
-      
-      // CRITICAL FIX: Remove status from updates to prevent overwriting 'active' with 'pending'
       delete updates.status; 
 
       if (updates.role === 'student') {
@@ -94,7 +108,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
           delete updates.subjects;
       }
       
-      // Ensure current role is within allowedRoles
       if (updates.allowedRoles && updates.role && !updates.allowedRoles.includes(updates.role)) {
           updates.allowedRoles.push(updates.role);
       }
@@ -125,9 +138,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
 
   const toggleAllowedRoleInReview = (roleName: Role) => {
       const currentAllowed = reviewData.allowedRoles || [];
-      // Cannot remove the primary role
       if (roleName === reviewData.role) return;
-
       if (currentAllowed.includes(roleName)) {
           setReviewData({ ...reviewData, allowedRoles: currentAllowed.filter(r => r !== roleName) });
       } else {
@@ -171,7 +182,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       setNewSessionName('');
   };
 
-  // System Tools
   const [resetVal, setResetVal] = useState(1);
   const handleResetReceipt = () => {
       if(window.confirm(`Are you sure you want to reset the receipt counter to ${resetVal}? This is a critical action.`)) {
@@ -183,7 +193,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       if(window.confirm("WARNING: THIS WILL DELETE ALL DATA FROM THE DATABASE (Users, Fees, Everything) and restore defaults. Are you absolutely sure?")) {
           await resetDatabase();
           await seedDatabase(INITIAL_STATE);
-          dispatch({ type: 'RESET_DATABASE' }); // Updates local state
+          dispatch({ type: 'RESET_DATABASE' }); 
           alert("Database reset complete. Please refresh.");
       }
   }
@@ -212,9 +222,118 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
 
   const selectedClassData = state.systemClasses.find(c => c.name === reviewData.classId);
 
+  // --- ISSUE NOTICES TAB ---
+  if (activeTab === 'issue_notices') {
+    return (
+        <div className="space-y-8 max-w-4xl">
+            <div className="bg-white p-8 rounded-2xl border border-galaxy-100 shadow-lg">
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="w-10 h-10 bg-gold-400 rounded-full flex items-center justify-center text-galaxy-900">
+                        <Bell size={20} />
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-bold text-galaxy-900">Issue New Notice</h3>
+                        <p className="text-sm text-gray-500">Communicate with students, staff, or everyone.</p>
+                    </div>
+                </div>
+
+                <form onSubmit={handlePostNotice} className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="md:col-span-2">
+                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Notice Title</label>
+                            <input 
+                                type="text" 
+                                required
+                                className="w-full border p-3 rounded-xl focus:ring-2 focus:ring-galaxy-500 outline-none transition-all shadow-sm"
+                                placeholder="e.g. Winter Break Schedule"
+                                value={noticeForm.title}
+                                onChange={e => setNoticeForm({...noticeForm, title: e.target.value})}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Target Audience</label>
+                            <div className="relative">
+                                <Users size={16} className="absolute left-3 top-3.5 text-gray-400" />
+                                <select 
+                                    className="w-full border pl-10 p-3 rounded-xl focus:ring-2 focus:ring-galaxy-500 outline-none transition-all shadow-sm bg-white appearance-none"
+                                    value={noticeForm.audience}
+                                    onChange={e => setNoticeForm({...noticeForm, audience: e.target.value as any})}
+                                >
+                                    <option value="all">Everyone</option>
+                                    <option value="students">Students Only</option>
+                                    <option value="teachers">Staff Only</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Content</label>
+                        <textarea 
+                            required
+                            rows={6}
+                            className="w-full border p-4 rounded-xl focus:ring-2 focus:ring-galaxy-500 outline-none transition-all shadow-sm resize-none"
+                            placeholder="Type your announcement details here..."
+                            value={noticeForm.content}
+                            onChange={e => setNoticeForm({...noticeForm, content: e.target.value})}
+                        />
+                    </div>
+
+                    <div className="flex justify-end">
+                        <button 
+                            type="submit" 
+                            className="bg-galaxy-900 text-white px-8 py-3 rounded-xl hover:bg-galaxy-800 font-bold flex items-center gap-2 shadow-lg shadow-galaxy-900/20 transform transition active:scale-95"
+                        >
+                            <Send size={18} /> Publish Announcement
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            {/* History Feed */}
+            <div className="space-y-4">
+                <h4 className="text-sm font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                    <Clock size={16} /> Recently Issued
+                </h4>
+                {state.notices.length === 0 ? (
+                    <div className="p-8 text-center text-gray-400 bg-gray-50 rounded-2xl border border-dashed">
+                        No notices have been issued yet.
+                    </div>
+                ) : (
+                    <div className="grid gap-4">
+                        {state.notices.slice(0, 5).map(notice => (
+                            <div key={notice.id} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm group hover:shadow-md transition-shadow">
+                                <div className="flex justify-between items-start mb-3">
+                                    <div className="flex items-center gap-3">
+                                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                            notice.audience === 'all' ? 'bg-gold-100 text-gold-700' :
+                                            notice.audience === 'teachers' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                                        }`}>
+                                            {notice.audience}
+                                        </span>
+                                        <h5 className="font-bold text-gray-900">{notice.title}</h5>
+                                    </div>
+                                    <span className="text-xs text-gray-400 font-mono">{notice.date}</span>
+                                </div>
+                                <p className="text-sm text-gray-600 line-clamp-2 mb-4 leading-relaxed">
+                                    {notice.content}
+                                </p>
+                                <div className="flex justify-between items-center text-[10px] text-gray-400 border-t pt-3">
+                                    <span className="flex items-center gap-1">
+                                        <LogIn size={12} className="opacity-50" /> Posted By: <strong className="text-gray-500">{notice.postedBy}</strong>
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+  }
+
   // --- IMPERSONATION LOGIC ---
   if (activeTab === 'impersonate' && role === 'developer') {
-    // ... (Existing impersonation logic)
     if (viewMode === 'roles') {
         const roles: { id: Role, label: string, icon: any, color: string }[] = [
             { id: 'admin', label: 'Admin', icon: Shield, color: 'bg-red-100 text-red-700' },
@@ -249,7 +368,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
             </div>
         )
     }
-    // ... (Same user list logic as before, omitting to save space if no changes needed, but keeping flow consistency)
     const filteredUsers = state.users.filter(u => {
         if (u.id === currentUser?.id) return false;
         const matchesRole = u.role === selectedRoleForImp;
@@ -309,7 +427,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       
       return (
           <div className="space-y-8">
-              {/* Approval Section */}
               <div className="bg-white p-6 rounded-xl border border-galaxy-200 shadow-sm">
                   <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                       <UserCheck className="text-galaxy-600" /> Pending Approvals
@@ -337,7 +454,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                   )}
               </div>
 
-              {/* Subject Manager Modal (Keep as is) */}
               {showSubjectManager && (
                   <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
                       <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
@@ -366,7 +482,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                   </div>
               )}
 
-              {/* Class & Section Manager Modal (Keep as is) */}
               {showClassManager && (
                   <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
                       <div className="bg-white rounded-xl shadow-xl max-w-lg w-full">
@@ -398,7 +513,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                   </div>
               )}
 
-              {/* Review / Edit Modal */}
               {reviewUser && (
                   <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
                       <div className="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden max-h-[90vh] overflow-y-auto">
@@ -444,7 +558,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                   </div>
                               </div>
                               
-                              {/* Multi-Role Assignment Section */}
                               <div className="bg-gray-50 p-3 rounded-lg border">
                                   <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Allowed Roles (Access Control)</label>
                                   <div className="flex flex-wrap gap-2">
@@ -568,9 +681,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                   </div>
               )}
 
-              {/* User Management Section */}
               <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                  {/* ... Existing User Table Header ... */}
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                       <h3 className="text-xl font-bold">Manage Active Users</h3>
                       
@@ -620,7 +731,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                                 >
                                                     {u.role}
                                                 </span>
-                                                {/* Show other allowed roles if they exist */}
                                                 {u.allowedRoles && u.allowedRoles.filter(r => r !== u.role).map(r => (
                                                     <span key={r} className="px-2 py-1 rounded text-xs border border-gray-300 text-gray-500 uppercase">{r[0]}</span>
                                                 ))}
@@ -653,11 +763,10 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   if (activeTab === 'approvals') {
        const pendingFees = state.fees.filter(f => f.status === 'pending_delete' || f.status === 'pending_edit');
        const pendingInvoices = state.invoices.filter(i => i.status === 'pending_delete');
-       const roleRequests = state.roleRequests; // Show all role requests (since we delete them on approval/reject in this simple flow)
+       const roleRequests = state.roleRequests; 
        
        return (
           <div className="space-y-8">
-              {/* Role Requests Section */}
               {roleRequests.length > 0 && (
                   <div>
                       <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
@@ -695,7 +804,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                   </div>
               )}
 
-              {/* Financial Approvals */}
               <div>
                   <h3 className="text-xl font-bold mb-4">Financial Approvals</h3>
                   {pendingFees.length === 0 && pendingInvoices.length === 0 && roleRequests.length === 0 ? <p className="text-gray-500">No pending approvals.</p> : (
@@ -751,18 +859,14 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
        )
   }
 
-  // ... (Rest of the file remains same: Exam Management, System Tools, etc.)
   if (activeTab === 'reports' || activeTab === 'exam_management') {
-      // (Content of reports/exam_management block from previous file content, essentially unchanged logic-wise)
       return (
           <div className="space-y-8">
-              {/* Exam Sessions Management */}
               <div className="bg-white p-6 rounded-xl border border-galaxy-200 shadow-sm">
                   <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
                        <Calendar className="text-galaxy-600" /> Manage Exam Sessions
                   </h3>
                   
-                  {/* Create New Session */}
                   <div className="bg-gray-50 p-4 rounded-lg mb-6 flex flex-wrap gap-4 items-end border">
                       <div className="flex-1 min-w-[200px]">
                           <label className="text-sm font-bold text-gray-600 block mb-1">Session Name</label>
@@ -793,7 +897,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                       </button>
                   </div>
 
-                  {/* List Sessions */}
                   <div className="space-y-3">
                       {state.examSessions.map(session => (
                           <div key={session.id} className="flex items-center justify-between border p-4 rounded-lg bg-white shadow-sm">
@@ -820,7 +923,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                   </div>
               </div>
 
-              {/* Class-wise Result Publishing */}
               <div className="bg-white p-6 rounded-xl border border-galaxy-200 shadow-sm">
                   <h3 className="text-xl font-bold mb-4">Publish Class Results</h3>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end mb-6">
@@ -850,7 +952,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                        </div>
                   </div>
 
-                  {/* Status Cards */}
                   {publishClassId && (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in">
                         {state.examSessions.map(session => {
@@ -868,7 +969,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                             const totalReports = reportsForClass.length;
                             
                             const isFullyPublished = totalReports > 0 && publishedCount === totalReports;
-                            const isPartiallyPublished = publishedCount > 0 && !isFullyPublished;
                             const hasNoReports = totalReports === 0;
 
                             return (
@@ -883,7 +983,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                     <div className="text-xs space-y-1 mb-4">
                                         <p className="flex justify-between"><span className="text-gray-500">Students:</span><span className="font-mono">{studentsInClass.length}</span></p>
                                         <p className="flex justify-between"><span className="text-gray-500">Reports Found:</span><span className="font-mono">{totalReports}</span></p>
-                                        <p className="flex justify-between font-bold"><span className="text-gray-500">Published:</span><span className={`${isFullyPublished ? 'text-green-600' : isPartiallyPublished ? 'text-yellow-600' : 'text-gray-400'}`}>{publishedCount} / {totalReports}</span></p>
+                                        <p className="flex justify-between font-bold"><span className="text-gray-500">Published:</span><span className={`${isFullyPublished ? 'text-green-600' : 'text-gray-400'}`}>{publishedCount} / {totalReports}</span></p>
                                     </div>
                                     <button 
                                       onClick={() => handlePublishClassResult(session, !isFullyPublished, totalReports)}
@@ -914,7 +1014,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Receipt Counter */}
                   <div className="bg-white border border-red-200 p-6 rounded-xl shadow-sm">
                       <h4 className="font-bold mb-2">Receipt Counter Reset</h4>
                       <p className="text-sm text-gray-600 mb-4">
@@ -926,15 +1025,12 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                       </div>
                   </div>
 
-                  {/* Hard Database Reset */}
                   <div className="bg-red-50 border border-red-300 p-6 rounded-xl shadow-sm">
                       <h4 className="font-bold mb-2 text-red-900 flex items-center gap-2">
                           <Database size={18}/> Hard Reset Database
                       </h4>
                       <p className="text-sm text-red-800 mb-4">
-                          This action will <strong>permanently delete all data</strong> from Firestore (Users, Assignments, Fees, etc.) and restore the initial system defaults.
-                          <br/><br/>
-                          <strong>Use this only if the database is corrupted or you want to restart the demo.</strong>
+                          This action will <strong>permanently delete all data</strong> from Firestore and restore the initial system defaults.
                       </p>
                       <button onClick={handleHardReset} className="w-full bg-red-700 text-white px-4 py-3 rounded hover:bg-red-800 flex items-center justify-center gap-2 font-bold shadow-sm"><AlertTriangle size={18} /> WIPE & RESET DATABASE</button>
                   </div>
