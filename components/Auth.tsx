@@ -256,9 +256,14 @@ const Auth: React.FC = () => {
                 <h3 className="text-2xl font-bold text-gray-800">{isLogin ? 'Sign In' : 'Create Account'}</h3>
                 <button 
                     onClick={() => { setIsLogin(!isLogin); setError(''); setRegSuccess(''); setIsBulk(false); setBulkPreview([]); setBulkFile(null); }}
-                    className="text-sm text-galaxy-600 font-semibold hover:underline"
+                    className="text-right flex flex-col items-end group"
                 >
-                    {isLogin ? 'Need an account?' : 'Already have an account?'}
+                    <span className="text-xs text-gray-500 font-medium group-hover:text-gray-700 transition-colors">
+                        {isLogin ? 'Need an account?' : 'Already have an account?'}
+                    </span>
+                    <span className="text-2xl font-extrabold text-galaxy-600 group-hover:text-galaxy-800 group-hover:underline transition-all">
+                        {isLogin ? 'Sign Up' : 'Sign In'}
+                    </span>
                 </button>
             </div>
 
