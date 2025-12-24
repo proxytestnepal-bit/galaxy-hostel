@@ -3,7 +3,8 @@ import { GoogleGenAI } from "@google/genai";
 
 // Initialize the Gemini API client using the API key from environment variables.
 // Following @google/genai guidelines for direct initialization.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const ai = new GoogleGenAI({ apiKey: '12345678' });
 
 export const generateAssignmentIdeas = async (subject: string, topic: string): Promise<string> => {
   try {
