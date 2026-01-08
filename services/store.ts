@@ -1,9 +1,7 @@
-
-
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { AppState, User, Assignment, Submission, FeeRecord, ExamReport, Notice, Invoice, ExamSession, Subject, ScoreData, WorkLog, RoleRequest, Role } from '../types';
 import { INITIAL_STATE } from './mockData';
-import { loadAllData, dbActions, seedDatabase, seedCollection, resetDatabase } from './db';
+import { loadAllData, dbActions, seedDatabase, seedCollection } from './db';
 
 type Action =
   | { type: 'LOGIN'; payload: User }

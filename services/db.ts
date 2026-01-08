@@ -145,20 +145,3 @@ export const seedDatabase = async (initialState: AppState) => {
     await batch.commit();
     console.log("Database Seeded Successfully");
 };
-
-export const resetDatabase = async () => {
-    // 1. Load all IDs
-    // 2. Batch delete
-    // This is expensive but necessary for a HARD reset tool
-    const cols = ['users', 'subjects', 'classes', 'assignments', 'submissions', 'invoices', 'fees', 'examSessions', 'examReports', 'notices', 'workLogs', 'roleRequests'];
-    
-    for (const colName of cols) {
-        const snapshot = await getDocs(collection(db, colName));
-        const batch = writeBatch(db);
-        snapshot.docs.forEach((doc) => {
-            batch.delete(doc.ref);
-        });
-        await batch.commit();
-        console.log(`Wiped ${colName}`);
-    }
-};

@@ -331,9 +331,15 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
       )
   }
 
+  // Pending Fees Calculation
+  const annualFee = currentUser?.annualFee || 0;
+  const discount = currentUser?.discount || 0;
+  const totalPaid = currentUser?.totalPaid || 0;
+  const pendingFees = Math.max(0, (annualFee - discount) - totalPaid);
+
   // Dashboard Overview
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-gradient-to-br from-galaxy-500 to-galaxy-700 text-white rounded-2xl p-6 shadow-lg">
             <h3 className="text-lg font-medium opacity-90">Pending Assignments</h3>
             <p className="text-4xl font-bold mt-2">
@@ -341,13 +347,10 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
             </p>
         </div>
         <div className="bg-white border rounded-2xl p-6 shadow-sm">
-            <h3 className="text-lg font-medium text-gray-600">Total Fees Paid</h3>
-            <p className="text-4xl font-bold mt-2 text-galaxy-900">Rs. {currentUser?.totalPaid?.toLocaleString()}</p>
+            <h3 className="text-lg font-medium text-gray-600">Pending Fees</h3>
+            <p className="text-4xl font-bold mt-2 text-red-600">Rs. {pendingFees.toLocaleString()}</p>
         </div>
-        <div className="bg-white border rounded-2xl p-6 shadow-sm">
-            <h3 className="text-lg font-medium text-gray-600">Attendance</h3>
-            <p className="text-4xl font-bold mt-2 text-green-600">92%</p>
-        </div>
+        {/* Attendance Card Removed per request */}
     </div>
   );
 };

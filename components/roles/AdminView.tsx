@@ -1,11 +1,12 @@
 
+
 import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
 import { Role, User, ExamType, SubjectType, Notice } from '../../types';
 import AccountantView from './AccountantView';
 // Added Clock to the lucide-react imports to fix the "Cannot find name 'Clock'" error.
 import { Check, X, Printer, Lock, Unlock, AlertTriangle, RefreshCw, UserCheck, Shield, BookOpen, Edit2, Search, Filter, Eye, Settings, Plus, Trash2, Calendar, Layout, ChevronRight, ChevronDown, UploadCloud, Database, ScanFace, LogIn, Briefcase, GraduationCap, Calculator, ChevronLeft, Bell, Send, Users, Clock } from 'lucide-react';
-import { resetDatabase, seedDatabase } from '../../services/db';
+// resetDatabase removed
 import { INITIAL_STATE } from '../../services/mockData';
 
 interface Props {
@@ -186,15 +187,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   const handleResetReceipt = () => {
       if(window.confirm(`Are you sure you want to reset the receipt counter to ${resetVal}? This is a critical action.`)) {
           dispatch({ type: 'RESET_RECEIPT_COUNTER', payload: Number(resetVal) });
-      }
-  }
-
-  const handleHardReset = async () => {
-      if(window.confirm("WARNING: THIS WILL DELETE ALL DATA FROM THE DATABASE (Users, Fees, Everything) and restore defaults. Are you absolutely sure?")) {
-          await resetDatabase();
-          await seedDatabase(INITIAL_STATE);
-          dispatch({ type: 'RESET_DATABASE' }); 
-          alert("Database reset complete. Please refresh.");
       }
   }
 
@@ -1023,16 +1015,6 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                           <input type="number" value={resetVal} onChange={e => setResetVal(parseInt(e.target.value))} className="border p-2 rounded w-24" />
                           <button onClick={handleResetReceipt} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 flex items-center gap-2"><RefreshCw size={16} /> Reset Counter</button>
                       </div>
-                  </div>
-
-                  <div className="bg-red-50 border border-red-300 p-6 rounded-xl shadow-sm">
-                      <h4 className="font-bold mb-2 text-red-900 flex items-center gap-2">
-                          <Database size={18}/> Hard Reset Database
-                      </h4>
-                      <p className="text-sm text-red-800 mb-4">
-                          This action will <strong>permanently delete all data</strong> from Firestore and restore the initial system defaults.
-                      </p>
-                      <button onClick={handleHardReset} className="w-full bg-red-700 text-white px-4 py-3 rounded hover:bg-red-800 flex items-center justify-center gap-2 font-bold shadow-sm"><AlertTriangle size={18} /> WIPE & RESET DATABASE</button>
                   </div>
               </div>
           </div>
