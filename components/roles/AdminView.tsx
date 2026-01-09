@@ -1,12 +1,9 @@
 
-
 import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
 import { Role, User, ExamType, SubjectType, Notice } from '../../types';
 import AccountantView from './AccountantView';
-// Added Clock to the lucide-react imports to fix the "Cannot find name 'Clock'" error.
 import { Check, X, Printer, Lock, Unlock, AlertTriangle, RefreshCw, UserCheck, Shield, BookOpen, Edit2, Search, Filter, Eye, Settings, Plus, Trash2, Calendar, Layout, ChevronRight, ChevronDown, UploadCloud, Database, ScanFace, LogIn, Briefcase, GraduationCap, Calculator, ChevronLeft, Bell, Send, Users, Clock } from 'lucide-react';
-// resetDatabase removed
 import { INITIAL_STATE } from '../../services/mockData';
 
 interface Props {
@@ -369,9 +366,8 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
     });
 
     const handleImpersonate = (user: User) => {
-        if(window.confirm(`Switch view to ${user.name}? You can return here later.`)) {
-            dispatch({ type: 'IMPERSONATE_USER', payload: user });
-        }
+        // Confirmation alert removed as requested.
+        dispatch({ type: 'IMPERSONATE_USER', payload: user });
     };
     
     return (
@@ -448,7 +444,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
 
               {showSubjectManager && (
                   <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-                      <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+                      <div className="bg-white rounded-xl shadow-xl max-md w-full">
                           <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
                               <h3 className="font-bold">Subject Library</h3>
                               <button onClick={() => setShowSubjectManager(false)}><X size={18} /></button>

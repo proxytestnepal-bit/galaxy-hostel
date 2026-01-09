@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
 import { Assignment } from '../../types';
@@ -152,10 +151,10 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
           : [];
 
       return (
-          <div className="space-y-6">
-              <div className="bg-white p-6 rounded-xl border shadow-sm">
-                  <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                      <PenTool className="text-galaxy-600" /> Exam Marks Entry
+          <div className="space-y-4 md:space-y-6">
+              <div className="bg-white p-2 md:p-6 rounded-xl border shadow-sm">
+                  <h3 className="text-lg md:text-xl font-bold mb-3 md:mb-4 flex items-center gap-2 px-2 md:px-0">
+                      <PenTool className="text-galaxy-600 w-5 h-5 md:w-6 md:h-6" /> Exam Marks Entry
                   </h3>
                   
                   {openSessions.length === 0 ? (
@@ -163,85 +162,86 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                           No exams are currently open for marks entry. Please contact the admin.
                       </div>
                   ) : (
-                      <div className="space-y-6">
-                          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                              <div>
-                                  <label className="block text-sm font-bold text-gray-700 mb-1">Select Exam Session</label>
+                      <div className="space-y-4 md:space-y-6">
+                          {/* Filters - Tightened for Mobile */}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 px-2 md:px-0">
+                              <div className="col-span-2 md:col-span-1">
+                                  <label className="block text-[10px] md:text-sm font-bold text-gray-500 md:text-gray-700 mb-1 uppercase md:normal-case">Exam Session</label>
                                   <select 
-                                      className="w-full border p-2 rounded"
+                                      className="w-full border p-2 rounded text-sm bg-white"
                                       value={selectedSessionId}
                                       onChange={e => setSelectedSessionId(e.target.value)}
                                   >
-                                      <option value="">-- Choose Exam --</option>
-                                      {openSessions.map(s => <option key={s.id} value={s.id}>{s.name} ({s.type})</option>)}
+                                      <option value="">-- Exam --</option>
+                                      {openSessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                   </select>
                               </div>
                               <div>
-                                  <label className="block text-sm font-bold text-gray-700 mb-1">Select Class</label>
+                                  <label className="block text-[10px] md:text-sm font-bold text-gray-500 md:text-gray-700 mb-1 uppercase md:normal-case">Class</label>
                                   <select 
-                                      className="w-full border p-2 rounded"
+                                      className="w-full border p-2 rounded text-sm bg-white"
                                       value={selectedClassId}
                                       onChange={e => { setSelectedClassId(e.target.value); setSelectedSection(''); }}
                                   >
-                                      <option value="">-- Choose Class --</option>
+                                      <option value="">-- Class --</option>
                                       {uniqueClasses.map(c => <option key={c} value={c}>{c}</option>)}
                                   </select>
                               </div>
                               <div>
-                                  <label className="block text-sm font-bold text-gray-700 mb-1">Select Section</label>
+                                  <label className="block text-[10px] md:text-sm font-bold text-gray-500 md:text-gray-700 mb-1 uppercase md:normal-case">Section</label>
                                   <select 
-                                      className="w-full border p-2 rounded"
+                                      className="w-full border p-2 rounded text-sm bg-white"
                                       value={selectedSection}
                                       onChange={e => setSelectedSection(e.target.value)}
                                       disabled={!selectedClassData || selectedClassData.sections.length === 0}
                                   >
-                                      <option value="">All Sections</option>
+                                      <option value="">All</option>
                                       {selectedClassData?.sections.map(s => <option key={s} value={s}>{s}</option>)}
                                   </select>
                               </div>
-                              <div>
-                                  <label className="block text-sm font-bold text-gray-700 mb-1">Select Subject</label>
+                              <div className="col-span-2 md:col-span-1">
+                                  <label className="block text-[10px] md:text-sm font-bold text-gray-500 md:text-gray-700 mb-1 uppercase md:normal-case">Subject</label>
                                   <select 
-                                      className="w-full border p-2 rounded"
+                                      className="w-full border p-2 rounded text-sm bg-white"
                                       value={selectedSubject}
                                       onChange={e => setSelectedSubject(e.target.value)}
                                   >
-                                      <option value="">-- Choose Subject --</option>
+                                      <option value="">-- Subject --</option>
                                       {state.currentUser?.subjects?.map(s => <option key={s} value={s}>{s}</option>)}
                                   </select>
                               </div>
                           </div>
 
                           {selectedSessionId && selectedClassId && selectedSubject && (
-                              <div className="flex gap-4 p-4 bg-gray-50 border rounded-lg items-end">
-                                  <div>
-                                      <label className="block text-xs font-bold text-gray-500 uppercase">Full Marks</label>
-                                      <input type="number" value={fullMarks} onChange={e => setFullMarks(Number(e.target.value))} className="border p-2 rounded w-24" />
+                              <div className="flex flex-row md:flex-row gap-2 md:gap-4 p-2 md:p-4 bg-gray-50 border rounded-lg items-end mx-2 md:mx-0">
+                                  <div className="flex-1">
+                                      <label className="block text-[9px] md:text-xs font-bold text-gray-400 uppercase">Full Marks</label>
+                                      <input type="number" value={fullMarks} onChange={e => setFullMarks(Number(e.target.value))} className="border p-2 rounded w-full md:w-24 text-sm" />
                                   </div>
-                                  <div>
-                                      <label className="block text-xs font-bold text-gray-500 uppercase">Pass Marks</label>
-                                      <input type="number" value={passMarks} onChange={e => setPassMarks(Number(e.target.value))} className="border p-2 rounded w-24" />
+                                  <div className="flex-1">
+                                      <label className="block text-[9px] md:text-xs font-bold text-gray-400 uppercase">Pass Marks</label>
+                                      <input type="number" value={passMarks} onChange={e => setPassMarks(Number(e.target.value))} className="border p-2 rounded w-full md:w-24 text-sm" />
                                   </div>
-                                  <div className="flex-1 text-right">
+                                  <div className="hidden md:block flex-1 text-right">
                                       <button 
                                         onClick={() => exportToCSV(filteredStudents)}
-                                        className="bg-green-600 text-white px-3 py-2 rounded flex items-center gap-2 ml-auto hover:bg-green-700"
+                                        className="bg-green-600 text-white px-3 py-2 rounded flex items-center justify-center gap-2 hover:bg-green-700 transition"
                                       >
-                                          <Download size={16} /> Export to CSV
+                                          <Download size={16} /> Export
                                       </button>
                                   </div>
                               </div>
                           )}
 
                           {selectedSessionId && selectedClassId && selectedSubject ? (
-                              <div className="mt-6">
-                                  <div className="border rounded-lg overflow-hidden">
+                              <div className="mt-2 md:mt-6 overflow-hidden">
+                                  <div className="border rounded-lg overflow-hidden mx-1 md:mx-0">
                                       <table className="w-full text-left">
-                                          <thead className="bg-gray-50 text-gray-700">
+                                          <thead className="bg-gray-100 text-gray-600 border-b">
                                               <tr>
-                                                  <th className="p-3">Student Name</th>
-                                                  <th className="p-3">Section</th>
-                                                  <th className="p-3 w-32 text-right">Marks Obtained</th>
+                                                  <th className="p-2 md:p-3 text-[11px] md:text-sm font-bold uppercase tracking-wider">Student Name</th>
+                                                  <th className="p-2 md:p-3 text-[11px] md:text-sm font-bold uppercase tracking-wider hidden md:table-cell">Section</th>
+                                                  <th className="p-2 md:p-3 w-20 md:w-32 text-right text-[11px] md:text-sm font-bold uppercase tracking-wider">Marks</th>
                                               </tr>
                                           </thead>
                                           <tbody className="divide-y bg-white">
@@ -253,13 +253,21 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                                                   const score = scoreData ? scoreData.obtained : '';
 
                                                   return (
-                                                      <tr key={student.id}>
-                                                          <td className="p-3">{student.name}</td>
-                                                          <td className="p-3 text-sm text-gray-500">{student.section || '-'}</td>
-                                                          <td className="p-3 text-right">
+                                                      <tr key={student.id} className="hover:bg-gray-50 transition-colors">
+                                                          <td className="p-2 md:p-3">
+                                                              <div className="font-semibold text-gray-900 text-sm md:text-base leading-tight">
+                                                                {student.name}
+                                                              </div>
+                                                              <div className="text-[10px] text-gray-400 md:hidden flex items-center gap-1 mt-0.5">
+                                                                  <span className="bg-gray-100 px-1 rounded border uppercase">{student.section || 'No Sec'}</span>
+                                                                  <span>• Class {student.classId}</span>
+                                                              </div>
+                                                          </td>
+                                                          <td className="p-2 md:p-3 text-sm text-gray-500 hidden md:table-cell">{student.section || '-'}</td>
+                                                          <td className="p-2 md:p-3 text-right">
                                                               <input 
                                                                   type="number" 
-                                                                  className="border p-2 rounded w-24 text-right font-mono focus:ring-2 focus:ring-galaxy-500 outline-none"
+                                                                  className="border p-2 rounded w-16 md:w-24 text-right font-mono text-sm focus:ring-2 focus:ring-galaxy-500 outline-none border-gray-300 shadow-inner"
                                                                   placeholder="0"
                                                                   value={score}
                                                                   onChange={e => handleScoreChange(student.id, e.target.value)}
@@ -271,13 +279,14 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                                           </tbody>
                                       </table>
                                       {filteredStudents.length === 0 && (
-                                          <div className="p-4 text-center text-gray-500">No students found in this class/section.</div>
+                                          <div className="p-8 text-center text-gray-400 text-sm">No students found for this selection.</div>
                                       )}
                                   </div>
                               </div>
                           ) : (
-                              <div className="p-8 text-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg text-gray-400">
-                                  Please select Exam, Class, and Subject to start entering marks.
+                              <div className="p-8 text-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg text-gray-400 mx-2 md:mx-0">
+                                  <PenTool className="mx-auto mb-2 opacity-20" size={40} />
+                                  <p className="text-sm">Please select all filters above to start entering marks.</p>
                               </div>
                           )}
                       </div>
@@ -461,10 +470,10 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
 
         {showCreateModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-xl w-full max-w-2xl">
+            <div className="bg-white p-6 rounded-xl w-full max-w-2xl mx-4">
               <div className="flex justify-between mb-4">
                  <h3 className="text-xl font-bold">Create Assignment</h3>
-                 <button onClick={() => setShowCreateModal(false)} className="text-gray-500">Close</button>
+                 <button onClick={() => setShowCreateModal(false)} className="text-gray-500"><X /></button>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -533,7 +542,7 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                             required
                          />
                     </div>
-                    <button type="submit" className="col-span-2 w-full bg-galaxy-600 text-white py-2 rounded-lg hover:bg-galaxy-700">Publish Assignment</button>
+                    <button type="submit" className="col-span-2 w-full bg-galaxy-600 text-white py-2 rounded-lg hover:bg-galaxy-700 transition font-bold">Publish Assignment</button>
                   </form>
               </div>
             </div>
@@ -541,18 +550,18 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
         )}
         <div className="space-y-4">
             {state.assignments.filter(a => a.teacherId === state.currentUser?.id).length === 0 ? (
-                <div className="text-center p-8 text-gray-500">You haven't created any assignments yet.</div>
+                <div className="text-center p-8 text-gray-500 bg-gray-50 border rounded-lg border-dashed">You haven't created any assignments yet.</div>
             ) : (
                 state.assignments.filter(a => a.teacherId === state.currentUser?.id).map(assignment => (
-                    <div key={assignment.id} className="border p-4 rounded-lg bg-white shadow-sm flex justify-between items-center">
+                    <div key={assignment.id} className="border p-4 rounded-lg bg-white shadow-sm flex justify-between items-center hover:border-galaxy-200 transition">
                         <div>
-                            <h4 className="font-bold text-lg">{assignment.title}</h4>
-                            <p className="text-sm text-gray-600">{assignment.targetClassId} • {assignment.subject}</p>
-                            <p className="text-xs text-red-500 mt-1">Due: {assignment.dueDate}</p>
+                            <h4 className="font-bold text-lg text-galaxy-900">{assignment.title}</h4>
+                            <p className="text-sm text-gray-600">Class {assignment.targetClassId} • {assignment.subject}</p>
+                            <p className="text-xs text-red-500 mt-1 flex items-center gap-1 font-medium"><Clock size={12}/> Due: {assignment.dueDate}</p>
                         </div>
                         <div className="text-right">
-                            <span className="text-xs text-gray-400 block mb-1">Posted: {assignment.createdAt}</span>
-                            <div className="text-sm bg-gray-100 px-2 py-1 rounded inline-block">
+                            <span className="text-[10px] text-gray-400 block mb-1 uppercase tracking-wider">Posted {assignment.createdAt}</span>
+                            <div className="text-sm bg-galaxy-50 text-galaxy-700 border border-galaxy-100 px-3 py-1 rounded-full font-bold">
                                 {state.submissions.filter(s => s.assignmentId === assignment.id).length} Submissions
                             </div>
                         </div>
