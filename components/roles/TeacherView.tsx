@@ -151,35 +151,35 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
           : [];
 
       return (
-          <div className="space-y-4 md:space-y-6">
-              <div className="bg-white p-2 md:p-6 rounded-xl border shadow-sm">
-                  <h3 className="text-lg md:text-xl font-bold mb-3 md:mb-4 flex items-center gap-2 px-2 md:px-0">
-                      <PenTool className="text-galaxy-600 w-5 h-5 md:w-6 md:h-6" /> Exam Marks Entry
+          <div className="space-y-1 md:space-y-6">
+              <div className="bg-white p-0 md:p-6 rounded-xl border-0 md:border shadow-none md:shadow-sm">
+                  <h3 className="text-sm md:text-xl font-bold mb-2 md:mb-4 flex items-center gap-2 px-2 md:px-0">
+                      <PenTool className="text-galaxy-600 w-4 h-4 md:w-6 md:h-6" /> Exam Marks Entry
                   </h3>
                   
                   {openSessions.length === 0 ? (
                       <div className="text-center p-8 bg-gray-50 rounded-lg text-gray-500">
-                          No exams are currently open for marks entry. Please contact the admin.
+                          No exams currently open.
                       </div>
                   ) : (
-                      <div className="space-y-4 md:space-y-6">
+                      <div className="space-y-2 md:space-y-6">
                           {/* Filters - Tightened for Mobile */}
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 px-2 md:px-0">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-1 md:gap-4 px-2 md:px-0">
                               <div className="col-span-2 md:col-span-1">
-                                  <label className="block text-[10px] md:text-sm font-bold text-gray-500 md:text-gray-700 mb-1 uppercase md:normal-case">Exam Session</label>
+                                  <label className="block text-[8px] md:text-sm font-bold text-gray-400 md:text-gray-700 mb-0.5 uppercase tracking-tighter md:normal-case">Exam Session</label>
                                   <select 
-                                      className="w-full border p-2 rounded text-sm bg-white"
+                                      className="w-full border p-1 rounded text-xs bg-white h-8"
                                       value={selectedSessionId}
                                       onChange={e => setSelectedSessionId(e.target.value)}
                                   >
-                                      <option value="">-- Exam --</option>
+                                      <option value="">-- Choose Exam --</option>
                                       {openSessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                                   </select>
                               </div>
                               <div>
-                                  <label className="block text-[10px] md:text-sm font-bold text-gray-500 md:text-gray-700 mb-1 uppercase md:normal-case">Class</label>
+                                  <label className="block text-[8px] md:text-sm font-bold text-gray-400 md:text-gray-700 mb-0.5 uppercase tracking-tighter md:normal-case">Class</label>
                                   <select 
-                                      className="w-full border p-2 rounded text-sm bg-white"
+                                      className="w-full border p-1 rounded text-xs bg-white h-8"
                                       value={selectedClassId}
                                       onChange={e => { setSelectedClassId(e.target.value); setSelectedSection(''); }}
                                   >
@@ -188,9 +188,9 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                                   </select>
                               </div>
                               <div>
-                                  <label className="block text-[10px] md:text-sm font-bold text-gray-500 md:text-gray-700 mb-1 uppercase md:normal-case">Section</label>
+                                  <label className="block text-[8px] md:text-sm font-bold text-gray-400 md:text-gray-700 mb-0.5 uppercase tracking-tighter md:normal-case">Section</label>
                                   <select 
-                                      className="w-full border p-2 rounded text-sm bg-white"
+                                      className="w-full border p-1 rounded text-xs bg-white h-8"
                                       value={selectedSection}
                                       onChange={e => setSelectedSection(e.target.value)}
                                       disabled={!selectedClassData || selectedClassData.sections.length === 0}
@@ -200,9 +200,9 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                                   </select>
                               </div>
                               <div className="col-span-2 md:col-span-1">
-                                  <label className="block text-[10px] md:text-sm font-bold text-gray-500 md:text-gray-700 mb-1 uppercase md:normal-case">Subject</label>
+                                  <label className="block text-[8px] md:text-sm font-bold text-gray-400 md:text-gray-700 mb-0.5 uppercase tracking-tighter md:normal-case">Subject</label>
                                   <select 
-                                      className="w-full border p-2 rounded text-sm bg-white"
+                                      className="w-full border p-1 rounded text-xs bg-white h-8"
                                       value={selectedSubject}
                                       onChange={e => setSelectedSubject(e.target.value)}
                                   >
@@ -213,35 +213,35 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                           </div>
 
                           {selectedSessionId && selectedClassId && selectedSubject && (
-                              <div className="flex flex-row md:flex-row gap-2 md:gap-4 p-2 md:p-4 bg-gray-50 border rounded-lg items-end mx-2 md:mx-0">
-                                  <div className="flex-1">
-                                      <label className="block text-[9px] md:text-xs font-bold text-gray-400 uppercase">Full Marks</label>
-                                      <input type="number" value={fullMarks} onChange={e => setFullMarks(Number(e.target.value))} className="border p-2 rounded w-full md:w-24 text-sm" />
+                              <div className="flex flex-row md:flex-row gap-1 md:gap-4 p-1 md:p-4 bg-gray-50 border-y md:border md:rounded-lg items-end">
+                                  <div className="flex-1 px-1">
+                                      <label className="block text-[8px] md:text-xs font-bold text-gray-400 uppercase">Full Marks</label>
+                                      <input type="number" value={fullMarks} onChange={e => setFullMarks(Number(e.target.value))} className="border p-1 rounded w-full md:w-24 text-xs h-7" />
                                   </div>
-                                  <div className="flex-1">
-                                      <label className="block text-[9px] md:text-xs font-bold text-gray-400 uppercase">Pass Marks</label>
-                                      <input type="number" value={passMarks} onChange={e => setPassMarks(Number(e.target.value))} className="border p-2 rounded w-full md:w-24 text-sm" />
+                                  <div className="flex-1 px-1">
+                                      <label className="block text-[8px] md:text-xs font-bold text-gray-400 uppercase">Pass Marks</label>
+                                      <input type="number" value={passMarks} onChange={e => setPassMarks(Number(e.target.value))} className="border p-1 rounded w-full md:w-24 text-xs h-7" />
                                   </div>
                                   <div className="hidden md:block flex-1 text-right">
                                       <button 
                                         onClick={() => exportToCSV(filteredStudents)}
-                                        className="bg-green-600 text-white px-3 py-2 rounded flex items-center justify-center gap-2 hover:bg-green-700 transition"
+                                        className="bg-green-600 text-white px-3 py-1.5 rounded flex items-center justify-center gap-2 hover:bg-green-700 transition"
                                       >
-                                          <Download size={16} /> Export
+                                          <Download size={14} /> Export CSV
                                       </button>
                                   </div>
                               </div>
                           )}
 
                           {selectedSessionId && selectedClassId && selectedSubject ? (
-                              <div className="mt-2 md:mt-6 overflow-hidden">
-                                  <div className="border rounded-lg overflow-hidden mx-1 md:mx-0">
+                              <div className="mt-1 md:mt-6 overflow-hidden">
+                                  <div className="border-0 md:border rounded-lg overflow-hidden">
                                       <table className="w-full text-left">
                                           <thead className="bg-gray-100 text-gray-600 border-b">
                                               <tr>
-                                                  <th className="p-2 md:p-3 text-[11px] md:text-sm font-bold uppercase tracking-wider">Student Name</th>
-                                                  <th className="p-2 md:p-3 text-[11px] md:text-sm font-bold uppercase tracking-wider hidden md:table-cell">Section</th>
-                                                  <th className="p-2 md:p-3 w-20 md:w-32 text-right text-[11px] md:text-sm font-bold uppercase tracking-wider">Marks</th>
+                                                  <th className="p-2 md:p-3 text-[10px] md:text-sm font-bold uppercase tracking-wider">Student Name</th>
+                                                  <th className="p-2 md:p-3 text-[10px] md:text-sm font-bold uppercase tracking-wider hidden md:table-cell">Section</th>
+                                                  <th className="p-2 md:p-3 w-16 md:w-32 text-right text-[10px] md:text-sm font-bold uppercase tracking-wider">Marks</th>
                                               </tr>
                                           </thead>
                                           <tbody className="divide-y bg-white">
@@ -255,19 +255,19 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                                                   return (
                                                       <tr key={student.id} className="hover:bg-gray-50 transition-colors">
                                                           <td className="p-2 md:p-3">
-                                                              <div className="font-semibold text-gray-900 text-sm md:text-base leading-tight">
+                                                              <div className="font-semibold text-gray-900 text-xs md:text-base leading-tight">
                                                                 {student.name}
                                                               </div>
-                                                              <div className="text-[10px] text-gray-400 md:hidden flex items-center gap-1 mt-0.5">
-                                                                  <span className="bg-gray-100 px-1 rounded border uppercase">{student.section || 'No Sec'}</span>
-                                                                  <span>• Class {student.classId}</span>
+                                                              <div className="text-[9px] text-gray-400 md:hidden flex items-center gap-1">
+                                                                  <span className="bg-gray-50 border px-0.5 rounded text-[8px] font-bold uppercase">{student.section || '-'}</span>
+                                                                  <span>• {student.classId}</span>
                                                               </div>
                                                           </td>
                                                           <td className="p-2 md:p-3 text-sm text-gray-500 hidden md:table-cell">{student.section || '-'}</td>
                                                           <td className="p-2 md:p-3 text-right">
                                                               <input 
                                                                   type="number" 
-                                                                  className="border p-2 rounded w-16 md:w-24 text-right font-mono text-sm focus:ring-2 focus:ring-galaxy-500 outline-none border-gray-300 shadow-inner"
+                                                                  className="border p-1 rounded w-14 md:w-24 text-right font-mono text-xs md:text-sm focus:ring-1 focus:ring-galaxy-500 outline-none border-gray-300 shadow-inner h-8 md:h-10"
                                                                   placeholder="0"
                                                                   value={score}
                                                                   onChange={e => handleScoreChange(student.id, e.target.value)}
@@ -279,14 +279,13 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                                           </tbody>
                                       </table>
                                       {filteredStudents.length === 0 && (
-                                          <div className="p-8 text-center text-gray-400 text-sm">No students found for this selection.</div>
+                                          <div className="p-6 text-center text-gray-400 text-xs">No students found.</div>
                                       )}
                                   </div>
                               </div>
                           ) : (
-                              <div className="p-8 text-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg text-gray-400 mx-2 md:mx-0">
-                                  <PenTool className="mx-auto mb-2 opacity-20" size={40} />
-                                  <p className="text-sm">Please select all filters above to start entering marks.</p>
+                              <div className="p-6 text-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg text-gray-400 mx-2 md:mx-0">
+                                  <p className="text-xs">Select all filters above to enter marks.</p>
                               </div>
                           )}
                       </div>
@@ -457,14 +456,14 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
   // Fallback for assignments/notices (Existing Code)
   if (activeTab === 'assignments') {
     return (
-      <div>
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="text-lg font-semibold text-gray-700">Current Assignments</h3>
+      <div className="px-2">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-700">Assignments</h3>
           <button 
             onClick={() => setShowCreateModal(true)}
-            className="bg-galaxy-600 text-white px-4 py-2 rounded-lg hover:bg-galaxy-700 transition"
+            className="bg-galaxy-600 text-white px-4 py-2 rounded-lg hover:bg-galaxy-700 transition text-sm"
           >
-            + New Assignment
+            + New
           </button>
         </div>
 
@@ -550,7 +549,7 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
         )}
         <div className="space-y-4">
             {state.assignments.filter(a => a.teacherId === state.currentUser?.id).length === 0 ? (
-                <div className="text-center p-8 text-gray-500 bg-gray-50 border rounded-lg border-dashed">You haven't created any assignments yet.</div>
+                <div className="text-center p-8 text-gray-500 bg-gray-50 border rounded-lg border-dashed">No assignments yet.</div>
             ) : (
                 state.assignments.filter(a => a.teacherId === state.currentUser?.id).map(assignment => (
                     <div key={assignment.id} className="border p-4 rounded-lg bg-white shadow-sm flex justify-between items-center hover:border-galaxy-200 transition">
@@ -561,7 +560,7 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                         </div>
                         <div className="text-right">
                             <span className="text-[10px] text-gray-400 block mb-1 uppercase tracking-wider">Posted {assignment.createdAt}</span>
-                            <div className="text-sm bg-galaxy-50 text-galaxy-700 border border-galaxy-100 px-3 py-1 rounded-full font-bold">
+                            <div className="text-xs bg-galaxy-50 text-galaxy-700 border border-galaxy-100 px-3 py-1 rounded-full font-bold">
                                 {state.submissions.filter(s => s.assignmentId === assignment.id).length} Submissions
                             </div>
                         </div>
@@ -577,21 +576,21 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
     const relevantNotices = state.notices.filter(n => n.audience === 'all' || n.audience === 'teachers');
     
     return (
-        <div className="space-y-6">
-             <h3 className="font-bold text-xl mb-4 flex items-center gap-2">
+        <div className="space-y-4 px-2">
+             <h3 className="font-bold text-xl mb-2 flex items-center gap-2">
                  <Bell className="text-galaxy-600" /> Staff Notices
              </h3>
              {relevantNotices.length === 0 ? (
                  <div className="p-8 text-center text-gray-500 bg-white rounded-lg border">No new notices.</div>
              ) : (
                  relevantNotices.map(n => (
-                    <div key={n.id} className="bg-white border-l-4 border-purple-500 p-6 rounded-r-lg shadow-sm">
+                    <div key={n.id} className="bg-white border-l-4 border-purple-500 p-4 rounded-r-lg shadow-sm">
                         <div className="flex justify-between items-start">
-                            <h4 className="font-bold text-lg text-galaxy-900">{n.title}</h4>
-                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">{n.date}</span>
+                            <h4 className="font-bold text-base text-galaxy-900">{n.title}</h4>
+                            <span className="text-[10px] text-gray-400 bg-gray-50 px-1 rounded">{n.date}</span>
                         </div>
-                        <p className="mt-3 text-gray-700 leading-relaxed">{n.content}</p>
-                        <div className="mt-4 flex items-center gap-2 text-xs text-gray-400">
+                        <p className="mt-2 text-sm text-gray-700 leading-relaxed">{n.content}</p>
+                        <div className="mt-2 flex items-center gap-2 text-[10px] text-gray-400 border-t pt-2">
                             <span className="font-medium">Posted By:</span> {n.postedBy}
                         </div>
                     </div>

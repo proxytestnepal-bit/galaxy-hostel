@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { useAppStore } from '../services/store';
 import Layout from './Layout';
@@ -35,15 +34,15 @@ const Dashboard: React.FC = () => {
 
   return (
     <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
-      <header className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-800 capitalize">
+      <header className="mb-4 md:mb-8 px-2 md:px-0">
+        <h2 className="text-2xl md:text-3xl font-bold text-gray-800 capitalize">
           {activeTab.replace('_', ' ')}
         </h2>
-        <p className="text-gray-500 mt-1">
+        <p className="text-sm text-gray-500 mt-1">
           Welcome back, {state.currentUser?.name}.
         </p>
       </header>
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 min-h-[500px]">
+      <div className="bg-white rounded-xl md:rounded-2xl shadow-sm border border-gray-100 p-1 md:p-6 min-h-[500px]">
         {renderContent()}
       </div>
     </Layout>

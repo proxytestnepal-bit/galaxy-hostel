@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { useAppStore } from '../services/store';
 import { LogOut, User, LayoutDashboard, FileText, CreditCard, Bell, GraduationCap, Settings, Shield, UserPlus, PenTool, ClipboardList, ScanFace, LogIn, ChevronDown, PlusCircle } from 'lucide-react';
@@ -256,7 +255,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto h-screen">
-        <div className="p-8 max-w-7xl mx-auto">
+        <div className="p-2 md:p-8 max-w-7xl mx-auto">
            {children}
         </div>
       </main>
