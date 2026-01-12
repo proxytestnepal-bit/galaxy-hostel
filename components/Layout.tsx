@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useAppStore } from '../services/store';
-import { LogOut, User, LayoutDashboard, FileText, CreditCard, Bell, GraduationCap, Settings, Shield, UserPlus, PenTool, ClipboardList, ScanFace, LogIn, ChevronDown, PlusCircle } from 'lucide-react';
+import { LogOut, User, LayoutDashboard, FileText, CreditCard, Bell, GraduationCap, Settings, Shield, UserPlus, PenTool, ClipboardList, ScanFace, LogIn, ChevronDown, PlusCircle, Lock, X } from 'lucide-react';
 import { Role } from '../types';
 
 interface LayoutProps {
@@ -16,6 +16,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
   const [showRoleMenu, setShowRoleMenu] = useState(false);
   const [showRequestRoleModal, setShowRequestRoleModal] = useState(false);
   const [requestedRole, setRequestedRole] = useState<Role>('teacher');
+  
+  // Password Change State
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [currentPassInput, setCurrentPassInput] = useState('');
+  const [newPassInput, setNewPassInput] = useState('');
 
   const handleLogout = () => {
     dispatch({ type: 'LOGOUT' });
@@ -23,6 +28,30 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
 
   const handleStopImpersonation = () => {
     dispatch({ type: 'STOP_IMPERSONATION' });
+  };
+
+  const handleChangePassword = () => {
+      if (!currentUser) return;
+      if (currentPassInput !== currentUser.password) {
+          alert("Current password is incorrect.");
+          return;
+      }
+      if (newPassInput.length < 4) {
+          alert("New password must be at least 4 characters long.");
+          return;
+      }
+
+      dispatch({
+          type: 'UPDATE_USER_DETAILS',
+          payload: {
+              id: currentUser.id,
+              password: newPassInput
+          }
+      });
+      alert("Password changed successfully.");
+      setShowChangePasswordModal(false);
+      setCurrentPassInput('');
+      setNewPassInput('');
   };
 
   const role = currentUser?.role;
@@ -168,14 +197,23 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
                     </div>
                 </div>
                 
-                {allowedRoles.length > 1 && (
+                <div className="flex items-center gap-1">
                     <button 
-                        onClick={() => setShowRoleMenu(!showRoleMenu)} 
-                        className="text-galaxy-300 hover:text-white"
+                        onClick={() => setShowChangePasswordModal(true)} 
+                        className="text-galaxy-300 hover:text-white p-1"
+                        title="Change Password"
                     >
-                        <Settings size={16} />
+                        <Lock size={14} />
                     </button>
-                )}
+                    {allowedRoles.length > 1 && (
+                        <button 
+                            onClick={() => setShowRoleMenu(!showRoleMenu)} 
+                            className="text-galaxy-300 hover:text-white p-1"
+                        >
+                            <Settings size={16} />
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* Role Switcher Menu */}
@@ -292,6 +330,54 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
                       >
                           {isDeveloper ? 'Grant Access' : 'Submit Request'}
                       </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* Change Password Modal */}
+      {showChangePasswordModal && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+                  <div className="bg-galaxy-900 text-white p-4 flex justify-between items-center">
+                       <h3 className="font-bold flex items-center gap-2"><Lock size={16} /> Change Password</h3>
+                       <button onClick={() => setShowChangePasswordModal(false)} className="hover:text-red-300"><X size={18} /></button>
+                  </div>
+                  <div className="p-6">
+                      <div className="space-y-4">
+                          <div>
+                              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Current Password</label>
+                              <input 
+                                type="password" 
+                                className="w-full border p-2 rounded"
+                                value={currentPassInput}
+                                onChange={e => setCurrentPassInput(e.target.value)}
+                              />
+                          </div>
+                          <div>
+                              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">New Password</label>
+                              <input 
+                                type="password" 
+                                className="w-full border p-2 rounded"
+                                value={newPassInput}
+                                onChange={e => setNewPassInput(e.target.value)}
+                              />
+                          </div>
+                      </div>
+                      <div className="flex gap-2 mt-6">
+                          <button 
+                            onClick={() => setShowChangePasswordModal(false)}
+                            className="flex-1 py-2 border rounded hover:bg-gray-50 text-sm font-medium"
+                          >
+                              Cancel
+                          </button>
+                          <button 
+                            onClick={handleChangePassword}
+                            className="flex-1 py-2 bg-galaxy-600 text-white rounded hover:bg-galaxy-700 text-sm font-bold"
+                          >
+                              Update Password
+                          </button>
+                      </div>
                   </div>
               </div>
           </div>

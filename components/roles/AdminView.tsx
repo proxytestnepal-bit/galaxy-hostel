@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
 import { Role, User, ExamType, SubjectType, Notice } from '../../types';
 import AccountantView from './AccountantView';
-import { Check, X, Printer, Lock, Unlock, AlertTriangle, RefreshCw, UserCheck, Shield, BookOpen, Edit2, Search, Filter, Eye, Settings, Plus, Trash2, Calendar, Layout, ChevronRight, ChevronDown, UploadCloud, Database, ScanFace, LogIn, Briefcase, GraduationCap, Calculator, ChevronLeft, Bell, Send, Users, Clock } from 'lucide-react';
+import { Check, X, Printer, Lock, Unlock, AlertTriangle, RefreshCw, UserCheck, Shield, BookOpen, Edit2, Search, Filter, Eye, Settings, Plus, Trash2, Calendar, Layout, ChevronRight, ChevronDown, UploadCloud, Database, ScanFace, LogIn, Briefcase, GraduationCap, Calculator, ChevronLeft, Bell, Send, Users, Clock, Key } from 'lucide-react';
 import { INITIAL_STATE } from '../../services/mockData';
 
 interface Props {
@@ -31,6 +31,10 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   const [reviewUser, setReviewUser] = useState<User | null>(null);
   const [reviewData, setReviewData] = useState<Partial<User>>({});
   
+  // Password Reset State
+  const [resetPassUserId, setResetPassUserId] = useState<string | null>(null);
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+
   // System Management State
   const [showSubjectManager, setShowSubjectManager] = useState(false);
   const [newSubject, setNewSubject] = useState('');
@@ -123,6 +127,25 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       if(window.confirm('Are you sure you want to reject this registration?')) {
           dispatch({ type: 'REJECT_USER', payload: id });
       }
+  };
+
+  const handleAdminResetPassword = () => {
+      if (!resetPassUserId || !newPasswordInput) return;
+      if (newPasswordInput.length < 4) {
+          alert("Password must be at least 4 characters.");
+          return;
+      }
+
+      dispatch({
+          type: 'UPDATE_USER_DETAILS',
+          payload: {
+              id: resetPassUserId,
+              password: newPasswordInput
+          }
+      });
+      alert("Password updated successfully.");
+      setResetPassUserId(null);
+      setNewPasswordInput('');
   };
 
   const toggleSubjectInReview = (subjectName: string) => {
@@ -501,6 +524,35 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                   </div>
               )}
 
+              {/* Password Reset Modal */}
+              {resetPassUserId && (
+                  <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+                      <div className="bg-white rounded-xl shadow-xl w-full max-w-sm">
+                          <div className="bg-galaxy-900 text-white p-4 rounded-t-xl flex justify-between items-center">
+                               <h3 className="font-bold flex items-center gap-2"><Key size={18} /> Reset User Password</h3>
+                               <button onClick={() => { setResetPassUserId(null); setNewPasswordInput(''); }}><X size={18} /></button>
+                          </div>
+                          <div className="p-6">
+                              <p className="text-sm text-gray-600 mb-4">
+                                  You are resetting the password for this user. You cannot see their existing password.
+                              </p>
+                              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">New Password</label>
+                              <input 
+                                type="text"
+                                className="w-full border p-2 rounded mb-4 focus:ring-2 focus:ring-galaxy-500 outline-none"
+                                value={newPasswordInput}
+                                onChange={e => setNewPasswordInput(e.target.value)}
+                                placeholder="Enter new password"
+                              />
+                              <div className="flex justify-end gap-2">
+                                  <button onClick={() => { setResetPassUserId(null); setNewPasswordInput(''); }} className="px-4 py-2 text-gray-600 border rounded hover:bg-gray-50">Cancel</button>
+                                  <button onClick={handleAdminResetPassword} className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Set Password</button>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              )}
+
               {reviewUser && (
                   <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
                       <div className="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden max-h-[90vh] overflow-y-auto">
@@ -729,9 +781,14 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                               {u.role === 'teacher' && <span className="text-xs text-gray-600">{u.subjects?.join(', ')}</span>}
                                           </td>
                                           <td className="p-3">
-                                              <button onClick={() => openReviewModal(u)} className="text-galaxy-600 hover:bg-galaxy-100 p-2 rounded transition-colors">
-                                                  <Edit2 size={16} />
-                                              </button>
+                                              <div className="flex gap-2">
+                                                  <button onClick={() => openReviewModal(u)} className="text-galaxy-600 hover:bg-galaxy-100 p-2 rounded transition-colors" title="Edit User">
+                                                      <Edit2 size={16} />
+                                                  </button>
+                                                  <button onClick={() => setResetPassUserId(u.id)} className="text-red-500 hover:bg-red-50 p-2 rounded transition-colors" title="Reset Password">
+                                                      <Key size={16} />
+                                                  </button>
+                                              </div>
                                           </td>
                                       </tr>
                                   ))}
