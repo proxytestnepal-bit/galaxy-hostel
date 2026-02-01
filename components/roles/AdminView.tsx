@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
 import { Role, User, ExamType, SubjectType, Notice } from '../../types';
 import AccountantView from './AccountantView';
-import { Check, X, Printer, Lock, Unlock, AlertTriangle, RefreshCw, UserCheck, Shield, BookOpen, Edit2, Search, Filter, Eye, Settings, Plus, Trash2, Calendar, Layout, ChevronRight, ChevronDown, UploadCloud, Database, ScanFace, LogIn, Briefcase, GraduationCap, Calculator, ChevronLeft, Bell, Send, Users, Clock, Key } from 'lucide-react';
+import { Check, X, Printer, Lock, Unlock, AlertTriangle, RefreshCw, UserCheck, Shield, BookOpen, Edit2, Search, Filter, Eye, Settings, Plus, Trash2, Calendar, Layout, ChevronRight, ChevronDown, UploadCloud, Database, ScanFace, LogIn, Briefcase, GraduationCap, Calculator, ChevronLeft, Bell, Send, Users, Clock, Key, Archive, AlertCircle } from 'lucide-react';
 import { INITIAL_STATE } from '../../services/mockData';
 
 interface Props {
@@ -34,6 +34,9 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   // Password Reset State
   const [resetPassUserId, setResetPassUserId] = useState<string | null>(null);
   const [newPasswordInput, setNewPasswordInput] = useState('');
+
+  // Delete/Dropout Modal State
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
   // System Management State
   const [showSubjectManager, setShowSubjectManager] = useState(false);
@@ -147,6 +150,26 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       setResetPassUserId(null);
       setNewPasswordInput('');
   };
+
+  const handleDeleteClick = (user: User) => {
+      if (user.role === 'developer') {
+          alert("Cannot delete developer accounts.");
+          return;
+      }
+      setUserToDelete(user);
+  };
+
+  const confirmDropUser = () => {
+      if(!userToDelete) return;
+      dispatch({ type: 'DROP_USER', payload: userToDelete.id });
+      setUserToDelete(null);
+  };
+
+  const confirmDeleteUser = () => {
+      if(!userToDelete) return;
+      dispatch({ type: 'DELETE_USER', payload: userToDelete.id });
+      setUserToDelete(null);
+  }
 
   const toggleSubjectInReview = (subjectName: string) => {
       const currentSubjects = reviewData.subjects || [];
@@ -553,6 +576,66 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                   </div>
               )}
 
+              {/* Delete / Drop Out Confirmation Modal */}
+              {userToDelete && (
+                  <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in">
+                      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+                           <div className="bg-galaxy-900 text-white p-4 flex justify-between items-center">
+                               <h3 className="font-bold flex items-center gap-2">
+                                   <Trash2 size={18} /> Remove User Access
+                               </h3>
+                               <button onClick={() => setUserToDelete(null)} className="hover:text-red-200"><X size={20} /></button>
+                           </div>
+                           <div className="p-6">
+                               <div className="flex items-start gap-4 mb-6">
+                                   <div className="bg-amber-100 p-3 rounded-full text-amber-600 shrink-0">
+                                       <AlertTriangle size={24} />
+                                   </div>
+                                   <div>
+                                       <h4 className="font-bold text-gray-800 text-lg">{userToDelete.name}</h4>
+                                       <p className="text-sm text-gray-500">{userToDelete.email} • {userToDelete.role.toUpperCase()}</p>
+                                   </div>
+                               </div>
+                               
+                               <p className="text-gray-600 text-sm mb-6 leading-relaxed">
+                                   How would you like to handle this user account?
+                               </p>
+
+                               <div className="space-y-3">
+                                   <button 
+                                     onClick={confirmDropUser}
+                                     className="w-full flex items-center justify-between p-4 border border-amber-200 bg-amber-50 hover:bg-amber-100 rounded-xl transition-all group text-left"
+                                   >
+                                       <div>
+                                           <span className="font-bold text-amber-800 block mb-1">Drop Out (Archive)</span>
+                                           <span className="text-xs text-amber-700">Removes access but keeps data. User is hidden from active lists.</span>
+                                       </div>
+                                       <Archive size={20} className="text-amber-500 group-hover:scale-110 transition-transform"/>
+                                   </button>
+
+                                   <button 
+                                     onClick={confirmDeleteUser}
+                                     className="w-full flex items-center justify-between p-4 border border-red-200 bg-red-50 hover:bg-red-100 rounded-xl transition-all group text-left"
+                                   >
+                                       <div>
+                                           <span className="font-bold text-red-800 block mb-1">Permanently Delete</span>
+                                           <span className="text-xs text-red-700">Completely removes user and data. Cannot be undone.</span>
+                                       </div>
+                                       <Trash2 size={20} className="text-red-500 group-hover:scale-110 transition-transform"/>
+                                   </button>
+                               </div>
+
+                               <button 
+                                 onClick={() => setUserToDelete(null)}
+                                 className="w-full mt-4 py-3 text-gray-500 font-medium hover:bg-gray-50 rounded-lg"
+                               >
+                                   Cancel
+                               </button>
+                           </div>
+                      </div>
+                  </div>
+              )}
+
               {reviewUser && (
                   <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
                       <div className="bg-white rounded-xl shadow-xl max-w-lg w-full overflow-hidden max-h-[90vh] overflow-y-auto">
@@ -785,8 +868,11 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                                   <button onClick={() => openReviewModal(u)} className="text-galaxy-600 hover:bg-galaxy-100 p-2 rounded transition-colors" title="Edit User">
                                                       <Edit2 size={16} />
                                                   </button>
-                                                  <button onClick={() => setResetPassUserId(u.id)} className="text-red-500 hover:bg-red-50 p-2 rounded transition-colors" title="Reset Password">
+                                                  <button onClick={() => setResetPassUserId(u.id)} className="text-amber-500 hover:bg-amber-50 p-2 rounded transition-colors" title="Reset Password">
                                                       <Key size={16} />
+                                                  </button>
+                                                  <button onClick={() => handleDeleteClick(u)} className="text-red-500 hover:bg-red-50 p-2 rounded transition-colors" title="Delete or Drop User">
+                                                      <Trash2 size={16} />
                                                   </button>
                                               </div>
                                           </td>

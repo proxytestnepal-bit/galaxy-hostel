@@ -2,7 +2,7 @@
 
 export type Role = 'admin' | 'accountant' | 'teacher' | 'student' | 'guest' | 'developer' | 'intern';
 
-export type UserStatus = 'active' | 'pending' | 'rejected';
+export type UserStatus = 'active' | 'pending' | 'rejected' | 'dropped_out';
 
 export type ExamType = 'Monthly Test' | 'Unit Test' | 'Term Exam' | 'Viva Exam' | 'Final Exam';
 

@@ -38,6 +38,10 @@ const Auth: React.FC = () => {
         const user = state.users.find(u => u.email.toLowerCase() === email.toLowerCase());
         
         if (user) {
+            if (user.status === 'dropped_out') {
+                setError('This account has been deactivated (Dropped Out). Please contact administration.');
+                return;
+            }
             if (user.status !== 'active' && user.role !== 'developer') {
                 setError('Your account is pending approval by an administrator.');
                 return;
@@ -55,6 +59,10 @@ const Auth: React.FC = () => {
         
         // Check local password field (Simulated Auth for Bulk Users)
         if (user && user.password === password) {
+            if (user.status === 'dropped_out') {
+                setError('This account has been deactivated (Dropped Out). Please contact administration.');
+                return;
+            }
             if (user.status !== 'active') {
                 setError('Your account is pending approval by an administrator.');
                 return;

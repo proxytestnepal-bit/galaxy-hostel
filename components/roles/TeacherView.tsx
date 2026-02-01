@@ -144,9 +144,10 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
       const filteredStudents = selectedClassId 
           ? state.users.filter(u => {
               const isStudent = u.role === 'student';
+              const isActive = u.status === 'active'; // Only show active students
               const matchesClass = u.classId === selectedClassId;
               const matchesSection = !selectedSection || u.section === selectedSection;
-              return isStudent && matchesClass && matchesSection;
+              return isStudent && isActive && matchesClass && matchesSection;
           })
           : [];
 
@@ -279,7 +280,7 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                                           </tbody>
                                       </table>
                                       {filteredStudents.length === 0 && (
-                                          <div className="p-6 text-center text-gray-400 text-xs">No students found.</div>
+                                          <div className="p-6 text-center text-gray-400 text-xs">No active students found in this section.</div>
                                       )}
                                   </div>
                               </div>

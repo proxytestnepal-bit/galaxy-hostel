@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { AppState, User, Assignment, Submission, FeeRecord, ExamReport, Notice, Invoice, ExamSession, Subject, ScoreData, WorkLog, RoleRequest, Role } from '../types';
 import { INITIAL_STATE } from './mockData';
@@ -14,6 +15,8 @@ type Action =
   | { type: 'UPDATE_USER_DETAILS'; payload: Partial<User> & { id: string } }
   | { type: 'APPROVE_USER'; payload: { id: string; updates?: Partial<User> } }
   | { type: 'REJECT_USER'; payload: string }
+  | { type: 'DROP_USER'; payload: string }
+  | { type: 'DELETE_USER'; payload: string }
   | { type: 'ADD_ASSIGNMENT'; payload: Assignment }
   | { type: 'ADD_SUBMISSION'; payload: Submission }
   | { type: 'GRADE_SUBMISSION'; payload: { id: string; grade: string; feedback: string } }
@@ -99,6 +102,18 @@ const reducer = (state: AppState, action: Action): AppState => {
       return { ...state, users: updatedUsers };
     }
     case 'REJECT_USER':
+        dbActions.deleteUser(action.payload);
+        return {
+            ...state,
+            users: state.users.filter(u => u.id !== action.payload)
+        };
+    case 'DROP_USER': {
+        const droppedUsers = state.users.map(u => u.id === action.payload ? { ...u, status: 'dropped_out' as const } : u);
+        const droppedUser = droppedUsers.find(u => u.id === action.payload);
+        if(droppedUser) dbActions.updateUser(droppedUser);
+        return { ...state, users: droppedUsers };
+    }
+    case 'DELETE_USER':
         dbActions.deleteUser(action.payload);
         return {
             ...state,
@@ -373,7 +388,7 @@ const reducer = (state: AppState, action: Action): AppState => {
             });
         }
         
-        // Save request status update to DB (delete or keep history? let's delete for cleanliness in this simple app, or keep as log. Let's delete to keep list small)
+        // Save request status update to DB
         dbActions.deleteRoleRequest(id);
         
         return { ...state, roleRequests: state.roleRequests.filter(r => r.id !== id), users: updatedUsers };

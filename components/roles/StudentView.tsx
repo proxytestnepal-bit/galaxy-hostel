@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
 import { CheckCircle, AlertCircle, FileText, Send, Crown, Bell } from 'lucide-react';
@@ -197,11 +196,16 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
               
               {uniqueSessions.map(sessionName => {
                   // Get reports for all students in my class for this session
-                  const classReports = state.examReports.filter(r => 
-                      r.term === sessionName && 
-                      (r.published === true || String(r.published) === 'true') && 
-                      state.users.find(u => u.id === r.studentId)?.classId === currentUser?.classId
-                  );
+                  // Exclude dropped-out students from the ranking calculation
+                  const classReports = state.examReports.filter(r => {
+                      const student = state.users.find(u => u.id === r.studentId);
+                      return (
+                          r.term === sessionName && 
+                          (r.published === true || String(r.published) === 'true') && 
+                          student?.classId === currentUser?.classId &&
+                          student?.status === 'active' // Ensure only active students are counted
+                      );
+                  });
 
                   // Calculate totals
                   const leaderboard = classReports.map(r => {
