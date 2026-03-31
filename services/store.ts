@@ -46,6 +46,7 @@ type Action =
   | { type: 'ADD_WORK_LOG'; payload: WorkLog }
   | { type: 'ADD_ROLE_REQUEST'; payload: RoleRequest }
   | { type: 'RESOLVE_ROLE_REQUEST'; payload: { id: string; status: 'approved' | 'rejected' } }
+  | { type: 'SYNC_MOCK_TEACHERS'; payload: User[] }
   | { type: 'RESET_DATABASE' };
 
 const AppContext = createContext<{
@@ -392,6 +393,25 @@ const reducer = (state: AppState, action: Action): AppState => {
         dbActions.deleteRoleRequest(id);
         
         return { ...state, roleRequests: state.roleRequests.filter(r => r.id !== id), users: updatedUsers };
+    }
+    case 'SYNC_MOCK_TEACHERS': {
+        const teachers = action.payload;
+        const updatedUsers = [...state.users];
+        
+        teachers.forEach(teacher => {
+            const index = updatedUsers.findIndex(u => u.id === teacher.id || u.email === teacher.email);
+            let finalUser;
+            if (index !== -1) {
+                finalUser = { ...updatedUsers[index], ...teacher };
+                updatedUsers[index] = finalUser;
+            } else {
+                finalUser = teacher;
+                updatedUsers.push(finalUser);
+            }
+            dbActions.updateUser(finalUser);
+        });
+        
+        return { ...state, users: updatedUsers };
     }
     case 'RESET_DATABASE':
         return INITIAL_STATE;

@@ -213,14 +213,166 @@ const parseStudents = (data: string): User[] => {
 
 const DYNAMIC_STUDENTS = parseStudents(RAW_STUDENT_DATA);
 
+export const REAL_TEACHERS: User[] = [
+  {
+    id: 't_1', name: 'Shyam Bdr Karkee', role: 'teacher', allowedRoles: ['teacher'], email: 'shyam@galaxy.edu.np', password: 'shyam123', status: 'active',
+    teacherAssignments: [
+      { subject: 'Hotel Management', classId: '11', section: 'All' },
+      { subject: 'Hotel Management', classId: '12', section: 'All' },
+      { subject: 'Hospitality Management', classId: '11', section: 'Fourseasons' },
+      { subject: 'Hospitality Management', classId: 'HDHM-SEM1', section: 'Jumeirah' },
+      { subject: 'Food Production', classId: 'HDHM-SEM1', section: 'Jumeirah' },
+      { subject: 'Food Production', classId: 'HDHM-SEM1', section: 'Sheraton' },
+      { subject: 'Entrepreneurship', classId: 'HDHM-SEM1', section: 'Jumeirah' },
+      { subject: 'Entrepreneurship', classId: 'HDHM-SEM1', section: 'Sheraton' },
+    ]
+  },
+  {
+    id: 't_2', name: 'Rojina Karki', role: 'teacher', allowedRoles: ['teacher'], email: 'rojina@galaxy.edu.np', password: 'rojina123', status: 'active',
+    teacherAssignments: [
+      { subject: 'Travel Tourism and Mountaineering', classId: '11', section: 'All' },
+      { subject: 'Travel Tourism and Mountaineering', classId: '12', section: 'All' },
+      { subject: 'Front Office', classId: 'HDHM-SEM1', section: 'Jumeirah' },
+      { subject: 'Front Office', classId: 'HDHM-SEM1', section: 'Sheraton' },
+      { subject: 'Hospitality Management', classId: 'HDHM-SEM1', section: 'Jumeirah' },
+      { subject: 'Hospitality Management', classId: 'HDHM-SEM1', section: 'Sheraton' },
+      { subject: 'Event Management', classId: 'HDHM-SEM1', section: 'Jumeirah' },
+      { subject: 'Event Management', classId: 'HDHM-SEM1', section: 'Sheraton' },
+    ]
+  },
+  {
+    id: 't_3', name: 'Arjun Shrestha', role: 'teacher', allowedRoles: ['teacher'], email: 'arjun@galaxy.edu.np', password: 'arjun123', status: 'active',
+    teacherAssignments: [
+      { subject: 'Social Studies', classId: 'HDHM-SEM1', section: 'Jumeirah' }
+    ]
+  },
+  {
+    id: 't_4', name: 'Buddinath Jha', role: 'teacher', allowedRoles: ['teacher'], email: 'buddinath@galaxy.edu.np', password: 'buddinath123', status: 'active',
+    teacherAssignments: [
+      { subject: 'English', classId: '12', section: 'Marriott' },
+      { subject: 'English', classId: '11', section: 'Accor' }
+    ]
+  },
+  {
+    id: 't_5', name: 'Prakash Dhungana', role: 'teacher', allowedRoles: ['teacher'], email: 'prakash@galaxy.edu.np', password: 'prakash123', status: 'active',
+    teacherAssignments: [
+      { subject: 'Social Studies', classId: '12', section: 'Marriott' },
+      { subject: 'Social Studies', classId: '11', section: 'Hyatt' }
+    ]
+  },
+  {
+    id: 't_6', name: 'Karuna Pokhrel', role: 'teacher', allowedRoles: ['teacher'], email: 'karuna@galaxy.edu.np', password: 'karuna123', status: 'active',
+    teacherAssignments: [
+      { subject: 'Nepali', classId: '12', section: 'Marriott' },
+      { subject: 'Nepali', classId: '11', section: 'Accor' },
+      { subject: 'Nepali', classId: '11', section: 'Fourseasons' },
+      { subject: 'Nepali', classId: '12', section: 'Sheraton' },
+      { subject: 'Nepali', classId: '12', section: 'Emirates' }
+    ]
+  },
+  {
+    id: 't_7', name: 'Teken Chhetri', role: 'teacher', allowedRoles: ['teacher'], email: 'teken@galaxy.edu.np', password: 'teken123', status: 'active',
+    teacherAssignments: [
+      { subject: 'Account', classId: '12', section: 'Marriott' },
+      { subject: 'Account', classId: '11', section: 'Accor' },
+      { subject: 'Account', classId: '12', section: 'Sheraton' },
+      { subject: 'Account', classId: '12', section: 'Emirates' }
+    ]
+  },
+  {
+    id: 't_8', name: 'Santosh Das', role: 'teacher', allowedRoles: ['teacher'], email: 'santosh@galaxy.edu.np', password: 'santosh123', status: 'active',
+    teacherAssignments: [
+      { subject: 'Account', classId: '11', section: 'Hyatt' }
+    ]
+  },
+  {
+    id: 't_9', name: 'Anita Adhakari', role: 'teacher', allowedRoles: ['teacher'], email: 'anita@galaxy.edu.np', password: 'anita123', status: 'active',
+    teacherAssignments: [
+      { subject: 'Social Studies', classId: '12', section: 'Sheraton' }
+    ]
+  },
+  {
+    id: 't_10', name: 'Sunita Bhattrai', role: 'teacher', allowedRoles: ['teacher'], email: 'sunita@galaxy.edu.np', password: 'sunita123', status: 'active',
+    teacherAssignments: [
+      { subject: 'English', classId: '12', section: 'Sheraton' },
+      { subject: 'English', classId: '11', section: 'Fourseasons' }
+    ]
+  },
+  {
+    id: 't_11', name: 'Kabita Timilsina', role: 'teacher', allowedRoles: ['teacher'], email: 'kabita@galaxy.edu.np', password: 'kabita123', status: 'active',
+    teacherAssignments: [
+      { subject: 'English', classId: '12', section: 'Emirates' },
+      { subject: 'English for Hospitality', classId: 'HDHM-SEM1', section: 'Jumeirah' }
+    ]
+  },
+  {
+    id: 't_12', name: 'Badri Poudel', role: 'teacher', allowedRoles: ['teacher'], email: 'badri@galaxy.edu.np', password: 'badri123', status: 'active',
+    teacherAssignments: [
+      { subject: 'Social Studies', classId: '12', section: 'Emirates' }
+    ]
+  },
+  {
+    id: 't_13', name: 'Ronil Adhakari', role: 'teacher', allowedRoles: ['teacher'], email: 'ronil@galaxy.edu.np', password: 'ronil123', status: 'active',
+    teacherAssignments: [
+      { subject: 'Social Studies', classId: '11', section: 'Accor' }
+    ]
+  },
+  {
+    id: 't_14', name: 'Nabina Shrestha', role: 'teacher', allowedRoles: ['teacher'], email: 'nabina@galaxy.edu.np', password: 'nabina123', status: 'active',
+    teacherAssignments: [
+      { subject: 'English', classId: 'HDHM-SEM1', section: 'Hyatt' },
+      { subject: 'English', classId: 'HDHM-SEM1', section: 'Jumeirah' }
+    ]
+  },
+  {
+    id: 't_15', name: 'Rabi Katwal', role: 'teacher', allowedRoles: ['teacher'], email: 'rabi@galaxy.edu.np', password: 'rabi123', status: 'active',
+    teacherAssignments: [
+      { subject: 'Nepali', classId: 'HDHM-SEM1', section: 'Hyatt' },
+      { subject: 'Nepali', classId: 'HDHM-SEM1', section: 'Jumeirah' }
+    ]
+  },
+  {
+    id: 't_16', name: 'Sanyog Pokharel', role: 'teacher', allowedRoles: ['teacher'], email: 'sanyog@galaxy.edu.np', password: 'sanyog123', status: 'active',
+    teacherAssignments: [
+      { subject: 'Social Studies', classId: '11', section: 'Fourseasons' }
+    ]
+  },
+  {
+    id: 't_17', name: 'Rohan Tamrakar', role: 'teacher', allowedRoles: ['teacher'], email: 'rohan@galaxy.edu.np', password: 'rohan123', status: 'active',
+    teacherAssignments: [
+      { subject: 'Food and Beverage Service', classId: 'HDHM-SEM1', section: 'Jumeirah' },
+      { subject: 'Food and Beverage Service', classId: 'HDHM-SEM1', section: 'Sheraton' },
+      { subject: 'House Keeping', classId: 'HDHM-SEM1', section: 'Jumeirah' },
+      { subject: 'House Keeping', classId: 'HDHM-SEM1', section: 'Sheraton' }
+    ]
+  },
+  {
+    id: 't_18', name: 'Mukesh Dulal', role: 'teacher', allowedRoles: ['teacher'], email: 'mukesh.dulal@galaxy.edu.np', password: 'mukesh123', status: 'active',
+    teacherAssignments: [
+      { subject: 'French for Hospitality', classId: 'HDHM-SEM1', section: 'Jumeirah' }
+    ]
+  },
+  {
+    id: 't_19', name: 'Dheejan Babu Kafle', role: 'teacher', allowedRoles: ['teacher'], email: 'dheejan.kafle@galaxy.edu.np', password: 'dheejan123', status: 'active',
+    teacherAssignments: [
+      { subject: 'Personal Development', classId: 'HDHM-SEM1', section: 'Jumeirah' }
+    ]
+  },
+  {
+    id: 't_20', name: 'Prajwal Adhikari', role: 'teacher', allowedRoles: ['teacher'], email: 'prajwal@galaxy.edu.np', password: 'prajwal123', status: 'active',
+    teacherAssignments: [
+      { subject: 'Food Science and Nutrition', classId: 'HDHM-SEM2', section: 'Sheraton' }
+    ]
+  }
+];
+
 export const INITIAL_USERS: User[] = [
   { id: 'u1', name: 'Super Admin', role: 'admin', allowedRoles: ['admin', 'teacher', 'accountant'], email: 'admin@galaxy.edu.np', password: 'password', status: 'active' },
   { id: 'u2', name: 'Suresh Pradhan', role: 'admin', allowedRoles: ['admin'], email: 'suresh@galaxy.edu.np', password: 'password', status: 'active' }, 
   { id: 'u3', name: 'Ramesh Adhikari', role: 'accountant', allowedRoles: ['accountant'], email: 'ramesh@galaxy.edu.np', password: 'password', status: 'active' },
-  { id: 'u4', name: 'Sarita Sharma', role: 'teacher', allowedRoles: ['teacher'], email: 'sarita@galaxy.edu.np', password: 'password', status: 'active', subjects: ['Hotel Management', 'Food Production'] },
-  { id: 'u5', name: 'Bishal Gurung', role: 'teacher', allowedRoles: ['teacher'], email: 'bishal@galaxy.edu.np', password: 'password', status: 'active', subjects: ['Chemistry', 'Food Science and Nutrition'] },
   { id: 'u8', name: 'Gita Singh', role: 'developer', allowedRoles: ['developer', 'admin'], email: 'dheejan@gmail.com', password: 'password', status: 'active' },
   { id: 'u9', name: 'Hari Shrestha', role: 'intern', allowedRoles: ['intern'], email: 'hari@galaxy.edu.np', password: 'password', status: 'active' },
+  ...REAL_TEACHERS,
   ...DYNAMIC_STUDENTS
 ];
 
@@ -234,7 +386,7 @@ export const INITIAL_STATE: AppState = {
       title: 'History of Hospitality in Nepal',
       description: 'Write a 500-word essay on the evolution of 5-star hotels in Kathmandu and Pokhara.',
       subject: 'Hotel Management',
-      teacherId: 'u4',
+      teacherId: 't_1',
       targetClassId: '12',
       dueDate: '2023-11-15',
       createdAt: '2023-11-01',
@@ -309,8 +461,8 @@ export const INITIAL_STATE: AppState = {
   systemClasses: [
     { name: '11', sections: ['Accor', 'Jumeirah', 'Hyatt', 'Fourseasons'] },
     { name: '12', sections: ['Emirates', 'Marriott', 'Sheraton'] },
-    { name: 'HDHM-SEM1', sections: [] },
-    { name: 'HDHM-SEM2', sections: [] },
+    { name: 'HDHM-SEM1', sections: ['Jumeirah', 'Sheraton', 'Hyatt'] },
+    { name: 'HDHM-SEM2', sections: ['Sheraton'] },
     { name: 'HDHM-SEM3', sections: [] }
   ],
   workLogs: []

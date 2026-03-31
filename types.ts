@@ -33,6 +33,8 @@ export interface User {
   
   // Teacher specific
   subjects?: string[]; // Subject Names
+  assignedClasses?: string[]; // Array of class names
+  assignedSections?: Record<string, string[]>; // Class Name -> Sections
 }
 
 export interface RoleRequest {

@@ -71,6 +71,13 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
       setGradingLoading(false);
   }
 
+  const assignedClasses = state.currentUser?.assignedClasses || [];
+  const assignedSections = state.currentUser?.assignedSections || {};
+  
+  const teacherClasses = assignedClasses.length > 0 
+    ? state.systemClasses.filter(c => assignedClasses.includes(c.name))
+    : state.systemClasses; // Fallback to all if none assigned for demo purposes, but ideally empty
+
   const submitGrade = () => {
       if(selectedSubmissionId) {
           dispatch({
@@ -139,16 +146,27 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
 
   if (activeTab === 'marks_entry') {
       const openSessions = state.examSessions.filter(s => s.status === 'open');
-      const uniqueClasses = state.systemClasses.map(c => c.name);
+      const uniqueClasses = teacherClasses.map(c => c.name);
       
       const filteredStudents = selectedClassId 
           ? state.users.filter(u => {
               const isStudent = u.role === 'student';
               const isActive = u.status === 'active'; // Only show active students
               const matchesClass = u.classId === selectedClassId;
+              
+              // Check if section is allowed for this teacher
+              const allowedSections = assignedSections[selectedClassId] || [];
+              const isSectionAllowed = assignedClasses.length === 0 || allowedSections.length === 0 || allowedSections.includes(u.section || '');
+              
               const matchesSection = !selectedSection || u.section === selectedSection;
-              return isStudent && isActive && matchesClass && matchesSection;
+              return isStudent && isActive && matchesClass && matchesSection && isSectionAllowed;
           })
+          : [];
+
+      const availableSections = selectedClassData 
+          ? (assignedClasses.length > 0 && assignedSections[selectedClassId]?.length > 0
+              ? selectedClassData.sections.filter(s => assignedSections[selectedClassId].includes(s))
+              : selectedClassData.sections)
           : [];
 
       return (
@@ -194,10 +212,10 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                                       className="w-full border p-1 rounded text-xs bg-white h-8"
                                       value={selectedSection}
                                       onChange={e => setSelectedSection(e.target.value)}
-                                      disabled={!selectedClassData || selectedClassData.sections.length === 0}
+                                      disabled={!selectedClassData || availableSections.length === 0}
                                   >
-                                      <option value="">All</option>
-                                      {selectedClassData?.sections.map(s => <option key={s} value={s}>{s}</option>)}
+                                      <option value="">{availableSections.length > 0 ? 'All Assigned' : 'N/A'}</option>
+                                      {availableSections.map(s => <option key={s} value={s}>{s}</option>)}
                                   </select>
                               </div>
                               <div className="col-span-2 md:col-span-1">
@@ -490,12 +508,14 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Target Class</label>
-                        <input 
-                            type="text" 
+                        <select 
                             value={newAssignment.targetClassId}
                             onChange={e => setNewAssignment({...newAssignment, targetClassId: e.target.value})}
-                            className="w-full border rounded-md p-2 mt-1"
-                        />
+                            className="w-full border rounded-md p-2 mt-1 bg-white"
+                        >
+                            <option value="">-- Select Class --</option>
+                            {teacherClasses.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                        </select>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Title</label>

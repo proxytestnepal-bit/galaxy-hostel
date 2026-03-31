@@ -1,0 +1,66 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "System user (Admin, Teacher, Student, etc.)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "accountant", "teacher", "student", "guest", "developer", "intern"] },
+        "allowedRoles": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["active", "pending", "rejected", "dropped_out"] },
+        "subjects": { "type": "array", "items": { "type": "string" } },
+        "assignedClasses": { "type": "array", "items": { "type": "string" } },
+        "assignedSections": { "type": "object" },
+        "classId": { "type": "string" },
+        "section": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "role", "status"]
+    },
+    "Assignment": {
+      "title": "Assignment",
+      "description": "Teacher assigned work for students",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "subject": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "targetClassId": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "title", "subject", "teacherId", "targetClassId"]
+    },
+    "ExamReport": {
+      "title": "ExamReport",
+      "description": "Student exam scores",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "examSessionId": { "type": "string" },
+        "scores": { "type": "object" },
+        "published": { "type": "boolean" }
+      },
+      "required": ["id", "studentId", "examSessionId", "scores"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents"
+    },
+    "/assignments/{assignmentId}": {
+      "schema": "Assignment",
+      "description": "Assignment documents"
+    },
+    "/examReports/{reportId}": {
+      "schema": "ExamReport",
+      "description": "Student exam reports"
+    }
+  }
+}

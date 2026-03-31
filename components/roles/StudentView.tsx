@@ -32,7 +32,10 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
   };
 
   if (activeTab === 'assignments') {
-    const myAssignments = state.assignments.filter(a => a.targetClassId === currentUser?.classId);
+    const myAssignments = state.assignments.filter(a => 
+      a.targetClassId === currentUser?.classId && 
+      (!a.targetSection || a.targetSection === 'All' || a.targetSection === currentUser?.section)
+    );
     
     return (
       <div className="space-y-6">

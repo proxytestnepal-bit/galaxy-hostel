@@ -180,6 +180,31 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       }
   };
 
+  const toggleAssignedClassInReview = (className: string) => {
+      const currentClasses = reviewData.assignedClasses || [];
+      if (currentClasses.includes(className)) {
+          const updatedClasses = currentClasses.filter(c => c !== className);
+          const updatedSections = { ...(reviewData.assignedSections || {}) };
+          delete updatedSections[className];
+          setReviewData({ ...reviewData, assignedClasses: updatedClasses, assignedSections: updatedSections });
+      } else {
+          setReviewData({ ...reviewData, assignedClasses: [...currentClasses, className] });
+      }
+  };
+
+  const toggleAssignedSectionInReview = (className: string, section: string) => {
+      const currentSections = { ...(reviewData.assignedSections || {}) };
+      const classSections = currentSections[className] || [];
+      
+      if (classSections.includes(section)) {
+          currentSections[className] = classSections.filter(s => s !== section);
+      } else {
+          currentSections[className] = [...classSections, section];
+      }
+      
+      setReviewData({ ...reviewData, assignedSections: currentSections });
+  };
+
   const toggleAllowedRoleInReview = (roleName: Role) => {
       const currentAllowed = reviewData.allowedRoles || [];
       if (roleName === reviewData.role) return;
@@ -768,26 +793,86 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                   )}
 
                                   {(reviewData.role === 'teacher' || reviewData.allowedRoles?.includes('teacher')) && (
-                                      <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
+                                      <div className="bg-purple-50 p-4 rounded-lg border border-purple-100 space-y-4">
                                           <h4 className="font-bold text-purple-900 mb-2">Teacher Configuration</h4>
-                                          <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Assign Subjects</label>
-                                          <div className="flex flex-wrap gap-2">
-                                              {state.availableSubjects.map(subject => {
-                                                  const isSelected = reviewData.subjects?.includes(subject.name);
-                                                  return (
-                                                      <button
-                                                          key={subject.name}
-                                                          onClick={() => toggleSubjectInReview(subject.name)}
-                                                          className={`text-xs px-2 py-1 rounded-full border transition-all ${
-                                                              isSelected 
-                                                              ? 'bg-purple-600 text-white border-purple-600' 
-                                                              : 'bg-white text-gray-600 border-gray-300 hover:border-purple-400'
-                                                          }`}
-                                                      >
-                                                          {subject.name} {isSelected && '✓'}
-                                                      </button>
-                                                  )
-                                              })}
+                                          
+                                          <div>
+                                              <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Assign Subjects</label>
+                                              <div className="flex flex-wrap gap-2">
+                                                  {state.availableSubjects.map(subject => {
+                                                      const isSelected = reviewData.subjects?.includes(subject.name);
+                                                      return (
+                                                          <button
+                                                              key={subject.name}
+                                                              onClick={() => toggleSubjectInReview(subject.name)}
+                                                              className={`text-xs px-2 py-1 rounded-full border transition-all ${
+                                                                  isSelected 
+                                                                  ? 'bg-purple-600 text-white border-purple-600' 
+                                                                  : 'bg-white text-gray-600 border-gray-300 hover:border-purple-400'
+                                                              }`}
+                                                          >
+                                                              {subject.name} {isSelected && '✓'}
+                                                          </button>
+                                                      )
+                                                  })}
+                                              </div>
+                                          </div>
+
+                                          <div className="border-t border-purple-200 pt-4">
+                                              <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Assign Classes & Sections (Jurisdiction)</label>
+                                              <p className="text-[10px] text-gray-400 mb-3">Teachers can only access assignments and marks for their assigned classes/sections.</p>
+                                              
+                                              <div className="space-y-3">
+                                                  {state.systemClasses.map(cls => {
+                                                      const isClassSelected = reviewData.assignedClasses?.includes(cls.name);
+                                                      const selectedSections = reviewData.assignedSections?.[cls.name] || [];
+                                                      
+                                                      return (
+                                                          <div key={cls.name} className="border rounded-lg bg-white overflow-hidden">
+                                                              <div 
+                                                                  className={`p-2 flex items-center justify-between cursor-pointer transition-colors ${isClassSelected ? 'bg-purple-100' : 'hover:bg-gray-50'}`}
+                                                                  onClick={() => toggleAssignedClassInReview(cls.name)}
+                                                              >
+                                                                  <div className="flex items-center gap-2">
+                                                                      <div className={`w-4 h-4 rounded border flex items-center justify-center ${isClassSelected ? 'bg-purple-600 border-purple-600 text-white' : 'border-gray-300'}`}>
+                                                                          {isClassSelected && <Check size={12} />}
+                                                                      </div>
+                                                                      <span className="text-sm font-bold">{cls.name}</span>
+                                                                  </div>
+                                                                  {isClassSelected && (
+                                                                      <span className="text-[10px] text-purple-600 font-bold">
+                                                                          {selectedSections.length === 0 ? 'All Sections' : `${selectedSections.length} Sections`}
+                                                                      </span>
+                                                                  )}
+                                                              </div>
+                                                              
+                                                              {isClassSelected && cls.sections.length > 0 && (
+                                                                  <div className="p-2 bg-gray-50 border-t flex flex-wrap gap-2">
+                                                                      {cls.sections.map(sec => {
+                                                                          const isSecSelected = selectedSections.includes(sec);
+                                                                          return (
+                                                                              <button
+                                                                                  key={sec}
+                                                                                  onClick={(e) => {
+                                                                                      e.stopPropagation();
+                                                                                      toggleAssignedSectionInReview(cls.name, sec);
+                                                                                  }}
+                                                                                  className={`text-[10px] px-2 py-1 rounded border transition-all ${
+                                                                                      isSecSelected
+                                                                                      ? 'bg-purple-500 text-white border-purple-500'
+                                                                                      : 'bg-white text-gray-500 border-gray-200 hover:border-purple-300'
+                                                                                  }`}
+                                                                              >
+                                                                                  Section {sec} {isSecSelected && '✓'}
+                                                                              </button>
+                                                                          )
+                                                                      })}
+                                                                  </div>
+                                                              )}
+                                                          </div>
+                                                      )
+                                                  })}
+                                              </div>
                                           </div>
                                       </div>
                                   )}

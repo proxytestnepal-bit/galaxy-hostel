@@ -69,7 +69,9 @@ const Auth: React.FC = () => {
             }
             dispatch({ type: 'LOGIN', payload: user });
         } else {
-            setError(firebaseError.code === 'auth/invalid-credential' ? 'Invalid credentials' : 'Login failed: ' + firebaseError.message);
+            const isTeacher = user && user.role === 'teacher';
+            const teacherHint = isTeacher ? ' (Teachers: try your name + 123, e.g., shyam123)' : '';
+            setError(firebaseError.code === 'auth/invalid-credential' ? 'Invalid credentials' + teacherHint : 'Login failed: ' + firebaseError.message);
         }
     }
   };
