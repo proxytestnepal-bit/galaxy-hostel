@@ -46,7 +46,6 @@ type Action =
   | { type: 'ADD_WORK_LOG'; payload: WorkLog }
   | { type: 'ADD_ROLE_REQUEST'; payload: RoleRequest }
   | { type: 'RESOLVE_ROLE_REQUEST'; payload: { id: string; status: 'approved' | 'rejected' } }
-  | { type: 'SYNC_MOCK_TEACHERS'; payload: User[] }
   | { type: 'RESET_DATABASE' };
 
 const AppContext = createContext<{
@@ -394,25 +393,6 @@ const reducer = (state: AppState, action: Action): AppState => {
         
         return { ...state, roleRequests: state.roleRequests.filter(r => r.id !== id), users: updatedUsers };
     }
-    case 'SYNC_MOCK_TEACHERS': {
-        const teachers = action.payload;
-        const updatedUsers = [...state.users];
-        
-        teachers.forEach(teacher => {
-            const index = updatedUsers.findIndex(u => u.id === teacher.id || u.email === teacher.email);
-            let finalUser;
-            if (index !== -1) {
-                finalUser = { ...updatedUsers[index], ...teacher };
-                updatedUsers[index] = finalUser;
-            } else {
-                finalUser = teacher;
-                updatedUsers.push(finalUser);
-            }
-            dbActions.updateUser(finalUser);
-        });
-        
-        return { ...state, users: updatedUsers };
-    }
     case 'RESET_DATABASE':
         return INITIAL_STATE;
     default:
@@ -447,6 +427,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (missingClasses) {
                  await seedCollection('classes', INITIAL_STATE.systemClasses);
                  data.systemClasses = INITIAL_STATE.systemClasses;
+            } else if (data.systemClasses) {
+                // Check if HDHM classes are missing sections and repair if needed
+                const hdhmClasses = data.systemClasses.filter(c => c.name.startsWith('HDHM'));
+                const needsHdhmRepair = hdhmClasses.some(c => c.sections.length === 0);
+                
+                if (needsHdhmRepair) {
+                    console.log("HDHM classes missing sections, repairing...");
+                    // Merge sections from INITIAL_STATE for HDHM classes
+                    const updatedClasses = data.systemClasses.map(c => {
+                        if (c.name.startsWith('HDHM') && c.sections.length === 0) {
+                            const initial = INITIAL_STATE.systemClasses.find(ic => ic.name === c.name);
+                            if (initial) return initial;
+                        }
+                        return c;
+                    });
+                    
+                    // Update Firestore
+                    for (const cls of updatedClasses) {
+                        await seedCollection('classes', [cls]);
+                    }
+                    data.systemClasses = updatedClasses;
+                }
             }
 
             if (missingNotices) {

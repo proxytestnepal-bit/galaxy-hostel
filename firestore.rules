@@ -27,8 +27,34 @@ service cloud.firestore {
       return isAuthenticated() && getUserData().role == 'teacher';
     }
 
-    function isAssignedToClass(classId, section) {
+    function isAssignedToClass(classId, section, subject) {
       let data = getUserData();
+      let teacherAssignments = data.get('teacherAssignments', []);
+      
+      if (teacherAssignments.size() > 0) {
+        // If subject is provided, check specific assignment
+        if (subject != null) {
+          let relevantAssignments = teacherAssignments.filter(a => a.subject == subject && a.classId == classId);
+          if (relevantAssignments.size() > 0) {
+            let assignment = relevantAssignments[0];
+            let sections = assignment.get('sections', []);
+            return sections.size() == 0 || section in sections;
+          }
+          return false;
+        }
+        
+        // If no subject provided, check if assigned to this class at all
+        let classAssignments = teacherAssignments.filter(a => a.classId == classId);
+        if (classAssignments.size() > 0) {
+           if (section != null) {
+             return classAssignments.exists(a => a.get('sections', []).size() == 0 || section in a.get('sections', []));
+           }
+           return true;
+        }
+        return false;
+      }
+      
+      // Legacy fallback
       let assignedClasses = data.get('assignedClasses', []);
       let assignedSections = data.get('assignedSections', {});
       
@@ -52,14 +78,14 @@ service cloud.firestore {
 
     match /assignments/{assignmentId} {
       allow read: if isAuthenticated();
-      allow create: if isTeacher() && isAssignedToClass(request.resource.data.targetClassId, null) && request.resource.data.teacherId == request.auth.uid;
+      allow create: if isTeacher() && isAssignedToClass(request.resource.data.targetClassId, null, request.resource.data.subject) && request.resource.data.teacherId == request.auth.uid;
       allow update: if (isTeacher() && resource.data.teacherId == request.auth.uid) || isAdmin();
       allow delete: if (isTeacher() && resource.data.teacherId == request.auth.uid) || isAdmin();
     }
 
     match /examReports/{reportId} {
       allow read: if isAuthenticated();
-      allow create, update: if isAdmin() || (isTeacher() && isAssignedToClass(get(/databases/$(database)/documents/users/$(request.resource.data.studentId)).data.classId, get(/databases/$(database)/documents/users/$(request.resource.data.studentId)).data.section));
+      allow create, update: if isAdmin() || (isTeacher() && isAssignedToClass(get(/databases/$(database)/documents/users/$(request.resource.data.studentId)).data.classId, get(/databases/$(database)/documents/users/$(request.resource.data.studentId)).data.section, null));
       allow delete: if isAdmin();
     }
 

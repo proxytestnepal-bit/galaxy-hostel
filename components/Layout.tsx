@@ -55,8 +55,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
   };
 
   const role = currentUser?.role;
-  const allowedRoles = currentUser?.allowedRoles || [role];
-  const isDeveloper = currentUser?.role === 'developer' || currentUser?.allowedRoles?.includes('developer');
+  const allowedRoles = currentUser?.allowedRoles || (role ? [role] : []);
+  const isDeveloper =
+    currentUser?.role === "developer" ||
+    currentUser?.allowedRoles?.includes("developer");
 
   const handleRoleSwitch = (newRole: Role) => {
       dispatch({ type: 'SWITCH_ACTIVE_ROLE', payload: newRole });

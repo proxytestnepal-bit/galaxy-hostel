@@ -71,12 +71,21 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
       setGradingLoading(false);
   }
 
-  const assignedClasses = state.currentUser?.assignedClasses || [];
-  const assignedSections = state.currentUser?.assignedSections || {};
+  const teacherAssignments = state.currentUser?.teacherAssignments || [];
+  
+  // Get unique subjects from assignments
+  const assignedSubjects = teacherAssignments.length > 0
+    ? Array.from(new Set(teacherAssignments.map(a => a.subject)))
+    : state.currentUser?.subjects || [];
+
+  // Get unique classes from assignments
+  const assignedClasses = teacherAssignments.length > 0
+    ? Array.from(new Set(teacherAssignments.map(a => a.classId)))
+    : state.currentUser?.assignedClasses || [];
   
   const teacherClasses = assignedClasses.length > 0 
     ? state.systemClasses.filter(c => assignedClasses.includes(c.name))
-    : state.systemClasses; // Fallback to all if none assigned for demo purposes, but ideally empty
+    : state.systemClasses; 
 
   const submitGrade = () => {
       if(selectedSubmissionId) {
@@ -151,12 +160,23 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
       const filteredStudents = selectedClassId 
           ? state.users.filter(u => {
               const isStudent = u.role === 'student';
-              const isActive = u.status === 'active'; // Only show active students
+              const isActive = u.status === 'active'; 
               const matchesClass = u.classId === selectedClassId;
               
-              // Check if section is allowed for this teacher
-              const allowedSections = assignedSections[selectedClassId] || [];
-              const isSectionAllowed = assignedClasses.length === 0 || allowedSections.length === 0 || allowedSections.includes(u.section || '');
+              // Check if section is allowed for this teacher for the selected subject
+              let isSectionAllowed = true;
+              if (teacherAssignments.length > 0) {
+                  const assignment = teacherAssignments.find(a => a.subject === selectedSubject && a.classId === selectedClassId);
+                  if (assignment) {
+                      isSectionAllowed = assignment.sections.length === 0 || assignment.sections.includes(u.section || '');
+                  } else {
+                      isSectionAllowed = false; // Not assigned to this subject/class combo
+                  }
+              } else {
+                  // Legacy fallback
+                  const legacySections = state.currentUser?.assignedSections?.[selectedClassId] || [];
+                  isSectionAllowed = assignedClasses.length === 0 || legacySections.length === 0 || legacySections.includes(u.section || '');
+              }
               
               const matchesSection = !selectedSection || u.section === selectedSection;
               return isStudent && isActive && matchesClass && matchesSection && isSectionAllowed;
@@ -164,9 +184,9 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
           : [];
 
       const availableSections = selectedClassData 
-          ? (assignedClasses.length > 0 && assignedSections[selectedClassId]?.length > 0
-              ? selectedClassData.sections.filter(s => assignedSections[selectedClassId].includes(s))
-              : selectedClassData.sections)
+          ? (teacherAssignments.length > 0
+              ? (teacherAssignments.find(a => a.subject === selectedSubject && a.classId === selectedClassId)?.sections || [])
+              : (state.currentUser?.assignedSections?.[selectedClassId] || []))
           : [];
 
       return (
@@ -201,9 +221,16 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                                       className="w-full border p-1 rounded text-xs bg-white h-8"
                                       value={selectedClassId}
                                       onChange={e => { setSelectedClassId(e.target.value); setSelectedSection(''); }}
+                                      disabled={!selectedSubject}
                                   >
                                       <option value="">-- Class --</option>
-                                      {uniqueClasses.map(c => <option key={c} value={c}>{c}</option>)}
+                                      {uniqueClasses
+                                        .filter(c => {
+                                            if (teacherAssignments.length === 0) return true;
+                                            return teacherAssignments.some(a => a.subject === selectedSubject && a.classId === c);
+                                        })
+                                        .map(c => <option key={c} value={c}>{c}</option>)
+                                      }
                                   </select>
                               </div>
                               <div>
@@ -223,10 +250,10 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                                   <select 
                                       className="w-full border p-1 rounded text-xs bg-white h-8"
                                       value={selectedSubject}
-                                      onChange={e => setSelectedSubject(e.target.value)}
+                                      onChange={e => { setSelectedSubject(e.target.value); setSelectedClassId(''); setSelectedSection(''); }}
                                   >
                                       <option value="">-- Subject --</option>
-                                      {state.currentUser?.subjects?.map(s => <option key={s} value={s}>{s}</option>)}
+                                      {assignedSubjects.map(s => <option key={s} value={s}>{s}</option>)}
                                   </select>
                               </div>
                           </div>
@@ -500,10 +527,11 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                         <label className="block text-sm font-medium text-gray-700">Subject</label>
                         <select 
                             value={newAssignment.subject}
-                            onChange={e => setNewAssignment({...newAssignment, subject: e.target.value})}
+                            onChange={e => setNewAssignment({...newAssignment, subject: e.target.value, targetClassId: ''})}
                             className="w-full border rounded-md p-2 mt-1"
                         >
-                            {state.currentUser?.subjects?.map(s => <option key={s} value={s}>{s}</option>)}
+                            <option value="">-- Select Subject --</option>
+                            {assignedSubjects.map(s => <option key={s} value={s}>{s}</option>)}
                         </select>
                     </div>
                     <div>
@@ -512,9 +540,16 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                             value={newAssignment.targetClassId}
                             onChange={e => setNewAssignment({...newAssignment, targetClassId: e.target.value})}
                             className="w-full border rounded-md p-2 mt-1 bg-white"
+                            disabled={!newAssignment.subject}
                         >
                             <option value="">-- Select Class --</option>
-                            {teacherClasses.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                            {teacherClasses
+                                .filter(c => {
+                                    if (teacherAssignments.length === 0) return true;
+                                    return teacherAssignments.some(a => a.subject === newAssignment.subject && a.classId === c.name);
+                                })
+                                .map(c => <option key={c.name} value={c.name}>{c.name}</option>)
+                            }
                         </select>
                     </div>
                     <div>

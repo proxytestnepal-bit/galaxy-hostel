@@ -13,6 +13,12 @@ export interface Subject {
   type: SubjectType;
 }
 
+export interface TeacherAssignment {
+  subject: string;
+  classId: string;
+  sections: string[]; // Empty means all sections
+}
+
 export interface User {
   id: string;
   name: string;
@@ -32,9 +38,10 @@ export interface User {
   totalPaid?: number; // Calculated field
   
   // Teacher specific
-  subjects?: string[]; // Subject Names
-  assignedClasses?: string[]; // Array of class names
-  assignedSections?: Record<string, string[]>; // Class Name -> Sections
+  subjects?: string[]; // Subject Names (Legacy/General)
+  assignedClasses?: string[]; // Array of class names (Legacy/General)
+  assignedSections?: Record<string, string[]>; // Class Name -> Sections (Legacy/General)
+  teacherAssignments?: TeacherAssignment[]; // New subject-based assignments
 }
 
 export interface RoleRequest {
