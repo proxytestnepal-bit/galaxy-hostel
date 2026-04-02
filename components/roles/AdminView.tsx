@@ -97,6 +97,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   const [newSessionType, setNewSessionType] = useState<ExamType>("Term Exam");
   const [publishClassId, setPublishClassId] = useState("");
   const [publishSection, setPublishSection] = useState("");
+  const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
 
   // Hierarchy Definition
   const roleHierarchy: Record<string, number> = {
@@ -1798,7 +1799,8 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
           </div>
 
           <div className="space-y-3">
-            {state.examSessions.map((session) => (
+            {state.examSessions.map((session) => {
+              return (
               <div
                 key={session.id}
                 className="flex items-center justify-between border p-4 rounded-lg bg-white shadow-sm"
@@ -1833,11 +1835,47 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${session.status === "open" ? "translate-x-6" : "translate-x-1"}`}
                     />
                   </button>
+                  <button
+                    onClick={() => setSessionToDelete(session.id)}
+                    className="text-red-500 hover:text-red-700 p-1 bg-red-50 rounded-full"
+                    title="Delete Session"
+                  >
+                    <Trash2 size={18} />
+                  </button>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         </div>
+
+        {sessionToDelete && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 text-center">
+              <AlertTriangle size={48} className="text-red-500 mx-auto mb-4" />
+              <h3 className="text-xl font-bold mb-2">Delete Exam Session?</h3>
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to delete this exam session? This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setSessionToDelete(null)}
+                  className="flex-1 py-2 border rounded hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    dispatch({ type: "DELETE_EXAM_SESSION", payload: sessionToDelete });
+                    setSessionToDelete(null);
+                  }}
+                  className="flex-1 py-2 bg-red-600 text-white rounded hover:bg-red-700 font-bold"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="bg-white p-6 rounded-xl border border-galaxy-200 shadow-sm">
           <h3 className="text-xl font-bold mb-4">Publish Class Results</h3>

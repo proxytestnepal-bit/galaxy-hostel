@@ -87,6 +87,7 @@ export const dbActions = {
     
     addExamSession: (e: ExamSession) => saveCollectionItem('examSessions', e),
     updateExamSession: (e: ExamSession) => saveCollectionItem('examSessions', e),
+    deleteExamSession: (id: string) => deleteCollectionItem('examSessions', id),
     
     addReport: (r: ExamReport) => saveCollectionItem('examReports', r),
     updateReport: (r: ExamReport) => saveCollectionItem('examReports', r),

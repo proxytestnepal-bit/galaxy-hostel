@@ -33,8 +33,7 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
 
   if (activeTab === 'assignments') {
     const myAssignments = state.assignments.filter(a => 
-      a.targetClassId === currentUser?.classId && 
-      (!a.targetSection || a.targetSection === 'All' || a.targetSection === currentUser?.section)
+      a.targetClassId === currentUser?.classId
     );
     
     return (
