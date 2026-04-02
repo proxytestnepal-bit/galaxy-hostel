@@ -1800,6 +1800,9 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
 
           <div className="space-y-3">
             {state.examSessions.map((session) => {
+              const hasMarks = state.examReports.some(
+                (r) => r.examSessionId === session.id || r.term === session.name
+              );
               return (
               <div
                 key={session.id}
@@ -1835,13 +1838,15 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${session.status === "open" ? "translate-x-6" : "translate-x-1"}`}
                     />
                   </button>
-                  <button
-                    onClick={() => setSessionToDelete(session.id)}
-                    className="text-red-500 hover:text-red-700 p-1 bg-red-50 rounded-full"
-                    title="Delete Session"
-                  >
-                    <Trash2 size={18} />
-                  </button>
+                  {!hasMarks && (
+                    <button
+                      onClick={() => setSessionToDelete(session.id)}
+                      className="text-red-500 hover:text-red-700 p-1 bg-red-50 rounded-full"
+                      title="Delete Session"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  )}
                 </div>
               </div>
             )})}
