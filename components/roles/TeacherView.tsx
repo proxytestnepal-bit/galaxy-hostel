@@ -180,7 +180,7 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
               
               const matchesSection = !selectedSection || u.section === selectedSection;
               return isStudent && isActive && matchesClass && matchesSection && isSectionAllowed;
-          })
+          }).sort((a, b) => a.name.localeCompare(b.name))
           : [];
 
       const availableSections = selectedClassData 
