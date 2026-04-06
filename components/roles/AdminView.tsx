@@ -39,6 +39,7 @@ import {
   Key,
   Archive,
   AlertCircle,
+  ArrowLeft,
 } from "lucide-react";
 import { INITIAL_STATE } from "../../services/mockData";
 
@@ -98,6 +99,14 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   const [publishClassId, setPublishClassId] = useState("");
   const [publishSection, setPublishSection] = useState("");
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
+
+  // Exam Session Detailed View / Edit
+  const [selectedExamSessionId, setSelectedExamSessionId] = useState<string | null>(null);
+  const [examEditClassId, setExamEditClassId] = useState("");
+  const [examEditSection, setExamEditSection] = useState("");
+  const [examEditSubject, setExamEditSubject] = useState("");
+  const [examEditFullMarks, setExamEditFullMarks] = useState(100);
+  const [examEditPassMarks, setExamEditPassMarks] = useState(40);
 
   // Hierarchy Definition
   const roleHierarchy: Record<string, number> = {
@@ -397,6 +406,29 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
     ) {
       dispatch({ type: "RESET_RECEIPT_COUNTER", payload: Number(resetVal) });
     }
+  };
+
+  const handleExamScoreChange = (studentId: string, scoreStr: string) => {
+    if (!selectedExamSessionId || !examEditSubject) return;
+    const score = parseFloat(scoreStr);
+    if (isNaN(score)) return;
+
+    const session = state.examSessions.find((s) => s.id === selectedExamSessionId);
+
+    dispatch({
+      type: "UPDATE_EXAM_MARKS",
+      payload: {
+        studentId,
+        examSessionId: selectedExamSessionId,
+        sessionName: session?.name || "",
+        subject: examEditSubject,
+        scoreData: {
+          obtained: score,
+          fullMarks: examEditFullMarks,
+          passMarks: examEditPassMarks,
+        },
+      },
+    });
   };
 
   const handlePublishClassResult = (
@@ -1754,6 +1786,162 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   }
 
   if (activeTab === "reports" || activeTab === "exam_management") {
+    if (selectedExamSessionId) {
+      const session = state.examSessions.find(s => s.id === selectedExamSessionId);
+      if (!session) {
+        setSelectedExamSessionId(null);
+        return null;
+      }
+
+      // Calculate summary
+      const sessionReports = state.examReports.filter(r => r.examSessionId === session.id || r.term === session.name);
+      const studentsWithMarks = new Set(sessionReports.map(r => r.studentId)).size;
+      const totalStudents = state.users.filter(u => u.role === 'student' && u.status === 'active').length;
+
+      const uniqueClasses = state.systemClasses.map(c => c.name);
+      const selectedClassData = state.systemClasses.find(c => c.name === examEditClassId);
+      const availableSections = selectedClassData?.sections || [];
+      const availableSubjects = state.availableSubjects.map(s => s.name);
+
+      const filteredStudents = examEditClassId 
+        ? state.users.filter(u => {
+            const isStudent = u.role === 'student';
+            const isActive = u.status === 'active';
+            const matchesClass = u.classId === examEditClassId;
+            const matchesSection = !examEditSection || u.section === examEditSection;
+            return isStudent && isActive && matchesClass && matchesSection;
+        }).sort((a, b) => a.name.localeCompare(b.name))
+        : [];
+
+      return (
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-xl border border-galaxy-200 shadow-sm">
+            <div className="flex items-center gap-4 mb-6">
+              <button onClick={() => setSelectedExamSessionId(null)} className="text-gray-500 hover:text-gray-900">
+                <ArrowLeft size={24} />
+              </button>
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                {session.name} <span className="text-sm font-normal text-gray-500">({session.type})</span>
+              </h3>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                <div className="text-blue-600 text-sm font-bold mb-1">Total Active Students</div>
+                <div className="text-2xl font-bold">{totalStudents}</div>
+              </div>
+              <div className="bg-green-50 p-4 rounded-lg border border-green-100">
+                <div className="text-green-600 text-sm font-bold mb-1">Students with Marks</div>
+                <div className="text-2xl font-bold">{studentsWithMarks}</div>
+              </div>
+              <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
+                <div className="text-purple-600 text-sm font-bold mb-1">Status</div>
+                <div className="text-2xl font-bold">{session.status === 'open' ? 'OPEN FOR ENTRY' : 'CLOSED'}</div>
+              </div>
+            </div>
+
+            <h4 className="font-bold text-lg mb-4 border-b pb-2">Review & Edit Marks</h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Class</label>
+                <select 
+                    className="w-full border p-2 rounded bg-white"
+                    value={examEditClassId}
+                    onChange={e => { setExamEditClassId(e.target.value); setExamEditSection(''); setExamEditSubject(''); }}
+                >
+                    <option value="">-- Select Class --</option>
+                    {uniqueClasses.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Section</label>
+                <select 
+                    className="w-full border p-2 rounded bg-white"
+                    value={examEditSection}
+                    onChange={e => setExamEditSection(e.target.value)}
+                    disabled={!examEditClassId || availableSections.length === 0}
+                >
+                    <option value="">{availableSections.length > 0 ? 'All Sections' : 'N/A'}</option>
+                    {availableSections.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Subject</label>
+                <select 
+                    className="w-full border p-2 rounded bg-white"
+                    value={examEditSubject}
+                    onChange={e => setExamEditSubject(e.target.value)}
+                    disabled={!examEditClassId || availableSubjects.length === 0}
+                >
+                    <option value="">-- Select Subject --</option>
+                    {availableSubjects.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {examEditClassId && examEditSubject && (
+                <div className="flex gap-4 mb-6 p-4 bg-gray-50 border rounded-lg items-end">
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase">Full Marks</label>
+                        <input type="number" value={examEditFullMarks} onChange={e => setExamEditFullMarks(Number(e.target.value))} className="border p-1 rounded w-24 text-sm" />
+                    </div>
+                    <div>
+                        <label className="block text-xs font-bold text-gray-500 uppercase">Pass Marks</label>
+                        <input type="number" value={examEditPassMarks} onChange={e => setExamEditPassMarks(Number(e.target.value))} className="border p-1 rounded w-24 text-sm" />
+                    </div>
+                </div>
+            )}
+
+            {examEditClassId && examEditSubject ? (
+                <div className="border rounded-lg overflow-hidden">
+                    <table className="w-full text-left">
+                        <thead className="bg-gray-100 text-gray-600 border-b">
+                            <tr>
+                                <th className="p-3 text-sm font-bold uppercase tracking-wider">Student Name</th>
+                                <th className="p-3 text-sm font-bold uppercase tracking-wider">Section</th>
+                                <th className="p-3 w-32 text-right text-sm font-bold uppercase tracking-wider">Marks</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y bg-white">
+                            {filteredStudents.map(student => {
+                                const report = state.examReports.find(
+                                    r => r.studentId === student.id && r.examSessionId === selectedExamSessionId
+                                );
+                                const scoreData = report?.scores[examEditSubject];
+                                const score = scoreData ? scoreData.obtained : '';
+
+                                return (
+                                    <tr key={student.id} className="hover:bg-gray-50 transition-colors">
+                                        <td className="p-3 font-semibold text-gray-900">{student.name}</td>
+                                        <td className="p-3 text-sm text-gray-500">{student.section || '-'}</td>
+                                        <td className="p-3 text-right">
+                                            <input 
+                                                type="number" 
+                                                className="border p-1 rounded w-24 text-right font-mono text-sm focus:ring-1 focus:ring-galaxy-500 outline-none border-gray-300 shadow-inner"
+                                                placeholder="0"
+                                                value={score}
+                                                onChange={e => handleExamScoreChange(student.id, e.target.value)}
+                                            />
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                    {filteredStudents.length === 0 && (
+                        <div className="p-6 text-center text-gray-400">No active students found in this class/section.</div>
+                    )}
+                </div>
+            ) : (
+                <div className="p-6 text-center bg-gray-50 border-2 border-dashed border-gray-200 rounded-lg text-gray-400">
+                    <p>Select a class and subject to view and edit marks.</p>
+                </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-8">
         <div className="bg-white p-6 rounded-xl border border-galaxy-200 shadow-sm">
@@ -1806,7 +1994,8 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
               return (
               <div
                 key={session.id}
-                className="flex items-center justify-between border p-4 rounded-lg bg-white shadow-sm"
+                className="flex items-center justify-between border p-4 rounded-lg bg-white shadow-sm cursor-pointer hover:bg-gray-50 transition-colors"
+                onClick={() => setSelectedExamSessionId(session.id)}
               >
                 <div>
                   <div className="flex items-center gap-2">
@@ -1826,12 +2015,13 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                     {session.status === "open" ? "OPEN FOR ENTRY" : "CLOSED"}
                   </div>
                   <button
-                    onClick={() =>
+                    onClick={(e) => {
+                      e.stopPropagation();
                       dispatch({
                         type: "TOGGLE_EXAM_SESSION_STATUS",
                         payload: session.id,
-                      })
-                    }
+                      });
+                    }}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${session.status === "open" ? "bg-green-600" : "bg-gray-300"}`}
                   >
                     <span
@@ -1840,7 +2030,10 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                   </button>
                   {!hasMarks && (
                     <button
-                      onClick={() => setSessionToDelete(session.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSessionToDelete(session.id);
+                      }}
                       className="text-red-500 hover:text-red-700 p-1 bg-red-50 rounded-full"
                       title="Delete Session"
                     >
