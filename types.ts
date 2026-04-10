@@ -6,11 +6,12 @@ export type UserStatus = 'active' | 'pending' | 'rejected' | 'dropped_out';
 
 export type ExamType = 'Monthly Test' | 'Unit Test' | 'Term Exam' | 'Viva Exam' | 'Final Exam';
 
-export type SubjectType = 'Theory' | 'Practical';
+export type SubjectType = 'Theory' | 'Practical' | 'Both';
 
 export interface Subject {
   name: string;
   type: SubjectType;
+  classTypes?: Record<string, SubjectType>;
 }
 
 export interface TeacherAssignment {
@@ -119,6 +120,9 @@ export interface ScoreData {
   obtained: number;
   fullMarks: number;
   passMarks: number;
+  practicalObtained?: number;
+  practicalFullMarks?: number;
+  practicalPassMarks?: number;
 }
 
 export interface ExamReport {

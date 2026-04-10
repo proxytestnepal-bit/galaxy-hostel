@@ -39,6 +39,7 @@ type Action =
   | { type: 'ADD_NOTICE'; payload: Notice }
   | { type: 'RESET_RECEIPT_COUNTER'; payload: number }
   | { type: 'ADD_SYSTEM_SUBJECT'; payload: Subject }
+  | { type: 'UPDATE_SYSTEM_SUBJECT'; payload: Subject }
   | { type: 'DELETE_SYSTEM_SUBJECT'; payload: string } // name
   | { type: 'ADD_SYSTEM_CLASS'; payload: string }
   | { type: 'DELETE_SYSTEM_CLASS'; payload: string }
@@ -328,6 +329,13 @@ const reducer = (state: AppState, action: Action): AppState => {
         if(state.availableSubjects.find(s => s.name === action.payload.name)) return state;
         dbActions.addSubject(action.payload);
         return { ...state, availableSubjects: [...state.availableSubjects, action.payload] };
+    case 'UPDATE_SYSTEM_SUBJECT': {
+        const updatedSubjects = state.availableSubjects.map(s => 
+            s.name === action.payload.name ? action.payload : s
+        );
+        dbActions.addSubject(action.payload); // This acts as an upsert in db.ts
+        return { ...state, availableSubjects: updatedSubjects };
+    }
     case 'DELETE_SYSTEM_SUBJECT':
         dbActions.deleteSubject(action.payload);
         return { ...state, availableSubjects: state.availableSubjects.filter(s => s.name !== action.payload) };

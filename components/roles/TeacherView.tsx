@@ -32,10 +32,6 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
   const [selectedClassId, setSelectedClassId] = useState('');
   const [selectedSection, setSelectedSection] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
-  
-  // Marks Config defaults
-  const [fullMarks, setFullMarks] = useState(100);
-  const [passMarks, setPassMarks] = useState(40);
 
   const handleCreateAssignment = (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,12 +95,25 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
   }
 
   // Marks Entry Handlers
-  const handleScoreChange = (studentId: string, scoreStr: string) => {
+  const handleScoreChange = (studentId: string, scoreStr: string, isPractical: boolean = false) => {
       if (!selectedSessionId || !selectedSubject) return;
       const score = parseFloat(scoreStr);
-      if (isNaN(score)) return;
+      if (isNaN(score) && scoreStr !== '') return;
 
       const session = state.examSessions.find(s => s.id === selectedSessionId);
+      const existingReport = state.examReports.find(r => r.studentId === studentId && r.examSessionId === selectedSessionId);
+      const existingScoreData = existingReport?.scores[selectedSubject] || {
+          obtained: 0,
+          fullMarks: 100, // Default fallback
+          passMarks: 40
+      };
+
+      const newScoreData = { ...existingScoreData };
+      if (isPractical) {
+          newScoreData.practicalObtained = isNaN(score) ? undefined : score;
+      } else {
+          newScoreData.obtained = isNaN(score) ? 0 : score;
+      }
       
       dispatch({
           type: 'UPDATE_EXAM_MARKS',
@@ -113,11 +122,7 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
               examSessionId: selectedSessionId,
               sessionName: session?.name || '',
               subject: selectedSubject,
-              scoreData: {
-                  obtained: score,
-                  fullMarks,
-                  passMarks
-              }
+              scoreData: newScoreData
           }
       });
   };
@@ -125,21 +130,46 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
   const exportToCSV = (filteredStudents: any[]) => {
       if (filteredStudents.length === 0) return;
       
-      const csvRows = [
-          ['Student Name', 'Section', 'Subject', 'Full Marks', 'Pass Marks', 'Obtained Marks']
-      ];
+      const selectedSubjectData = state.availableSubjects.find(s => s.name === selectedSubject);
+      const effectiveType = selectedSubjectData?.classTypes?.[selectedClassId] || selectedSubjectData?.type || 'Theory';
+      const showTheory = effectiveType === 'Theory' || effectiveType === 'Both';
+      const showPractical = effectiveType === 'Practical' || effectiveType === 'Both';
+
+      const headers = ['Student Name', 'Section', 'Subject'];
+      if (showTheory) {
+          headers.push('Theory Full Marks', 'Theory Pass Marks', 'Theory Obtained');
+      }
+      if (showPractical) {
+          headers.push('Practical Full Marks', 'Practical Pass Marks', 'Practical Obtained');
+      }
+      
+      const csvRows = [headers];
 
       filteredStudents.forEach(student => {
           const report = state.examReports.find(r => r.studentId === student.id && r.examSessionId === selectedSessionId);
           const data = report?.scores[selectedSubject];
-          csvRows.push([
+          
+          const row = [
               student.name,
               student.section || '-',
-              selectedSubject,
-              data?.fullMarks?.toString() || fullMarks.toString(),
-              data?.passMarks?.toString() || passMarks.toString(),
-              data?.obtained?.toString() || '0'
-          ]);
+              selectedSubject
+          ];
+
+          if (showTheory) {
+              row.push(
+                  data?.fullMarks?.toString() || '100',
+                  data?.passMarks?.toString() || '40',
+                  data?.obtained?.toString() || '0'
+              );
+          }
+          if (showPractical) {
+              row.push(
+                  data?.practicalFullMarks?.toString() || '50',
+                  data?.practicalPassMarks?.toString() || '20',
+                  data?.practicalObtained?.toString() || '0'
+              );
+          }
+          csvRows.push(row);
       });
 
       const csvContent = "data:text/csv;charset=utf-8," + csvRows.map(e => e.join(",")).join("\n");
@@ -188,6 +218,28 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
               ? (teacherAssignments.find(a => a.subject === selectedSubject && a.classId === selectedClassId)?.sections || [])
               : (state.currentUser?.assignedSections?.[selectedClassId] || []))
           : [];
+
+      const selectedSubjectData = state.availableSubjects.find(s => s.name === selectedSubject);
+      const effectiveType = selectedSubjectData?.classTypes?.[selectedClassId] || selectedSubjectData?.type || 'Theory';
+      const showTheory = effectiveType === 'Theory' || effectiveType === 'Both';
+      const showPractical = effectiveType === 'Practical' || effectiveType === 'Both';
+
+      // Find full/pass marks from an existing report for this session and subject, or use defaults
+      let displayTheoryFullMarks = 100;
+      let displayTheoryPassMarks = 40;
+      let displayPracticalFullMarks = 50;
+      let displayPracticalPassMarks = 20;
+
+      if (selectedSessionId && selectedSubject) {
+          const existingReport = state.examReports.find(r => r.examSessionId === selectedSessionId && r.scores[selectedSubject]);
+          if (existingReport && existingReport.scores[selectedSubject]) {
+              const scoreData = existingReport.scores[selectedSubject];
+              if (scoreData.fullMarks !== undefined) displayTheoryFullMarks = scoreData.fullMarks;
+              if (scoreData.passMarks !== undefined) displayTheoryPassMarks = scoreData.passMarks;
+              if (scoreData.practicalFullMarks !== undefined) displayPracticalFullMarks = scoreData.practicalFullMarks;
+              if (scoreData.practicalPassMarks !== undefined) displayPracticalPassMarks = scoreData.practicalPassMarks;
+          }
+      }
 
       return (
           <div className="space-y-1 md:space-y-6">
@@ -259,16 +311,34 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                           </div>
 
                           {selectedSessionId && selectedClassId && selectedSubject && (
-                              <div className="flex flex-row md:flex-row gap-1 md:gap-4 p-1 md:p-4 bg-gray-50 border-y md:border md:rounded-lg items-end">
-                                  <div className="flex-1 px-1">
-                                      <label className="block text-[8px] md:text-xs font-bold text-gray-400 uppercase">Full Marks</label>
-                                      <input type="number" value={fullMarks} onChange={e => setFullMarks(Number(e.target.value))} className="border p-1 rounded w-full md:w-24 text-xs h-7" />
+                              <div className="flex flex-row md:flex-row gap-1 md:gap-4 p-1 md:p-4 bg-gray-50 border-y md:border md:rounded-lg items-end justify-between">
+                                  <div className="flex flex-wrap gap-4">
+                                      {showTheory && (
+                                          <>
+                                              <div>
+                                                  <label className="block text-[8px] md:text-xs font-bold text-gray-400 uppercase">Theory Full Marks</label>
+                                                  <div className="p-1 text-xs font-mono text-gray-600 bg-gray-100 rounded border w-16 text-center">{displayTheoryFullMarks}</div>
+                                              </div>
+                                              <div>
+                                                  <label className="block text-[8px] md:text-xs font-bold text-gray-400 uppercase">Theory Pass Marks</label>
+                                                  <div className="p-1 text-xs font-mono text-gray-600 bg-gray-100 rounded border w-16 text-center">{displayTheoryPassMarks}</div>
+                                              </div>
+                                          </>
+                                      )}
+                                      {showPractical && (
+                                          <>
+                                              <div>
+                                                  <label className="block text-[8px] md:text-xs font-bold text-gray-400 uppercase">Practical Full Marks</label>
+                                                  <div className="p-1 text-xs font-mono text-gray-600 bg-gray-100 rounded border w-16 text-center">{displayPracticalFullMarks}</div>
+                                              </div>
+                                              <div>
+                                                  <label className="block text-[8px] md:text-xs font-bold text-gray-400 uppercase">Practical Pass Marks</label>
+                                                  <div className="p-1 text-xs font-mono text-gray-600 bg-gray-100 rounded border w-16 text-center">{displayPracticalPassMarks}</div>
+                                              </div>
+                                          </>
+                                      )}
                                   </div>
-                                  <div className="flex-1 px-1">
-                                      <label className="block text-[8px] md:text-xs font-bold text-gray-400 uppercase">Pass Marks</label>
-                                      <input type="number" value={passMarks} onChange={e => setPassMarks(Number(e.target.value))} className="border p-1 rounded w-full md:w-24 text-xs h-7" />
-                                  </div>
-                                  <div className="hidden md:block flex-1 text-right">
+                                  <div className="hidden md:block text-right">
                                       <button 
                                         onClick={() => exportToCSV(filteredStudents)}
                                         className="bg-green-600 text-white px-3 py-1.5 rounded flex items-center justify-center gap-2 hover:bg-green-700 transition"
@@ -287,7 +357,8 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                                               <tr>
                                                   <th className="p-2 md:p-3 text-[10px] md:text-sm font-bold uppercase tracking-wider">Student Name</th>
                                                   <th className="p-2 md:p-3 text-[10px] md:text-sm font-bold uppercase tracking-wider hidden md:table-cell">Section</th>
-                                                  <th className="p-2 md:p-3 w-16 md:w-32 text-right text-[10px] md:text-sm font-bold uppercase tracking-wider">Marks</th>
+                                                  {showTheory && <th className="p-2 md:p-3 w-16 md:w-32 text-right text-[10px] md:text-sm font-bold uppercase tracking-wider">Theory</th>}
+                                                  {showPractical && <th className="p-2 md:p-3 w-16 md:w-32 text-right text-[10px] md:text-sm font-bold uppercase tracking-wider">Practical</th>}
                                               </tr>
                                           </thead>
                                           <tbody className="divide-y bg-white">
@@ -296,7 +367,8 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                                                       r => r.studentId === student.id && r.examSessionId === selectedSessionId
                                                   );
                                                   const scoreData = report?.scores[selectedSubject];
-                                                  const score = scoreData ? scoreData.obtained : '';
+                                                  const score = scoreData?.obtained !== undefined ? scoreData.obtained : '';
+                                                  const practicalScore = scoreData?.practicalObtained !== undefined ? scoreData.practicalObtained : '';
 
                                                   return (
                                                       <tr key={student.id} className="hover:bg-gray-50 transition-colors">
@@ -310,15 +382,28 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                                                               </div>
                                                           </td>
                                                           <td className="p-2 md:p-3 text-sm text-gray-500 hidden md:table-cell">{student.section || '-'}</td>
-                                                          <td className="p-2 md:p-3 text-right">
-                                                              <input 
-                                                                  type="number" 
-                                                                  className="border p-1 rounded w-14 md:w-24 text-right font-mono text-xs md:text-sm focus:ring-1 focus:ring-galaxy-500 outline-none border-gray-300 shadow-inner h-8 md:h-10"
-                                                                  placeholder="0"
-                                                                  value={score}
-                                                                  onChange={e => handleScoreChange(student.id, e.target.value)}
-                                                              />
-                                                          </td>
+                                                          {showTheory && (
+                                                              <td className="p-2 md:p-3 text-right">
+                                                                  <input 
+                                                                      type="number" 
+                                                                      className="border p-1 rounded w-14 md:w-24 text-right font-mono text-xs md:text-sm focus:ring-1 focus:ring-galaxy-500 outline-none border-gray-300 shadow-inner h-8 md:h-10"
+                                                                      placeholder="0"
+                                                                      value={score}
+                                                                      onChange={e => handleScoreChange(student.id, e.target.value, false)}
+                                                                  />
+                                                              </td>
+                                                          )}
+                                                          {showPractical && (
+                                                              <td className="p-2 md:p-3 text-right">
+                                                                  <input 
+                                                                      type="number" 
+                                                                      className="border p-1 rounded w-14 md:w-24 text-right font-mono text-xs md:text-sm focus:ring-1 focus:ring-galaxy-500 outline-none border-gray-300 shadow-inner h-8 md:h-10"
+                                                                      placeholder="0"
+                                                                      value={practicalScore}
+                                                                      onChange={e => handleScoreChange(student.id, e.target.value, true)}
+                                                                  />
+                                                              </td>
+                                                          )}
                                                       </tr>
                                                   );
                                               })}
@@ -514,15 +599,15 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
         </div>
 
         {showCreateModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-xl w-full max-w-2xl mx-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white p-6 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between mb-4">
                  <h3 className="text-xl font-bold">Create Assignment</h3>
                  <button onClick={() => setShowCreateModal(false)} className="text-gray-500"><X /></button>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <form onSubmit={handleCreateAssignment} className="space-y-4">
+              <div>
+                  <form onSubmit={handleCreateAssignment} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Subject</label>
                         <select 
@@ -552,7 +637,7 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                             }
                         </select>
                     </div>
-                    <div>
+                    <div className="col-span-1 md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700">Title</label>
                         <input 
                             type="text" 
@@ -562,7 +647,7 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                             required
                         />
                     </div>
-                    <div>
+                    <div className="col-span-1 md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700">Description</label>
                         <textarea 
                             value={newAssignment.description}
@@ -582,12 +667,12 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                         </div>
                     </div>
                     {aiSuggestion && (
-                         <div className="col-span-2 bg-purple-50 p-3 rounded border border-purple-100 text-sm text-purple-800 whitespace-pre-wrap">
+                         <div className="col-span-1 md:col-span-2 bg-purple-50 p-3 rounded border border-purple-100 text-sm text-purple-800 whitespace-pre-wrap">
                              {aiSuggestion}
                              <button type="button" onClick={() => setAiSuggestion('')} className="block mt-2 text-xs underline">Clear</button>
                          </div>
                     )}
-                    <div className="col-span-2">
+                    <div className="col-span-1 md:col-span-2">
                          <label className="block text-sm font-medium text-gray-700">Due Date</label>
                          <input 
                             type="date"
@@ -597,7 +682,7 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                             required
                          />
                     </div>
-                    <button type="submit" className="col-span-2 w-full bg-galaxy-600 text-white py-2 rounded-lg hover:bg-galaxy-700 transition font-bold">Publish Assignment</button>
+                    <button type="submit" className="col-span-1 md:col-span-2 w-full bg-galaxy-600 text-white py-2 rounded-lg hover:bg-galaxy-700 transition font-bold">Publish Assignment</button>
                   </form>
               </div>
             </div>

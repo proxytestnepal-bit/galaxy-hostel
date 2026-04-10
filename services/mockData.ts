@@ -1,25 +1,25 @@
 import { AppState, User, Subject } from '../types';
 
 const INITIAL_SUBJECTS: Subject[] = [
-  { name: 'Account', type: 'Theory' },
-  { name: 'English', type: 'Theory' },
-  { name: 'Nepali', type: 'Theory' },
-  { name: 'Social Studies', type: 'Theory' },
-  { name: 'Travel Tourism and Mountaineering', type: 'Theory' },
-  { name: 'Hotel Management', type: 'Theory' },
-  { name: 'Front Office', type: 'Theory' },
-  { name: 'Food and Beverage Service', type: 'Practical' },
-  { name: 'House Keeping', type: 'Practical' },
-  { name: 'Food Production', type: 'Practical' },
-  { name: 'English for Hospitality', type: 'Theory' },
-  { name: 'Personal Development', type: 'Theory' },
-  { name: 'Entrepreneurship', type: 'Theory' },
-  { name: 'Event Management', type: 'Theory' },
-  { name: 'Hospitality Management', type: 'Theory' },
-  { name: 'Food Science and Nutrition', type: 'Theory' },
-  { name: 'French for Hospitality', type: 'Theory' },
-  { name: 'Chemistry', type: 'Theory' },
-  { name: 'Business Communication', type: 'Theory' }
+  { name: 'Account', type: 'Both' },
+  { name: 'English', type: 'Both' },
+  { name: 'Nepali', type: 'Both' },
+  { name: 'Social Studies', type: 'Both' },
+  { name: 'Travel Tourism and Mountaineering', type: 'Both' },
+  { name: 'Hotel Management', type: 'Both' },
+  { name: 'Front Office', type: 'Both' },
+  { name: 'Food and Beverage Service', type: 'Both' },
+  { name: 'House Keeping', type: 'Both' },
+  { name: 'Food Production', type: 'Both' },
+  { name: 'English for Hospitality', type: 'Both' },
+  { name: 'Personal Development', type: 'Both' },
+  { name: 'Entrepreneurship', type: 'Both' },
+  { name: 'Event Management', type: 'Both' },
+  { name: 'Hospitality Management', type: 'Both' },
+  { name: 'Food Science and Nutrition', type: 'Both' },
+  { name: 'French for Hospitality', type: 'Both' },
+  { name: 'Chemistry', type: 'Both' },
+  { name: 'Business Communication', type: 'Both' }
 ];
 
 const RAW_STUDENT_DATA = `

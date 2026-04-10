@@ -84,7 +84,8 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   // System Management State
   const [showSubjectManager, setShowSubjectManager] = useState(false);
   const [newSubject, setNewSubject] = useState("");
-  const [newSubjectType, setNewSubjectType] = useState<SubjectType>("Theory");
+  const [newSubjectType, setNewSubjectType] = useState<SubjectType>("Both");
+  const [expandedSubjectOverrides, setExpandedSubjectOverrides] = useState<string | null>(null);
 
   const [showClassManager, setShowClassManager] = useState(false);
   const [newClass, setNewClass] = useState("");
@@ -107,6 +108,8 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   const [examEditSubject, setExamEditSubject] = useState("");
   const [examEditFullMarks, setExamEditFullMarks] = useState(100);
   const [examEditPassMarks, setExamEditPassMarks] = useState(40);
+  const [examEditPracticalFullMarks, setExamEditPracticalFullMarks] = useState(50);
+  const [examEditPracticalPassMarks, setExamEditPracticalPassMarks] = useState(20);
 
   // Hierarchy Definition
   const roleHierarchy: Record<string, number> = {
@@ -408,12 +411,29 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
     }
   };
 
-  const handleExamScoreChange = (studentId: string, scoreStr: string) => {
+  const handleExamScoreChange = (studentId: string, scoreStr: string, isPractical: boolean = false) => {
     if (!selectedExamSessionId || !examEditSubject) return;
     const score = parseFloat(scoreStr);
-    if (isNaN(score)) return;
+    if (isNaN(score) && scoreStr !== '') return;
 
     const session = state.examSessions.find((s) => s.id === selectedExamSessionId);
+    const existingReport = state.examReports.find(r => r.studentId === studentId && r.examSessionId === selectedExamSessionId);
+    const existingScoreData = existingReport?.scores[examEditSubject] || {
+        obtained: 0,
+        fullMarks: examEditFullMarks,
+        passMarks: examEditPassMarks
+    };
+
+    const newScoreData = { ...existingScoreData };
+    if (isPractical) {
+        newScoreData.practicalObtained = isNaN(score) ? undefined : score;
+        newScoreData.practicalFullMarks = examEditPracticalFullMarks;
+        newScoreData.practicalPassMarks = examEditPracticalPassMarks;
+    } else {
+        newScoreData.obtained = isNaN(score) ? 0 : score;
+        newScoreData.fullMarks = examEditFullMarks;
+        newScoreData.passMarks = examEditPassMarks;
+    }
 
     dispatch({
       type: "UPDATE_EXAM_MARKS",
@@ -422,11 +442,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
         examSessionId: selectedExamSessionId,
         sessionName: session?.name || "",
         subject: examEditSubject,
-        scoreData: {
-          obtained: score,
-          fullMarks: examEditFullMarks,
-          passMarks: examEditPassMarks,
-        },
+        scoreData: newScoreData,
       },
     });
   };
@@ -838,6 +854,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                   >
                     <option value="Theory">Theory</option>
                     <option value="Practical">Practical</option>
+                    <option value="Both">Both</option>
                   </select>
                   <button
                     onClick={handleAddSubject}
@@ -846,29 +863,78 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                     <Plus size={18} />
                   </button>
                 </div>
-                <div className="max-h-60 overflow-y-auto space-y-2">
+                <div className="max-h-96 overflow-y-auto space-y-2">
                   {state.availableSubjects.map((s) => (
-                    <div
-                      key={s.name}
-                      className="flex justify-between items-center p-2 bg-gray-50 rounded border"
-                    >
-                      <span>
-                        {s.name}{" "}
-                        <span className="text-xs text-gray-400">
-                          ({s.type})
-                        </span>
-                      </span>
-                      <button
-                        onClick={() =>
-                          dispatch({
-                            type: "DELETE_SYSTEM_SUBJECT",
-                            payload: s.name,
-                          })
-                        }
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                    <div key={s.name} className="bg-gray-50 rounded border flex flex-col">
+                      <div className="flex justify-between items-center p-2">
+                        <span className="font-medium">{s.name}</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setExpandedSubjectOverrides(expandedSubjectOverrides === s.name ? null : s.name)}
+                            className="text-xs text-blue-600 hover:underline"
+                          >
+                            Class Overrides
+                          </button>
+                          <select
+                            className="border p-1 rounded text-xs text-gray-600 bg-white"
+                            value={s.type}
+                            onChange={(e) =>
+                              dispatch({
+                                type: "UPDATE_SYSTEM_SUBJECT",
+                                payload: { name: s.name, type: e.target.value as SubjectType, classTypes: s.classTypes },
+                              })
+                            }
+                          >
+                            <option value="Theory">Theory</option>
+                            <option value="Practical">Practical</option>
+                            <option value="Both">Both</option>
+                          </select>
+                          <button
+                            onClick={() =>
+                              dispatch({
+                                type: "DELETE_SYSTEM_SUBJECT",
+                                payload: s.name,
+                              })
+                            }
+                            className="text-red-500 hover:text-red-700 p-1"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                      {expandedSubjectOverrides === s.name && (
+                        <div className="p-2 border-t bg-white text-sm">
+                          <p className="text-xs text-gray-500 mb-2">Override subject type for specific classes:</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {state.systemClasses.map(c => (
+                              <div key={c.name} className="flex justify-between items-center text-xs">
+                                <span>Class {c.name}</span>
+                                <select
+                                  className="border p-1 rounded bg-gray-50"
+                                  value={s.classTypes?.[c.name] || ""}
+                                  onChange={(e) => {
+                                    const newClassTypes = { ...(s.classTypes || {}) };
+                                    if (e.target.value === "") {
+                                      delete newClassTypes[c.name];
+                                    } else {
+                                      newClassTypes[c.name] = e.target.value as SubjectType;
+                                    }
+                                    dispatch({
+                                      type: "UPDATE_SYSTEM_SUBJECT",
+                                      payload: { ...s, classTypes: newClassTypes }
+                                    });
+                                  }}
+                                >
+                                  <option value="">Default ({s.type})</option>
+                                  <option value="Theory">Theory Only</option>
+                                  <option value="Practical">Practical Only</option>
+                                  <option value="Both">Both</option>
+                                </select>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1801,7 +1867,11 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       const uniqueClasses = state.systemClasses.map(c => c.name);
       const selectedClassData = state.systemClasses.find(c => c.name === examEditClassId);
       const availableSections = selectedClassData?.sections || [];
-      const availableSubjects = state.availableSubjects.map(s => s.name);
+      const availableSubjects = state.availableSubjects;
+      const selectedSubjectData = availableSubjects.find(s => s.name === examEditSubject);
+      const effectiveType = selectedSubjectData?.classTypes?.[examEditClassId] || selectedSubjectData?.type || 'Theory';
+      const showPractical = effectiveType === 'Practical' || effectiveType === 'Both';
+      const showTheory = effectiveType === 'Theory' || effectiveType === 'Both';
 
       const filteredStudents = examEditClassId 
         ? state.users.filter(u => {
@@ -1874,21 +1944,37 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                     disabled={!examEditClassId || availableSubjects.length === 0}
                 >
                     <option value="">-- Select Subject --</option>
-                    {availableSubjects.map(s => <option key={s} value={s}>{s}</option>)}
+                    {availableSubjects.map(s => <option key={s.name} value={s.name}>{s.name} ({s.type})</option>)}
                 </select>
               </div>
             </div>
 
             {examEditClassId && examEditSubject && (
-                <div className="flex gap-4 mb-6 p-4 bg-gray-50 border rounded-lg items-end">
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase">Full Marks</label>
-                        <input type="number" value={examEditFullMarks} onChange={e => setExamEditFullMarks(Number(e.target.value))} className="border p-1 rounded w-24 text-sm" />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase">Pass Marks</label>
-                        <input type="number" value={examEditPassMarks} onChange={e => setExamEditPassMarks(Number(e.target.value))} className="border p-1 rounded w-24 text-sm" />
-                    </div>
+                <div className="flex flex-wrap gap-4 mb-6 p-4 bg-gray-50 border rounded-lg items-end">
+                    {showTheory && (
+                        <>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase">Theory Full Marks</label>
+                                <input type="number" value={examEditFullMarks} onChange={e => setExamEditFullMarks(Number(e.target.value))} className="border p-1 rounded w-24 text-sm" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase">Theory Pass Marks</label>
+                                <input type="number" value={examEditPassMarks} onChange={e => setExamEditPassMarks(Number(e.target.value))} className="border p-1 rounded w-24 text-sm" />
+                            </div>
+                        </>
+                    )}
+                    {showPractical && (
+                        <>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase">Practical Full Marks</label>
+                                <input type="number" value={examEditPracticalFullMarks} onChange={e => setExamEditPracticalFullMarks(Number(e.target.value))} className="border p-1 rounded w-24 text-sm" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase">Practical Pass Marks</label>
+                                <input type="number" value={examEditPracticalPassMarks} onChange={e => setExamEditPracticalPassMarks(Number(e.target.value))} className="border p-1 rounded w-24 text-sm" />
+                            </div>
+                        </>
+                    )}
                 </div>
             )}
 
@@ -1899,7 +1985,8 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                             <tr>
                                 <th className="p-3 text-sm font-bold uppercase tracking-wider">Student Name</th>
                                 <th className="p-3 text-sm font-bold uppercase tracking-wider">Section</th>
-                                <th className="p-3 w-32 text-right text-sm font-bold uppercase tracking-wider">Marks</th>
+                                {showTheory && <th className="p-3 w-32 text-right text-sm font-bold uppercase tracking-wider">Theory</th>}
+                                {showPractical && <th className="p-3 w-32 text-right text-sm font-bold uppercase tracking-wider">Practical</th>}
                             </tr>
                         </thead>
                         <tbody className="divide-y bg-white">
@@ -1908,21 +1995,35 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                     r => r.studentId === student.id && r.examSessionId === selectedExamSessionId
                                 );
                                 const scoreData = report?.scores[examEditSubject];
-                                const score = scoreData ? scoreData.obtained : '';
+                                const score = scoreData?.obtained !== undefined ? scoreData.obtained : '';
+                                const practicalScore = scoreData?.practicalObtained !== undefined ? scoreData.practicalObtained : '';
 
                                 return (
                                     <tr key={student.id} className="hover:bg-gray-50 transition-colors">
                                         <td className="p-3 font-semibold text-gray-900">{student.name}</td>
                                         <td className="p-3 text-sm text-gray-500">{student.section || '-'}</td>
-                                        <td className="p-3 text-right">
-                                            <input 
-                                                type="number" 
-                                                className="border p-1 rounded w-24 text-right font-mono text-sm focus:ring-1 focus:ring-galaxy-500 outline-none border-gray-300 shadow-inner"
-                                                placeholder="0"
-                                                value={score}
-                                                onChange={e => handleExamScoreChange(student.id, e.target.value)}
-                                            />
-                                        </td>
+                                        {showTheory && (
+                                            <td className="p-3 text-right">
+                                                <input 
+                                                    type="number" 
+                                                    className="border p-1 rounded w-24 text-right font-mono text-sm focus:ring-1 focus:ring-galaxy-500 outline-none border-gray-300 shadow-inner"
+                                                    placeholder="0"
+                                                    value={score}
+                                                    onChange={e => handleExamScoreChange(student.id, e.target.value, false)}
+                                                />
+                                            </td>
+                                        )}
+                                        {showPractical && (
+                                            <td className="p-3 text-right">
+                                                <input 
+                                                    type="number" 
+                                                    className="border p-1 rounded w-24 text-right font-mono text-sm focus:ring-1 focus:ring-galaxy-500 outline-none border-gray-300 shadow-inner"
+                                                    placeholder="0"
+                                                    value={practicalScore}
+                                                    onChange={e => handleExamScoreChange(student.id, e.target.value, true)}
+                                                />
+                                            </td>
+                                        )}
                                     </tr>
                                 );
                             })}
