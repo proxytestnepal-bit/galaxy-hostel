@@ -224,14 +224,24 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
       const showTheory = effectiveType === 'Theory' || effectiveType === 'Both';
       const showPractical = effectiveType === 'Practical' || effectiveType === 'Both';
 
-      // Find full/pass marks from an existing report for this session and subject, or use defaults
+      // Find full/pass marks from an existing report for this session, subject, and section (if selected) or class
       let displayTheoryFullMarks = 100;
       let displayTheoryPassMarks = 40;
       let displayPracticalFullMarks = 50;
       let displayPracticalPassMarks = 20;
 
       if (selectedSessionId && selectedSubject) {
-          const existingReport = state.examReports.find(r => r.examSessionId === selectedSessionId && r.scores[selectedSubject]);
+          const existingReport = state.examReports.find(r => {
+              if (r.examSessionId !== selectedSessionId || !r.scores[selectedSubject]) return false;
+              const student = state.users.find(u => u.id === r.studentId);
+              if (!student) return false;
+              
+              // Find a report that matches our current class and section filters
+              const classMatch = student.classId === selectedClassId;
+              const sectionMatch = selectedSection ? student.section === selectedSection : true;
+              return classMatch && sectionMatch;
+          });
+
           if (existingReport && existingReport.scores[selectedSubject]) {
               const scoreData = existingReport.scores[selectedSubject];
               if (scoreData.fullMarks !== undefined) displayTheoryFullMarks = scoreData.fullMarks;

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAppStore } from "../../services/store";
 import { Role, User, ExamType, SubjectType, Notice } from "../../types";
 import AccountantView from "./AccountantView";
@@ -40,6 +40,8 @@ import {
   Archive,
   AlertCircle,
   ArrowLeft,
+  Download,
+  Save,
 } from "lucide-react";
 import { INITIAL_STATE } from "../../services/mockData";
 
@@ -110,6 +112,32 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   const [examEditPassMarks, setExamEditPassMarks] = useState(40);
   const [examEditPracticalFullMarks, setExamEditPracticalFullMarks] = useState(50);
   const [examEditPracticalPassMarks, setExamEditPracticalPassMarks] = useState(20);
+
+  // Load existing subject configuration for the session when class/subject changes
+  useEffect(() => {
+    if (selectedExamSessionId && examEditClassId && examEditSubject) {
+      // Find any student's report in this class/session that has scores for this subject
+      const existingReport = state.examReports.find(r => 
+        r.examSessionId === selectedExamSessionId && 
+        r.scores[examEditSubject] && 
+        state.users.find(u => u.id === r.studentId && u.classId === examEditClassId)
+      );
+
+      if (existingReport && existingReport.scores[examEditSubject]) {
+        const config = existingReport.scores[examEditSubject];
+        if (config.fullMarks !== undefined) setExamEditFullMarks(config.fullMarks);
+        if (config.passMarks !== undefined) setExamEditPassMarks(config.passMarks);
+        if (config.practicalFullMarks !== undefined) setExamEditPracticalFullMarks(config.practicalFullMarks);
+        if (config.practicalPassMarks !== undefined) setExamEditPracticalPassMarks(config.practicalPassMarks);
+      } else {
+        // Defaults if no data found
+        setExamEditFullMarks(100);
+        setExamEditPassMarks(40);
+        setExamEditPracticalFullMarks(50);
+        setExamEditPracticalPassMarks(20);
+      }
+    }
+  }, [selectedExamSessionId, examEditClassId, examEditSubject, state.examReports, state.users]);
 
   // Hierarchy Definition
   const roleHierarchy: Record<string, number> = {
@@ -445,6 +473,126 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
         scoreData: newScoreData,
       },
     });
+  };
+
+  const handleBulkUpdateMarksConfig = () => {
+    if (!selectedExamSessionId || !examEditClassId || !examEditSubject) return;
+
+    const targetsText = examEditSection ? `Section ${examEditSection}` : `all sections`;
+    if (!window.confirm(`Are you sure you want to apply these Full/Pass marks to ${targetsText} of Class ${examEditClassId} for ${examEditSubject}?`)) return;
+
+    const session = state.examSessions.find(s => s.id === selectedExamSessionId);
+    const students = state.users.filter(u => 
+      u.role === 'student' && 
+      u.classId === examEditClassId && 
+      (!examEditSection || u.section === examEditSection)
+    );
+    
+    const selectedSubjectData = state.availableSubjects.find(s => s.name === examEditSubject);
+    const effectiveType = selectedSubjectData?.classTypes?.[examEditClassId] || selectedSubjectData?.type || 'Theory';
+    const hasPractical = effectiveType === 'Practical' || effectiveType === 'Both';
+    
+    const updates = students.map(student => {
+      const existingReport = state.examReports.find(r => r.studentId === student.id && r.examSessionId === selectedExamSessionId);
+      const existingScoreData = existingReport?.scores[examEditSubject] || { obtained: 0 };
+      
+      const newScoreData = {
+        ...existingScoreData,
+        fullMarks: examEditFullMarks,
+        passMarks: examEditPassMarks,
+        practicalFullMarks: hasPractical ? examEditPracticalFullMarks : undefined,
+        practicalPassMarks: hasPractical ? examEditPracticalPassMarks : undefined
+      };
+      
+      return { studentId: student.id, scoreData: newScoreData };
+    });
+
+    dispatch({
+      type: "BULK_UPDATE_EXAM_MARKS",
+      payload: {
+        updates,
+        examSessionId: selectedExamSessionId,
+        sessionName: session?.name || "",
+        subject: examEditSubject
+      }
+    });
+
+    alert(`Marks configuration updated for ${students.length} students.`);
+  };
+
+  const exportLedgerToCSV = (sessionId: string, classId: string) => {
+    const session = state.examSessions.find(s => s.id === sessionId);
+    if (!session) return;
+
+    const students = state.users.filter(u => u.role === 'student' && u.classId === classId && u.status === 'active')
+        .sort((a, b) => a.name.localeCompare(b.name));
+    
+    if (students.length === 0) {
+        alert("No students found in this class.");
+        return;
+    }
+
+    const availableSubjects = state.availableSubjects;
+    
+    // Headers: Name, Section, [Subject Theory Full, Subject Theory Pass, Subject Theory Obtained, Subject Practical Full, Subject Practical Pass, Subject Practical Obtained]
+    const headers = ['Student Name', 'Section'];
+    availableSubjects.forEach(s => {
+        const effectiveType = s.classTypes?.[classId] || s.type;
+        if (effectiveType === 'Theory' || effectiveType === 'Both') {
+            headers.push(`${s.name} (T) Full`, `${s.name} (T) Pass`, `${s.name} (T) Obt`);
+        }
+        if (effectiveType === 'Practical' || effectiveType === 'Both') {
+            headers.push(`${s.name} (P) Full`, `${s.name} (P) Pass`, `${s.name} (P) Obt`);
+        }
+    });
+    headers.push('Total Marks', 'Result Status');
+
+    const csvRows = [headers];
+
+    students.forEach(student => {
+        const report = state.examReports.find(r => r.studentId === student.id && r.examSessionId === sessionId);
+        const row = [student.name, student.section || '-'];
+        
+        let totalObtained = 0;
+        let totalFull = 0;
+        let pass = true;
+
+        availableSubjects.forEach(s => {
+            const effectiveType = s.classTypes?.[classId] || s.type;
+            const scoreData = report?.scores[s.name];
+
+            if (effectiveType === 'Theory' || effectiveType === 'Both') {
+                const f = scoreData?.fullMarks ?? 100;
+                const p = scoreData?.passMarks ?? 40;
+                const o = scoreData?.obtained ?? 0;
+                row.push(f.toString(), p.toString(), o.toString());
+                totalObtained += o;
+                totalFull += f;
+                if (o < p) pass = false;
+            }
+            if (effectiveType === 'Practical' || effectiveType === 'Both') {
+                const f = scoreData?.practicalFullMarks ?? 50;
+                const p = scoreData?.practicalPassMarks ?? 20;
+                const o = scoreData?.practicalObtained ?? 0;
+                row.push(f.toString(), p.toString(), o.toString());
+                totalObtained += o;
+                totalFull += f;
+                if (o < p) pass = false;
+            }
+        });
+
+        row.push(totalObtained.toString(), pass ? 'PASS' : 'FAIL');
+        csvRows.push(row);
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + csvRows.map(e => e.join(",")).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${session.name}_Ledger_${classId}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handlePublishClassResult = (
@@ -1975,6 +2123,15 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                             </div>
                         </>
                     )}
+                    <div>
+                        <button
+                            onClick={handleBulkUpdateMarksConfig}
+                            title={examEditSection ? `Apply to all students in Section ${examEditSection}` : "Apply to all students in this class"}
+                            className="bg-galaxy-700 text-white p-2 rounded flex items-center gap-1 text-xs font-bold uppercase hover:bg-galaxy-800 transition"
+                        >
+                            <Save size={14} /> Save for {examEditSection ? `Section ${examEditSection}` : 'All'}
+                        </button>
+                    </div>
                 </div>
             )}
 
@@ -2295,29 +2452,40 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                         </span>
                       </p>
                     </div>
-                    <button
-                      onClick={() =>
-                        handlePublishClassResult(
-                          session,
-                          !isFullyPublished,
-                          totalReports,
-                        )
-                      }
-                      disabled={hasNoReports}
-                      className={`w-full py-2 rounded text-sm font-bold transition-colors ${
-                        hasNoReports
-                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                          : isFullyPublished
-                            ? "bg-white border border-red-200 text-red-600 hover:bg-red-50"
-                            : "bg-galaxy-900 text-white hover:bg-galaxy-800"
-                      }`}
-                    >
-                      {hasNoReports
-                        ? "No Data"
-                        : isFullyPublished
-                          ? "Unpublish Results"
-                          : "Publish Results"}
-                    </button>
+                    <div className="flex flex-col gap-2">
+                        <button
+                          onClick={() =>
+                            handlePublishClassResult(
+                              session,
+                              !isFullyPublished,
+                              totalReports,
+                            )
+                          }
+                          disabled={hasNoReports}
+                          className={`w-full py-2 rounded text-sm font-bold transition-colors ${
+                            hasNoReports
+                              ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                              : isFullyPublished
+                                ? "bg-white border border-red-200 text-red-600 hover:bg-red-50"
+                                : "bg-galaxy-900 text-white hover:bg-galaxy-800"
+                          }`}
+                        >
+                          {hasNoReports
+                            ? "No Data"
+                            : isFullyPublished
+                              ? "Unpublish Results"
+                              : "Publish Results"}
+                        </button>
+                        
+                        {!hasNoReports && (
+                          <button
+                            onClick={() => exportLedgerToCSV(session.id, publishClassId)}
+                            className="w-full py-2 bg-green-600 text-white rounded text-sm font-bold flex items-center justify-center gap-2 hover:bg-green-700 transition"
+                          >
+                            <Download size={14} /> Export Ledger (Excel)
+                          </button>
+                        )}
+                    </div>
                   </div>
                 );
               })}

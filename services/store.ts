@@ -34,6 +34,7 @@ type Action =
   | { type: 'DELETE_EXAM_SESSION'; payload: string } // id
   | { type: 'TOGGLE_EXAM_SESSION_STATUS'; payload: string } // id
   | { type: 'UPDATE_EXAM_MARKS'; payload: { studentId: string; examSessionId: string; sessionName: string; subject: string; scoreData: ScoreData } }
+  | { type: 'BULK_UPDATE_EXAM_MARKS'; payload: { updates: { studentId: string; scoreData: ScoreData }[]; examSessionId: string; sessionName: string; subject: string } }
   | { type: 'PUBLISH_REPORT'; payload: { id: string; published: boolean } }
   | { type: 'PUBLISH_CLASS_RESULT'; payload: { examSessionId: string; sessionName: string; classId: string; section?: string; published: boolean } }
   | { type: 'ADD_NOTICE'; payload: Notice }
@@ -245,6 +246,42 @@ const reducer = (state: AppState, action: Action): AppState => {
             newReports = [...newReports, newReport];
             dbActions.addReport(newReport);
         }
+        return { ...state, examReports: newReports };
+    }
+    case 'BULK_UPDATE_EXAM_MARKS': {
+        const { updates, examSessionId, sessionName, subject } = action.payload;
+        // updates is an array of { studentId, scoreData }
+        let newReports = [...state.examReports];
+        
+        updates.forEach(({ studentId, scoreData }: any) => {
+            const existingReportIndex = newReports.findIndex(
+                r => r.studentId === studentId && (r.examSessionId === examSessionId || r.term === sessionName)
+            );
+
+            if (existingReportIndex > -1) {
+                const report = newReports[existingReportIndex];
+                const updatedReport = {
+                    ...report,
+                    examSessionId,
+                    scores: { ...report.scores, [subject]: scoreData }
+                };
+                newReports[existingReportIndex] = updatedReport;
+                dbActions.updateReport(updatedReport);
+            } else {
+                const newReport: ExamReport = {
+                    id: `er_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+                    studentId,
+                    examSessionId,
+                    term: sessionName,
+                    scores: { [subject]: scoreData },
+                    remarks: '',
+                    published: false
+                };
+                newReports.push(newReport);
+                dbActions.addReport(newReport);
+            }
+        });
+
         return { ...state, examReports: newReports };
     }
     case 'PUBLISH_REPORT': {
