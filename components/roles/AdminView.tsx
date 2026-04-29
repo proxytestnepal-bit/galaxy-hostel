@@ -116,12 +116,20 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   // Load existing subject configuration for the session when class/subject changes
   useEffect(() => {
     if (selectedExamSessionId && examEditClassId && examEditSubject) {
-      // Find any student's report in this class/session that has scores for this subject
-      const existingReport = state.examReports.find(r => 
-        r.examSessionId === selectedExamSessionId && 
-        r.scores[examEditSubject] && 
-        state.users.find(u => u.id === r.studentId && u.classId === examEditClassId)
-      );
+      // Find a report in this class/session for this subject.
+      // Prefer reports from the selected section if one is chosen.
+      const existingReport = state.examReports.find(r => {
+        if (r.examSessionId !== selectedExamSessionId || !r.scores[examEditSubject]) return false;
+        
+        const student = state.users.find(u => u.id === r.studentId);
+        if (!student || student.classId !== examEditClassId) return false;
+        
+        // If section is selected, strictly match section. Otherwise match class.
+        if (examEditSection) {
+          return student.section === examEditSection;
+        }
+        return true;
+      });
 
       if (existingReport && existingReport.scores[examEditSubject]) {
         const config = existingReport.scores[examEditSubject];
@@ -137,7 +145,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
         setExamEditPracticalPassMarks(20);
       }
     }
-  }, [selectedExamSessionId, examEditClassId, examEditSubject, state.examReports, state.users]);
+  }, [selectedExamSessionId, examEditClassId, examEditSection, examEditSubject, state.examReports, state.users]);
 
   // Hierarchy Definition
   const roleHierarchy: Record<string, number> = {
@@ -2127,7 +2135,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                         <button
                             onClick={handleBulkUpdateMarksConfig}
                             title={examEditSection ? `Apply to all students in Section ${examEditSection}` : "Apply to all students in this class"}
-                            className="bg-galaxy-700 text-white p-2 rounded flex items-center gap-1 text-xs font-bold uppercase hover:bg-galaxy-800 transition"
+                            className="bg-galaxy-100 text-black border border-galaxy-300 p-2 rounded flex items-center gap-1 text-xs font-bold uppercase hover:bg-galaxy-200 transition"
                         >
                             <Save size={14} /> Save for {examEditSection ? `Section ${examEditSection}` : 'All'}
                         </button>
