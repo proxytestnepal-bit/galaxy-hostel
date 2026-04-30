@@ -528,19 +528,23 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
     alert(`Marks configuration updated for ${students.length} students.`);
   };
 
-  const exportLedgerToCSV = (sessionId: string, classId: string) => {
+  const exportLedgerToCSV = (sessionId: string, classId: string, section?: string) => {
     const session = state.examSessions.find(s => s.id === sessionId);
     if (!session) return;
 
-    const students = state.users.filter(u => u.role === 'student' && u.classId === classId && u.status === 'active')
-        .sort((a, b) => a.name.localeCompare(b.name));
+    const students = state.users.filter(u => 
+        u.role === 'student' && 
+        u.classId === classId && 
+        u.status === 'active' && 
+        (!section || u.section === section)
+    ).sort((a, b) => a.name.localeCompare(b.name));
     
     if (students.length === 0) {
-        alert("No students found in this class.");
+        alert("No students found in this class/section.");
         return;
     }
 
-    const availableSubjects = getApplicableSubjects(state.availableSubjects, classId);
+    const availableSubjects = getApplicableSubjects(state.availableSubjects, classId, section);
     
     // Headers: Name, Section, [Subject Theory Full, Subject Theory Pass, Subject Theory Obtained, Subject Practical Full, Subject Practical Pass, Subject Practical Obtained]
     const headers = ['Student Name', 'Section'];
@@ -2565,7 +2569,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                         
                         {!hasNoReports && (
                           <button
-                            onClick={() => exportLedgerToCSV(session.id, publishClassId)}
+                            onClick={() => exportLedgerToCSV(session.id, publishClassId, publishSection)}
                             className="w-full py-2 bg-green-600 text-white rounded text-sm font-bold flex items-center justify-center gap-2 hover:bg-green-700 transition"
                           >
                             <Download size={14} /> Export Ledger (Excel)
