@@ -215,8 +215,14 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
 
       const availableSections = selectedClassData 
           ? (teacherAssignments.length > 0
-              ? (teacherAssignments.find(a => a.subject === selectedSubject && a.classId === selectedClassId)?.sections || [])
-              : (state.currentUser?.assignedSections?.[selectedClassId] || []))
+              ? (() => {
+                  const assignment = teacherAssignments.find(a => a.subject === selectedSubject && a.classId === selectedClassId);
+                  return (assignment && assignment.sections.length > 0) ? assignment.sections : (selectedClassData.sections || []);
+                })()
+              : (() => {
+                  const legacySections = state.currentUser?.assignedSections?.[selectedClassId] || [];
+                  return legacySections.length > 0 ? legacySections : (selectedClassData.sections || []);
+                })())
           : [];
 
       const selectedSubjectData = state.availableSubjects.find(s => s.name === selectedSubject);
@@ -303,7 +309,7 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                                       onChange={e => setSelectedSection(e.target.value)}
                                       disabled={!selectedClassData || availableSections.length === 0}
                                   >
-                                      <option value="">{availableSections.length > 0 ? 'All Assigned' : 'N/A'}</option>
+                                      <option value="">{availableSections.length > 0 ? 'All Sections' : 'N/A'}</option>
                                       {availableSections.map(s => <option key={s} value={s}>{s}</option>)}
                                   </select>
                               </div>

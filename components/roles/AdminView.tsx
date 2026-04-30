@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useAppStore } from "../../services/store";
-import { Role, User, ExamType, SubjectType, Notice } from "../../types";
+import { Role, User, ExamType, SubjectType, Notice, getApplicableSubjects } from "../../types";
 import AccountantView from "./AccountantView";
 import {
   Check,
@@ -540,7 +540,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
         return;
     }
 
-    const availableSubjects = state.availableSubjects;
+    const availableSubjects = getApplicableSubjects(state.availableSubjects, classId);
     
     // Headers: Name, Section, [Subject Theory Full, Subject Theory Pass, Subject Theory Obtained, Subject Practical Full, Subject Practical Pass, Subject Practical Obtained]
     const headers = ['Student Name', 'Section'];
@@ -1029,7 +1029,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                             onClick={() => setExpandedSubjectOverrides(expandedSubjectOverrides === s.name ? null : s.name)}
                             className="text-xs text-blue-600 hover:underline"
                           >
-                            Class Overrides
+                            Scope & Options
                           </button>
                           <select
                             className="border p-1 rounded text-xs text-gray-600 bg-white"
@@ -1059,35 +1059,110 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                         </div>
                       </div>
                       {expandedSubjectOverrides === s.name && (
-                        <div className="p-2 border-t bg-white text-sm">
-                          <p className="text-xs text-gray-500 mb-2">Override subject type for specific classes:</p>
-                          <div className="grid grid-cols-2 gap-2">
-                            {state.systemClasses.map(c => (
-                              <div key={c.name} className="flex justify-between items-center text-xs">
-                                <span>Class {c.name}</span>
-                                <select
-                                  className="border p-1 rounded bg-gray-50"
-                                  value={s.classTypes?.[c.name] || ""}
-                                  onChange={(e) => {
-                                    const newClassTypes = { ...(s.classTypes || {}) };
-                                    if (e.target.value === "") {
-                                      delete newClassTypes[c.name];
-                                    } else {
-                                      newClassTypes[c.name] = e.target.value as SubjectType;
-                                    }
-                                    dispatch({
-                                      type: "UPDATE_SYSTEM_SUBJECT",
-                                      payload: { ...s, classTypes: newClassTypes }
-                                    });
-                                  }}
-                                >
-                                  <option value="">Default ({s.type})</option>
-                                  <option value="Theory">Theory Only</option>
-                                  <option value="Practical">Practical Only</option>
-                                  <option value="Both">Both</option>
-                                </select>
-                              </div>
-                            ))}
+                        <div className="p-3 border-t bg-gray-100 text-sm">
+                          <p className="text-xs text-gray-600 mb-3 font-semibold">Taught in Classes & Sections:</p>
+                          <div className="flex flex-col gap-3">
+                            {state.systemClasses.map(c => {
+                              const isClassAssigned = s.applicableClasses === undefined || s.applicableClasses.includes(c.name);
+                              const assignedSections = s.applicableSections?.[c.name] || [];
+                              const allSectionsAssigned = assignedSections.length === 0; // Empty means all sections
+
+                              return (
+                                <div key={c.name} className="flex flex-col gap-2 p-2 bg-white rounded border border-gray-200">
+                                  <div className="flex justify-between items-center text-xs font-medium">
+                                    <label className="flex items-center gap-1 cursor-pointer">
+                                      <input 
+                                        type="checkbox" 
+                                        checked={isClassAssigned}
+                                        onChange={(e) => {
+                                          let newClasses = s.applicableClasses;
+                                          if (s.applicableClasses === undefined) {
+                                            // currently all are assigned, initialize with all except this one if unchecked
+                                            newClasses = e.target.checked 
+                                              ? state.systemClasses.map(cl => cl.name)
+                                              : state.systemClasses.filter(cl => cl.name !== c.name).map(cl => cl.name);
+                                          } else {
+                                            newClasses = e.target.checked
+                                              ? [...s.applicableClasses, c.name]
+                                              : s.applicableClasses.filter(cl => cl !== c.name);
+                                          }
+                                          dispatch({
+                                            type: "UPDATE_SYSTEM_SUBJECT",
+                                            payload: { ...s, applicableClasses: newClasses }
+                                          });
+                                        }}
+                                      />
+                                      Class {c.name}
+                                    </label>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-gray-500">Type:</span>
+                                      <select
+                                        disabled={!isClassAssigned}
+                                        className="border p-1 rounded bg-gray-50 text-xs disabled:opacity-50"
+                                        value={s.classTypes?.[c.name] || ""}
+                                        onChange={(e) => {
+                                          const newClassTypes = { ...(s.classTypes || {}) };
+                                          if (e.target.value === "") {
+                                            delete newClassTypes[c.name];
+                                          } else {
+                                            newClassTypes[c.name] = e.target.value as SubjectType;
+                                          }
+                                          dispatch({
+                                            type: "UPDATE_SYSTEM_SUBJECT",
+                                            payload: { ...s, classTypes: newClassTypes }
+                                          });
+                                        }}
+                                      >
+                                        <option value="">Auto ({s.type})</option>
+                                        <option value="Theory">Theory Only</option>
+                                        <option value="Practical">Practical Only</option>
+                                        <option value="Both">Both</option>
+                                      </select>
+                                    </div>
+                                  </div>
+
+                                  {/* Section Selection */}
+                                  {isClassAssigned && c.sections && c.sections.length > 0 && (
+                                    <div className="pl-5 pt-1 flex flex-wrap gap-2 text-xs border-t border-dashed mt-1">
+                                      <span className="text-gray-500 py-1 w-full">Specific Sections (all if none chosen):</span>
+                                      {c.sections.map(sectionName => (
+                                        <label key={sectionName} className="flex items-center gap-1 cursor-pointer">
+                                          <input 
+                                            type="checkbox"
+                                            checked={assignedSections.includes(sectionName) || allSectionsAssigned}
+                                            onChange={(e) => {
+                                              let newSections = [...assignedSections];
+                                              if (allSectionsAssigned && !e.target.checked) {
+                                                // Initialize with all except this one
+                                                newSections = c.sections.filter(sec => sec !== sectionName);
+                                              } else if (!e.target.checked) {
+                                                newSections = newSections.filter(sec => sec !== sectionName);
+                                              } else if (e.target.checked) {
+                                                newSections.push(sectionName);
+                                              }
+
+                                              // If all sections end up selected again, clear it to indicate "all"
+                                              if (newSections.length === c.sections.length) {
+                                                newSections = [];
+                                              }
+
+                                              const newApplicableSections = { ...(s.applicableSections || {}) };
+                                              newApplicableSections[c.name] = newSections;
+
+                                              dispatch({
+                                                type: "UPDATE_SYSTEM_SUBJECT",
+                                                payload: { ...s, applicableSections: newApplicableSections }
+                                              });
+                                            }}
+                                          />
+                                          {sectionName}
+                                        </label>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -1605,7 +1680,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                       Select Classes for {subject.name}
                                     </p>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                      {state.systemClasses.map((cls) => {
+                                      {state.systemClasses.filter(c => subject.applicableClasses === undefined || subject.applicableClasses.includes(c.name)).map((cls) => {
                                         const assignment =
                                           reviewData.teacherAssignments?.find(
                                             (a) =>
@@ -1613,6 +1688,9 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                               a.classId === cls.name,
                                           );
                                         const isClassAssigned = !!assignment;
+
+                                        const allowedSections = subject.applicableSections?.[cls.name] || [];
+                                        const availableSections = cls.sections.filter(sec => allowedSections.length === 0 || allowedSections.includes(sec));
 
                                         return (
                                           <div
@@ -1639,9 +1717,9 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                                             </label>
 
                                             {isClassAssigned &&
-                                              cls.sections.length > 0 && (
+                                              availableSections.length > 0 && (
                                                 <div className="flex flex-wrap gap-1 mt-2 pl-5 border-l border-purple-100">
-                                                  {cls.sections.map((sec) => {
+                                                  {availableSections.map((sec) => {
                                                     const isSecSelected =
                                                       assignment.sections.includes(
                                                         sec,
@@ -2023,7 +2101,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       const uniqueClasses = state.systemClasses.map(c => c.name);
       const selectedClassData = state.systemClasses.find(c => c.name === examEditClassId);
       const availableSections = selectedClassData?.sections || [];
-      const availableSubjects = state.availableSubjects;
+      const availableSubjects = getApplicableSubjects(state.availableSubjects, examEditClassId, examEditSection);
       const selectedSubjectData = availableSubjects.find(s => s.name === examEditSubject);
       const effectiveType = selectedSubjectData?.classTypes?.[examEditClassId] || selectedSubjectData?.type || 'Theory';
       const showPractical = effectiveType === 'Practical' || effectiveType === 'Both';

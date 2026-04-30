@@ -12,6 +12,8 @@ export interface Subject {
   name: string;
   type: SubjectType;
   classTypes?: Record<string, SubjectType>;
+  applicableClasses?: string[]; // Array of Class IDs. Empty means all.
+  applicableSections?: Record<string, string[]>; // classId -> array of Sections. Empty array means all sections in that class.
 }
 
 export interface TeacherAssignment {
@@ -19,6 +21,23 @@ export interface TeacherAssignment {
   classId: string;
   sections: string[]; // Empty means all sections
 }
+
+export const getApplicableSubjects = (subjects: Subject[], classId: string, section?: string) => {
+  return subjects.filter(s => {
+    if (classId) {
+        const isClassAssigned = s.applicableClasses === undefined || s.applicableClasses.includes(classId);
+        if (!isClassAssigned) return false;
+
+        if (section) {
+            const assignedSections = s.applicableSections?.[classId] || [];
+            if (assignedSections.length > 0 && !assignedSections.includes(section)) {
+                return false;
+            }
+        }
+    }
+    return true;
+  });
+};
 
 export interface User {
   id: string;
