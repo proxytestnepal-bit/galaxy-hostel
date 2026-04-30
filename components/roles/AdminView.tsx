@@ -546,14 +546,40 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
 
     const availableSubjects = getApplicableSubjects(state.availableSubjects, classId, section);
     
+    // Determine active columns (not 0 full marks) across students
+    const activeColumns: Record<string, { theory: boolean, practical: boolean }> = {};
+    availableSubjects.forEach(s => {
+        let hasTheory = false;
+        let hasPractical = false;
+        const effectiveType = s.classTypes?.[classId] || s.type;
+        
+        if (effectiveType === 'Theory' || effectiveType === 'Both') {
+            hasTheory = students.some(student => {
+                const report = state.examReports.find(r => r.studentId === student.id && r.examSessionId === sessionId);
+                const scoreData = report?.scores[s.name];
+                return (scoreData?.fullMarks ?? 100) > 0;
+            });
+        }
+        
+        if (effectiveType === 'Practical' || effectiveType === 'Both') {
+            hasPractical = students.some(student => {
+                const report = state.examReports.find(r => r.studentId === student.id && r.examSessionId === sessionId);
+                const scoreData = report?.scores[s.name];
+                return (scoreData?.practicalFullMarks ?? 50) > 0;
+            });
+        }
+        
+        activeColumns[s.name] = { theory: hasTheory, practical: hasPractical };
+    });
+
     // Headers: Name, Section, [Subject Theory Full, Subject Theory Pass, Subject Theory Obtained, Subject Practical Full, Subject Practical Pass, Subject Practical Obtained]
     const headers = ['Student Name', 'Section'];
     availableSubjects.forEach(s => {
-        const effectiveType = s.classTypes?.[classId] || s.type;
-        if (effectiveType === 'Theory' || effectiveType === 'Both') {
+        const cols = activeColumns[s.name];
+        if (cols.theory) {
             headers.push(`${s.name} (T) Full`, `${s.name} (T) Pass`, `${s.name} (T) Obt`);
         }
-        if (effectiveType === 'Practical' || effectiveType === 'Both') {
+        if (cols.practical) {
             headers.push(`${s.name} (P) Full`, `${s.name} (P) Pass`, `${s.name} (P) Obt`);
         }
     });
@@ -570,10 +596,10 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
         let pass = true;
 
         availableSubjects.forEach(s => {
-            const effectiveType = s.classTypes?.[classId] || s.type;
+            const cols = activeColumns[s.name];
             const scoreData = report?.scores[s.name];
 
-            if (effectiveType === 'Theory' || effectiveType === 'Both') {
+            if (cols.theory) {
                 const f = scoreData?.fullMarks ?? 100;
                 const p = scoreData?.passMarks ?? 40;
                 const o = scoreData?.obtained ?? 0;
@@ -582,7 +608,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                 totalFull += f;
                 if (o < p) pass = false;
             }
-            if (effectiveType === 'Practical' || effectiveType === 'Both') {
+            if (cols.practical) {
                 const f = scoreData?.practicalFullMarks ?? 50;
                 const p = scoreData?.practicalPassMarks ?? 20;
                 const o = scoreData?.practicalObtained ?? 0;
