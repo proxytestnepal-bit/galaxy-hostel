@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
 import { CheckCircle, AlertCircle, FileText, Send, Crown, Bell } from 'lucide-react';
-import { ScoreData } from '../../types';
+import { ScoreData, getApplicableSubjects } from '../../types';
 
 interface Props {
   activeTab: string;
@@ -123,6 +123,50 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
     );
   }
 
+  // Utility to get stats for a student in a specific session (by ID or term name)
+  const getStudentStats = (studentId: string, sessionIdentifier?: string) => {
+    if (!sessionIdentifier) return { totalObtained: 0, totalFull: 0, pass: false, percentage: 0 };
+    const student = state.users.find(u => u.id === studentId);
+    if (!student || !student.classId) return { totalObtained: 0, totalFull: 0, pass: false, percentage: 0 };
+    
+    // sessionIdentifier can be examSessionId or term (name)
+    const report = state.examReports.find(r => r.studentId === studentId && (r.examSessionId === sessionIdentifier || r.term === sessionIdentifier));
+    if (!report) return { totalObtained: 0, totalFull: 0, pass: false, percentage: 0 };
+
+    const applicableSubjects = getApplicableSubjects(state.availableSubjects, student.classId, student.section);
+    let totalObtained = 0;
+    let totalFull = 0;
+    let pass = true;
+
+    applicableSubjects.forEach(s => {
+        const effectiveType = s.classTypes?.[student.classId!] || s.type;
+        const scoreData = report.scores[s.name];
+
+        if (effectiveType === 'Theory' || effectiveType === 'Both') {
+            const f = scoreData?.fullMarks ?? 100;
+            const p = scoreData?.passMarks ?? 40;
+            const o = scoreData?.obtained ?? 0;
+            if (f > 0) {
+                totalObtained += o;
+                totalFull += f;
+                if (o < p) pass = false;
+            }
+        }
+        if (effectiveType === 'Practical' || effectiveType === 'Both') {
+            const f = scoreData?.practicalFullMarks ?? 50;
+            const p = scoreData?.practicalPassMarks ?? 20;
+            const o = scoreData?.practicalObtained ?? 0;
+            if (f > 0) {
+                totalObtained += o;
+                totalFull += f;
+                if (o < p) pass = false;
+            }
+        }
+    });
+
+    return { totalObtained, totalFull, pass, percentage: totalFull > 0 ? (totalObtained / totalFull) * 100 : 0 };
+  };
+
   if (activeTab === 'reports') {
       // Robust check for published status: checks strictly boolean true OR string "true"
       const myReports = state.examReports.filter(r => 
@@ -137,13 +181,59 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
                   <p className="text-gray-500">No published reports available.</p>
               ) : (
                   <div className="grid gap-6">
-                      {myReports.map(report => (
+                      {myReports.map(report => {
+                          const applicableSubjects = getApplicableSubjects(state.availableSubjects, currentUser!.classId!, currentUser!.section);
+                          const myStats = getStudentStats(currentUser!.id, report.examSessionId);
+                          
+                          // Calculate Rank and Highest in Section
+                          const classReports = state.examReports.filter(r => r.examSessionId === report.examSessionId && r.published);
+                          const sectionStudents = state.users.filter(u => u.role === 'student' && u.classId === currentUser!.classId && u.section === currentUser!.section && u.status === 'active');
+                          const classStudents = state.users.filter(u => u.role === 'student' && u.classId === currentUser!.classId && u.status === 'active');
+
+                          const classLeaderboard = classStudents.map(su => ({
+                              studentId: su.id,
+                              ...getStudentStats(su.id, report.examSessionId)
+                          })).sort((a, b) => b.percentage - a.percentage);
+
+                          const myRank = classLeaderboard.findIndex(l => l.studentId === currentUser!.id) + 1;
+                          
+                          const sectionLeaderboard = sectionStudents.map(su => ({
+                              studentId: su.id,
+                              ...getStudentStats(su.id, report.examSessionId)
+                          })).sort((a, b) => b.totalObtained - a.totalObtained);
+
+                          const highestInSection = sectionLeaderboard.length > 0 ? sectionLeaderboard[0].totalObtained : 0;
+
+                          return (
                           <div key={report.id} className="border-2 border-galaxy-100 rounded-xl overflow-hidden shadow-sm">
-                              <div className="bg-galaxy-50 p-4 border-b border-galaxy-100 flex justify-between items-center">
-                                  <h4 className="font-bold text-lg text-galaxy-800">{report.term} Report</h4>
-                                  <span className="text-xs font-mono text-gray-500">ID: {report.id}</span>
+                              <div className="bg-galaxy-50 p-4 border-b border-galaxy-100 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                                  <div>
+                                      <h4 className="font-bold text-lg text-galaxy-800">{report.term} Report</h4>
+                                      <div className="text-sm font-medium text-gray-600 mt-1">
+                                          Class: {currentUser?.classId} {currentUser?.section ? `| Section: ${currentUser?.section}` : ''}
+                                      </div>
+                                  </div>
+                                  <div className="text-xs font-mono text-gray-500 bg-white px-2 py-1 rounded shadow-sm border border-gray-100">ID: {report.id}</div>
                               </div>
                               <div className="p-6 bg-white">
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 bg-gray-50 p-4 rounded-lg border border-gray-100">
+                                      <div>
+                                          <div className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Total Marks</div>
+                                          <div className="text-lg font-mono font-bold text-galaxy-900">{myStats.totalObtained} / {myStats.totalFull}</div>
+                                      </div>
+                                      <div>
+                                          <div className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Percentage</div>
+                                          <div className="text-lg font-mono font-bold text-galaxy-900">{myStats.percentage.toFixed(2)}%</div>
+                                      </div>
+                                      <div>
+                                          <div className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Class Rank</div>
+                                          <div className="text-lg font-mono font-bold text-galaxy-900">{myRank > 0 ? `#${myRank}` : 'N/A'}</div>
+                                      </div>
+                                      <div>
+                                          <div className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Highest in Section</div>
+                                          <div className="text-lg font-mono font-bold text-galaxy-900">{highestInSection}</div>
+                                      </div>
+                                  </div>
                                   <table className="w-full mb-4">
                                       <thead>
                                           <tr className="border-b text-left text-sm text-gray-500">
@@ -154,29 +244,47 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
                                           </tr>
                                       </thead>
                                       <tbody>
-                                          {Object.entries(report.scores).map(([subj, data]) => {
+                                          {applicableSubjects.map(s => {
+                                              const data = report.scores[s.name];
+                                              if (!data) return null;
                                               const score = data as ScoreData;
+                                              const effectiveType = s.classTypes?.[currentUser!.classId!] || s.type;
+                                              
                                               return (
-                                                <tr key={subj} className="border-b last:border-0">
-                                                    <td className="py-3 text-gray-800 font-medium">{subj}</td>
-                                                    <td className="py-3 text-center text-gray-500">{score.fullMarks}</td>
-                                                    <td className="py-3 text-center text-gray-500">{score.passMarks}</td>
-                                                    <td className={`py-3 text-right font-bold ${score.obtained < score.passMarks ? 'text-red-600' : 'text-gray-900'}`}>
-                                                        {score.obtained}
-                                                    </td>
-                                                </tr>
+                                                <React.Fragment key={s.name}>
+                                                    {(effectiveType === 'Theory' || effectiveType === 'Both') && (score.fullMarks ?? 100) > 0 && (
+                                                      <tr className="border-b last:border-0">
+                                                          <td className="py-3 text-gray-800 font-medium">{s.name} {effectiveType === 'Both' ? '(Theory)' : ''}</td>
+                                                          <td className="py-3 text-center text-gray-500">{score.fullMarks ?? 100}</td>
+                                                          <td className="py-3 text-center text-gray-500">{score.passMarks ?? 40}</td>
+                                                          <td className={`py-3 text-right font-bold ${score.obtained < (score.passMarks ?? 40) ? 'text-red-600' : 'text-gray-900'}`}>
+                                                              {score.obtained ?? 0}
+                                                          </td>
+                                                      </tr>
+                                                    )}
+                                                    {(effectiveType === 'Practical' || effectiveType === 'Both') && (score.practicalFullMarks ?? 50) > 0 && (
+                                                      <tr className="border-b last:border-0 bg-gray-50">
+                                                          <td className="py-3 text-gray-800 font-medium pl-6">{s.name} (Practical)</td>
+                                                          <td className="py-3 text-center text-gray-500">{score.practicalFullMarks ?? 50}</td>
+                                                          <td className="py-3 text-center text-gray-500">{score.practicalPassMarks ?? 20}</td>
+                                                          <td className={`py-3 text-right font-bold ${(score.practicalObtained ?? 0) < (score.practicalPassMarks ?? 20) ? 'text-red-600' : 'text-gray-900'}`}>
+                                                              {score.practicalObtained ?? 0}
+                                                          </td>
+                                                      </tr>
+                                                    )}
+                                                </React.Fragment>
                                               );
                                           })}
                                       </tbody>
                                   </table>
                                   {report.remarks && (
-                                    <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100 text-sm text-yellow-800">
+                                    <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-100 text-sm text-yellow-800 mt-4">
                                         <strong>Remarks:</strong> {report.remarks}
                                     </div>
                                   )}
                               </div>
                           </div>
-                      ))}
+                      )})}
                   </div>
               )}
           </div>
@@ -211,16 +319,13 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
 
                   // Calculate totals
                   const leaderboard = classReports.map(r => {
-                      const scores = Object.values(r.scores) as ScoreData[];
-                      const totalObtained = scores.reduce((acc: number, curr: ScoreData) => acc + (curr.obtained || 0), 0);
-                      const totalFull = scores.reduce((acc: number, curr: ScoreData) => acc + (curr.fullMarks || 0), 0);
-                      
+                      const stats = getStudentStats(r.studentId, sessionName);
                       return {
                           studentId: r.studentId,
                           studentName: state.users.find(u => u.id === r.studentId)?.name,
-                          totalObtained,
-                          totalFull,
-                          percentage: totalFull > 0 ? (totalObtained / totalFull) * 100 : 0
+                          totalObtained: stats.totalObtained,
+                          totalFull: stats.totalFull,
+                          percentage: stats.percentage
                       };
                   }).sort((a, b) => b.percentage - a.percentage);
 
