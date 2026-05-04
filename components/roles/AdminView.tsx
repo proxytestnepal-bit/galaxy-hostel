@@ -3,6 +3,7 @@ import { useAppStore } from "../../services/store";
 import { Role, User, ExamType, SubjectType, Notice, getApplicableSubjects } from "../../types";
 import AccountantView from "./AccountantView";
 import ClassLedger from "../ClassLedger";
+import { getExamConfig } from "../../utils/examUtils";
 import {
   Check,
   X,
@@ -117,36 +118,43 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   // Load existing subject configuration for the session when class/subject changes
   useEffect(() => {
     if (selectedExamSessionId && examEditClassId && examEditSubject) {
-      // Find a report in this class/session for this subject.
-      // Prefer reports from the selected section if one is chosen.
-      const existingReport = state.examReports.find(r => {
-        if (r.examSessionId !== selectedExamSessionId || !r.scores[examEditSubject]) return false;
-        
-        const student = state.users.find(u => u.id === r.studentId);
-        if (!student || student.classId !== examEditClassId) return false;
-        
-        // If section is selected, strictly match section. Otherwise match class.
-        if (examEditSection) {
-          return student.section === examEditSection;
-        }
-        return true;
-      });
+      const examConfig = getExamConfig(state.examConfigs, selectedExamSessionId, examEditClassId, examEditSubject);
 
-      if (existingReport && existingReport.scores[examEditSubject]) {
-        const config = existingReport.scores[examEditSubject];
-        if (config.fullMarks !== undefined) setExamEditFullMarks(config.fullMarks);
-        if (config.passMarks !== undefined) setExamEditPassMarks(config.passMarks);
-        if (config.practicalFullMarks !== undefined) setExamEditPracticalFullMarks(config.practicalFullMarks);
-        if (config.practicalPassMarks !== undefined) setExamEditPracticalPassMarks(config.practicalPassMarks);
+      if (examConfig) {
+        if (examConfig.fullMarks !== undefined) setExamEditFullMarks(examConfig.fullMarks);
+        if (examConfig.passMarks !== undefined) setExamEditPassMarks(examConfig.passMarks);
+        if (examConfig.practicalFullMarks !== undefined) setExamEditPracticalFullMarks(examConfig.practicalFullMarks);
+        if (examConfig.practicalPassMarks !== undefined) setExamEditPracticalPassMarks(examConfig.practicalPassMarks);
       } else {
-        // Defaults if no data found
-        setExamEditFullMarks(100);
-        setExamEditPassMarks(40);
-        setExamEditPracticalFullMarks(50);
-        setExamEditPracticalPassMarks(20);
+        // Fallback to legacy config from existing reports
+        const existingReport = state.examReports.find(r => {
+          if (r.examSessionId !== selectedExamSessionId || !r.scores[examEditSubject]) return false;
+          
+          const student = state.users.find(u => u.id === r.studentId);
+          if (!student || student.classId !== examEditClassId) return false;
+          
+          if (examEditSection) {
+            return student.section === examEditSection;
+          }
+          return true;
+        });
+
+        if (existingReport && existingReport.scores[examEditSubject]) {
+          const config = existingReport.scores[examEditSubject];
+          if (config.fullMarks !== undefined) setExamEditFullMarks(config.fullMarks);
+          if (config.passMarks !== undefined) setExamEditPassMarks(config.passMarks);
+          if (config.practicalFullMarks !== undefined) setExamEditPracticalFullMarks(config.practicalFullMarks);
+          if (config.practicalPassMarks !== undefined) setExamEditPracticalPassMarks(config.practicalPassMarks);
+        } else {
+          // Defaults if no data found
+          setExamEditFullMarks(100);
+          setExamEditPassMarks(40);
+          setExamEditPracticalFullMarks(50);
+          setExamEditPracticalPassMarks(20);
+        }
       }
     }
-  }, [selectedExamSessionId, examEditClassId, examEditSection, examEditSubject, state.examReports, state.users]);
+  }, [selectedExamSessionId, examEditClassId, examEditSection, examEditSubject, state.examReports, state.users, state.examConfigs]);
 
   // Hierarchy Definition
   const roleHierarchy: Record<string, number> = {
@@ -455,21 +463,13 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
 
     const session = state.examSessions.find((s) => s.id === selectedExamSessionId);
     const existingReport = state.examReports.find(r => r.studentId === studentId && r.examSessionId === selectedExamSessionId);
-    const existingScoreData = existingReport?.scores[examEditSubject] || {
-        obtained: 0,
-        fullMarks: examEditFullMarks,
-        passMarks: examEditPassMarks
-    };
+    const existingScoreData = existingReport?.scores[examEditSubject] || {};
 
     const newScoreData = { ...existingScoreData };
     if (isPractical) {
         newScoreData.practicalObtained = isNaN(score) ? undefined : score;
-        newScoreData.practicalFullMarks = examEditPracticalFullMarks;
-        newScoreData.practicalPassMarks = examEditPracticalPassMarks;
     } else {
-        newScoreData.obtained = isNaN(score) ? 0 : score;
-        newScoreData.fullMarks = examEditFullMarks;
-        newScoreData.passMarks = examEditPassMarks;
+        newScoreData.obtained = isNaN(score) ? undefined : score;
     }
 
     dispatch({
@@ -490,43 +490,25 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
     const targetsText = examEditSection ? `Section ${examEditSection}` : `all sections`;
     if (!window.confirm(`Are you sure you want to apply these Full/Pass marks to ${targetsText} of Class ${examEditClassId} for ${examEditSubject}?`)) return;
 
-    const session = state.examSessions.find(s => s.id === selectedExamSessionId);
-    const students = state.users.filter(u => 
-      u.role === 'student' && 
-      u.classId === examEditClassId && 
-      (!examEditSection || u.section === examEditSection)
-    );
-    
     const selectedSubjectData = state.availableSubjects.find(s => s.name === examEditSubject);
     const effectiveType = selectedSubjectData?.classTypes?.[examEditClassId] || selectedSubjectData?.type || 'Theory';
     const hasPractical = effectiveType === 'Practical' || effectiveType === 'Both';
     
-    const updates = students.map(student => {
-      const existingReport = state.examReports.find(r => r.studentId === student.id && r.examSessionId === selectedExamSessionId);
-      const existingScoreData = existingReport?.scores[examEditSubject] || { obtained: 0 };
-      
-      const newScoreData = {
-        ...existingScoreData,
+    dispatch({
+      type: "UPDATE_EXAM_CONFIG",
+      payload: {
+        id: "",
+        examSessionId: selectedExamSessionId,
+        classId: examEditClassId,
+        subject: examEditSubject,
         fullMarks: examEditFullMarks,
         passMarks: examEditPassMarks,
         practicalFullMarks: hasPractical ? examEditPracticalFullMarks : undefined,
         practicalPassMarks: hasPractical ? examEditPracticalPassMarks : undefined
-      };
-      
-      return { studentId: student.id, scoreData: newScoreData };
-    });
-
-    dispatch({
-      type: "BULK_UPDATE_EXAM_MARKS",
-      payload: {
-        updates,
-        examSessionId: selectedExamSessionId,
-        sessionName: session?.name || "",
-        subject: examEditSubject
       }
     });
 
-    alert(`Marks configuration updated for ${students.length} students.`);
+    alert(`Marks configuration saved for Class ${examEditClassId} ${examEditSubject}.`);
   };
 
   const exportLedgerToCSV = (sessionId: string, classId: string, section?: string) => {
@@ -553,9 +535,10 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
         let hasTheory = false;
         let hasPractical = false;
         const effectiveType = s.classTypes?.[classId] || s.type;
+        const config = getExamConfig(state.examConfigs, sessionId, classId, s.name);
         
         if (effectiveType === 'Theory' || effectiveType === 'Both') {
-            hasTheory = students.some(student => {
+            hasTheory = ((config?.fullMarks ?? 100) > 0) || students.some(student => {
                 const report = state.examReports.find(r => r.studentId === student.id && r.examSessionId === sessionId);
                 const scoreData = report?.scores[s.name];
                 return (scoreData?.fullMarks ?? 100) > 0;
@@ -563,7 +546,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
         }
         
         if (effectiveType === 'Practical' || effectiveType === 'Both') {
-            hasPractical = students.some(student => {
+            hasPractical = ((config?.practicalFullMarks ?? 50) > 0) || students.some(student => {
                 const report = state.examReports.find(r => r.studentId === student.id && r.examSessionId === sessionId);
                 const scoreData = report?.scores[s.name];
                 return (scoreData?.practicalFullMarks ?? 50) > 0;
@@ -599,10 +582,11 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
         availableSubjects.forEach(s => {
             const cols = activeColumns[s.name];
             const scoreData = report?.scores[s.name];
+            const config = getExamConfig(state.examConfigs, sessionId, classId, s.name);
 
             if (cols.theory) {
-                const f = scoreData?.fullMarks ?? 100;
-                const p = scoreData?.passMarks ?? 40;
+                const f = config?.fullMarks ?? scoreData?.fullMarks ?? 100;
+                const p = config?.passMarks ?? scoreData?.passMarks ?? 40;
                 const o = scoreData?.obtained ?? 0;
                 row.push(f.toString(), p.toString(), o.toString());
                 totalObtained += o;
@@ -610,8 +594,8 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                 if (o < p) pass = false;
             }
             if (cols.practical) {
-                const f = scoreData?.practicalFullMarks ?? 50;
-                const p = scoreData?.practicalPassMarks ?? 20;
+                const f = config?.practicalFullMarks ?? scoreData?.practicalFullMarks ?? 50;
+                const p = config?.practicalPassMarks ?? scoreData?.practicalPassMarks ?? 20;
                 const o = scoreData?.practicalObtained ?? 0;
                 row.push(f.toString(), p.toString(), o.toString());
                 totalObtained += o;

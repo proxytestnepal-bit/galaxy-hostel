@@ -35,6 +35,7 @@ type Action =
   | { type: 'TOGGLE_EXAM_SESSION_STATUS'; payload: string } // id
   | { type: 'UPDATE_EXAM_MARKS'; payload: { studentId: string; examSessionId: string; sessionName: string; subject: string; scoreData: ScoreData } }
   | { type: 'BULK_UPDATE_EXAM_MARKS'; payload: { updates: { studentId: string; scoreData: ScoreData }[]; examSessionId: string; sessionName: string; subject: string } }
+  | { type: 'UPDATE_EXAM_CONFIG'; payload: ExamConfig }
   | { type: 'PUBLISH_REPORT'; payload: { id: string; published: boolean } }
   | { type: 'PUBLISH_CLASS_RESULT'; payload: { examSessionId: string; sessionName: string; classId: string; section?: string; published: boolean } }
   | { type: 'ADD_NOTICE'; payload: Notice }
@@ -247,6 +248,19 @@ const reducer = (state: AppState, action: Action): AppState => {
             dbActions.addReport(newReport);
         }
         return { ...state, examReports: newReports };
+    }
+    case 'UPDATE_EXAM_CONFIG': {
+        const config = action.payload;
+        const existsIndex = state.examConfigs.findIndex(
+            c => c.examSessionId === config.examSessionId && c.classId === config.classId && c.subject === config.subject
+        );
+        let newConfigs = [...(state.examConfigs || [])];
+        if (existsIndex > -1) {
+            newConfigs[existsIndex] = config;
+        } else {
+            newConfigs.push({ ...config, id: `ec_${Date.now()}` });
+        }
+        return { ...state, examConfigs: newConfigs };
     }
     case 'BULK_UPDATE_EXAM_MARKS': {
         const { updates, examSessionId, sessionName, subject } = action.payload;

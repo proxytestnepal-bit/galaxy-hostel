@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
 import { CheckCircle, AlertCircle, FileText, Send, Crown, Bell } from 'lucide-react';
 import { ScoreData, getApplicableSubjects } from '../../types';
+import { getExamConfig } from '../../utils/examUtils';
 
 interface Props {
   activeTab: string;
@@ -141,10 +142,11 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
     applicableSubjects.forEach(s => {
         const effectiveType = s.classTypes?.[student.classId!] || s.type;
         const scoreData = report.scores[s.name];
+        const config = getExamConfig(state.examConfigs, report.examSessionId, student.classId as string, s.name);
 
         if (effectiveType === 'Theory' || effectiveType === 'Both') {
-            const f = scoreData?.fullMarks ?? 100;
-            const p = scoreData?.passMarks ?? 40;
+            const f = config?.fullMarks ?? scoreData?.fullMarks ?? 100;
+            const p = config?.passMarks ?? scoreData?.passMarks ?? 40;
             const o = scoreData?.obtained ?? 0;
             if (f > 0) {
                 totalObtained += o;
@@ -153,8 +155,8 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
             }
         }
         if (effectiveType === 'Practical' || effectiveType === 'Both') {
-            const f = scoreData?.practicalFullMarks ?? 50;
-            const p = scoreData?.practicalPassMarks ?? 20;
+            const f = config?.practicalFullMarks ?? scoreData?.practicalFullMarks ?? 50;
+            const p = config?.practicalPassMarks ?? scoreData?.practicalPassMarks ?? 20;
             const o = scoreData?.practicalObtained ?? 0;
             if (f > 0) {
                 totalObtained += o;
@@ -255,26 +257,35 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
                                               if (!data) return null;
                                               const score = data as ScoreData;
                                               const effectiveType = s.classTypes?.[currentUser!.classId!] || s.type;
+                                              const config = getExamConfig(state.examConfigs, report.examSessionId, currentUser!.classId as string, s.name);
                                               
+                                              const theoryFull = config?.fullMarks ?? score.fullMarks ?? 100;
+                                              const theoryPass = config?.passMarks ?? score.passMarks ?? 40;
+                                              const theoryObtained = score.obtained ?? 0;
+
+                                              const pracFull = config?.practicalFullMarks ?? score.practicalFullMarks ?? 50;
+                                              const pracPass = config?.practicalPassMarks ?? score.practicalPassMarks ?? 20;
+                                              const pracObtained = score.practicalObtained ?? 0;
+
                                               return (
                                                 <React.Fragment key={s.name}>
-                                                    {(effectiveType === 'Theory' || effectiveType === 'Both') && (score.fullMarks ?? 100) > 0 && (
+                                                    {(effectiveType === 'Theory' || effectiveType === 'Both') && theoryFull > 0 && (
                                                       <tr className="border-b last:border-0">
                                                           <td className="py-3 text-gray-800 font-medium">{s.name} {effectiveType === 'Both' ? '(Theory)' : ''}</td>
-                                                          <td className="py-3 text-center text-gray-500">{score.fullMarks ?? 100}</td>
-                                                          <td className="py-3 text-center text-gray-500">{score.passMarks ?? 40}</td>
-                                                          <td className={`py-3 text-right font-bold ${score.obtained < (score.passMarks ?? 40) ? 'text-red-600' : 'text-gray-900'}`}>
-                                                              {score.obtained ?? 0}
+                                                          <td className="py-3 text-center text-gray-500">{theoryFull}</td>
+                                                          <td className="py-3 text-center text-gray-500">{theoryPass}</td>
+                                                          <td className={`py-3 text-right font-bold ${theoryObtained < theoryPass ? 'text-red-600' : 'text-gray-900'}`}>
+                                                              {theoryObtained}
                                                           </td>
                                                       </tr>
                                                     )}
-                                                    {(effectiveType === 'Practical' || effectiveType === 'Both') && (score.practicalFullMarks ?? 50) > 0 && (
+                                                    {(effectiveType === 'Practical' || effectiveType === 'Both') && pracFull > 0 && (
                                                       <tr className="border-b last:border-0 bg-gray-50">
                                                           <td className="py-3 text-gray-800 font-medium pl-6">{s.name} (Practical)</td>
-                                                          <td className="py-3 text-center text-gray-500">{score.practicalFullMarks ?? 50}</td>
-                                                          <td className="py-3 text-center text-gray-500">{score.practicalPassMarks ?? 20}</td>
-                                                          <td className={`py-3 text-right font-bold ${(score.practicalObtained ?? 0) < (score.practicalPassMarks ?? 20) ? 'text-red-600' : 'text-gray-900'}`}>
-                                                              {score.practicalObtained ?? 0}
+                                                          <td className="py-3 text-center text-gray-500">{pracFull}</td>
+                                                          <td className="py-3 text-center text-gray-500">{pracPass}</td>
+                                                          <td className={`py-3 text-right font-bold ${pracObtained < pracPass ? 'text-red-600' : 'text-gray-900'}`}>
+                                                              {pracObtained}
                                                           </td>
                                                       </tr>
                                                     )}

@@ -136,10 +136,21 @@ export interface ExamSession {
 }
 
 export interface ScoreData {
-  obtained: number;
+  obtained?: number;
+  fullMarks?: number;
+  passMarks?: number;
+  practicalObtained?: number;
+  practicalFullMarks?: number;
+  practicalPassMarks?: number;
+}
+
+export interface ExamConfig {
+  id: string;
+  examSessionId: string;
+  classId: string;
+  subject: string;
   fullMarks: number;
   passMarks: number;
-  practicalObtained?: number;
   practicalFullMarks?: number;
   practicalPassMarks?: number;
 }
@@ -187,6 +198,7 @@ export interface AppState {
   invoices: Invoice[];
   fees: FeeRecord[];
   examSessions: ExamSession[];
+  examConfigs: ExamConfig[];
   examReports: ExamReport[];
   notices: Notice[];
   roleRequests: RoleRequest[];

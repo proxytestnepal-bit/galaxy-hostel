@@ -4,6 +4,7 @@ import { useAppStore } from '../../services/store';
 import { Assignment } from '../../types';
 import { generateAssignmentIdeas, generateFeedbackHelper } from '../../services/geminiService';
 import { Sparkles, Send, CheckCircle, Clock, PenTool, Save, Download, Bell, MessageSquare, GraduationCap, X } from 'lucide-react';
+import { getExamConfig } from '../../utils/examUtils';
 import ClassLedger from '../ClassLedger';
 
 interface Props {
@@ -103,17 +104,13 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
 
       const session = state.examSessions.find(s => s.id === selectedSessionId);
       const existingReport = state.examReports.find(r => r.studentId === studentId && r.examSessionId === selectedSessionId);
-      const existingScoreData = existingReport?.scores[selectedSubject] || {
-          obtained: 0,
-          fullMarks: 100, // Default fallback
-          passMarks: 40
-      };
+      const existingScoreData = existingReport?.scores[selectedSubject] || {};
 
       const newScoreData = { ...existingScoreData };
       if (isPractical) {
           newScoreData.practicalObtained = isNaN(score) ? undefined : score;
       } else {
-          newScoreData.obtained = isNaN(score) ? 0 : score;
+          newScoreData.obtained = isNaN(score) ? undefined : score;
       }
       
       dispatch({
@@ -237,24 +234,33 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
       let displayPracticalFullMarks = 50;
       let displayPracticalPassMarks = 20;
 
-      if (selectedSessionId && selectedSubject) {
-          const existingReport = state.examReports.find(r => {
-              if (r.examSessionId !== selectedSessionId || !r.scores[selectedSubject]) return false;
-              const student = state.users.find(u => u.id === r.studentId);
-              if (!student) return false;
-              
-              // Find a report that matches our current class and section filters
-              const classMatch = student.classId === selectedClassId;
-              const sectionMatch = selectedSection ? student.section === selectedSection : true;
-              return classMatch && sectionMatch;
-          });
+      if (selectedSessionId && selectedSubject && selectedClassId) {
+          const examConfig = getExamConfig(state.examConfigs, selectedSessionId, selectedClassId, selectedSubject);
 
-          if (existingReport && existingReport.scores[selectedSubject]) {
-              const scoreData = existingReport.scores[selectedSubject];
-              if (scoreData.fullMarks !== undefined) displayTheoryFullMarks = scoreData.fullMarks;
-              if (scoreData.passMarks !== undefined) displayTheoryPassMarks = scoreData.passMarks;
-              if (scoreData.practicalFullMarks !== undefined) displayPracticalFullMarks = scoreData.practicalFullMarks;
-              if (scoreData.practicalPassMarks !== undefined) displayPracticalPassMarks = scoreData.practicalPassMarks;
+          if (examConfig) {
+              if (examConfig.fullMarks !== undefined) displayTheoryFullMarks = examConfig.fullMarks;
+              if (examConfig.passMarks !== undefined) displayTheoryPassMarks = examConfig.passMarks;
+              if (examConfig.practicalFullMarks !== undefined) displayPracticalFullMarks = examConfig.practicalFullMarks;
+              if (examConfig.practicalPassMarks !== undefined) displayPracticalPassMarks = examConfig.practicalPassMarks;
+          } else {
+              // Legacy fallback
+              const existingReport = state.examReports.find(r => {
+                  if (r.examSessionId !== selectedSessionId || !r.scores[selectedSubject]) return false;
+                  const student = state.users.find(u => u.id === r.studentId);
+                  if (!student) return false;
+                  
+                  const classMatch = student.classId === selectedClassId;
+                  const sectionMatch = selectedSection ? student.section === selectedSection : true;
+                  return classMatch && sectionMatch;
+              });
+
+              if (existingReport && existingReport.scores[selectedSubject]) {
+                  const scoreData = existingReport.scores[selectedSubject];
+                  if (scoreData.fullMarks !== undefined) displayTheoryFullMarks = scoreData.fullMarks;
+                  if (scoreData.passMarks !== undefined) displayTheoryPassMarks = scoreData.passMarks;
+                  if (scoreData.practicalFullMarks !== undefined) displayPracticalFullMarks = scoreData.practicalFullMarks;
+                  if (scoreData.practicalPassMarks !== undefined) displayPracticalPassMarks = scoreData.practicalPassMarks;
+              }
           }
       }
 

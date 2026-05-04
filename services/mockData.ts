@@ -292,6 +292,7 @@ export const INITIAL_STATE: AppState = {
       startDate: '2024-02-15'
     }
   ],
+  examConfigs: [],
   examReports: [],
   notices: [
     {

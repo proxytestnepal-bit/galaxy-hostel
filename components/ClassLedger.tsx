@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../services/store';
 import { Crown, Download } from 'lucide-react';
+import { getExamConfig } from '../utils/examUtils';
 import { getApplicableSubjects } from '../types';
 
 interface ScoreData {
@@ -43,10 +44,11 @@ const ClassLedger: React.FC<ClassLedgerProps> = ({ allowedClassIds }) => {
         applicableSubjects.forEach(s => {
             const effectiveType = s.classTypes?.[student.classId!] || s.type;
             const scoreData = report.scores[s.name] as ScoreData | undefined;
+            const config = getExamConfig(state.examConfigs, sessionId, student.classId as string, s.name);
 
             if (effectiveType === 'Theory' || effectiveType === 'Both') {
-                const f = scoreData?.fullMarks ?? 100;
-                const p = scoreData?.passMarks ?? 40;
+                const f = config?.fullMarks ?? scoreData?.fullMarks ?? 100;
+                const p = config?.passMarks ?? scoreData?.passMarks ?? 40;
                 const o = scoreData?.obtained ?? 0;
                 if (f > 0) {
                     totalObtained += o;
@@ -55,8 +57,8 @@ const ClassLedger: React.FC<ClassLedgerProps> = ({ allowedClassIds }) => {
                 }
             }
             if (effectiveType === 'Practical' || effectiveType === 'Both') {
-                const f = scoreData?.practicalFullMarks ?? 50;
-                const p = scoreData?.practicalPassMarks ?? 20;
+                const f = config?.practicalFullMarks ?? scoreData?.practicalFullMarks ?? 50;
+                const p = config?.practicalPassMarks ?? scoreData?.practicalPassMarks ?? 20;
                 const o = scoreData?.practicalObtained ?? 0;
                 if (f > 0) {
                     totalObtained += o;
