@@ -11,6 +11,12 @@ const Auth: React.FC = () => {
   const { state, dispatch } = useAppStore();
   const [isLogin, setIsLogin] = useState(true);
   
+  React.useEffect(() => {
+    if (window.location.pathname === '/signup') {
+      setIsLogin(false);
+    }
+  }, []);
+
   // Login State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

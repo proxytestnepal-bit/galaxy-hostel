@@ -202,6 +202,8 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
                               ...getStudentStats(su.id, report.examSessionId)
                           })).sort((a, b) => b.totalObtained - a.totalObtained);
 
+                          const mySectionRank = sectionLeaderboard.findIndex(l => l.studentId === currentUser!.id) + 1;
+                          
                           const highestInSection = sectionLeaderboard.length > 0 ? sectionLeaderboard[0].totalObtained : 0;
 
                           return (
@@ -216,7 +218,7 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
                                   <div className="text-xs font-mono text-gray-500 bg-white px-2 py-1 rounded shadow-sm border border-gray-100">ID: {report.id}</div>
                               </div>
                               <div className="p-6 bg-white">
-                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 bg-gray-50 p-4 rounded-lg border border-gray-100">
+                                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6 bg-gray-50 p-4 rounded-lg border border-gray-100">
                                       <div>
                                           <div className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Total Marks</div>
                                           <div className="text-lg font-mono font-bold text-galaxy-900">{myStats.totalObtained} / {myStats.totalFull}</div>
@@ -228,6 +230,10 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
                                       <div>
                                           <div className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Class Rank</div>
                                           <div className="text-lg font-mono font-bold text-galaxy-900">{myRank > 0 ? `#${myRank}` : 'N/A'}</div>
+                                      </div>
+                                      <div>
+                                          <div className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Section Rank</div>
+                                          <div className="text-lg font-mono font-bold text-galaxy-900">{mySectionRank > 0 ? `#${mySectionRank}` : 'N/A'}</div>
                                       </div>
                                       <div>
                                           <div className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Highest in Section</div>
@@ -289,84 +295,6 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
               )}
           </div>
       );
-  }
-
-  // Aggregate Ledger (Leaderboard/Summary)
-  if (activeTab === 'ledger') {
-      // Find all published reports for my class's sessions
-      // Filter sessions that have at least one report for me
-      const mySessions = state.examReports
-          .filter(r => r.studentId === currentUser?.id && (r.published === true || String(r.published) === 'true'))
-          .map(r => r.term);
-      const uniqueSessions = [...new Set(mySessions)];
-
-      return (
-          <div className="space-y-8">
-              <h3 className="text-xl font-bold text-galaxy-900">Class Aggregate Ledger</h3>
-              
-              {uniqueSessions.map(sessionName => {
-                  // Get reports for all students in my class for this session
-                  // Exclude dropped-out students from the ranking calculation
-                  const classReports = state.examReports.filter(r => {
-                      const student = state.users.find(u => u.id === r.studentId);
-                      return (
-                          r.term === sessionName && 
-                          (r.published === true || String(r.published) === 'true') && 
-                          student?.classId === currentUser?.classId &&
-                          student?.status === 'active' // Ensure only active students are counted
-                      );
-                  });
-
-                  // Calculate totals
-                  const leaderboard = classReports.map(r => {
-                      const stats = getStudentStats(r.studentId, sessionName);
-                      return {
-                          studentId: r.studentId,
-                          studentName: state.users.find(u => u.id === r.studentId)?.name,
-                          totalObtained: stats.totalObtained,
-                          totalFull: stats.totalFull,
-                          percentage: stats.percentage
-                      };
-                  }).sort((a, b) => b.percentage - a.percentage);
-
-                  return (
-                      <div key={sessionName} className="bg-white border rounded-xl overflow-hidden shadow-sm">
-                          <div className="bg-galaxy-900 text-white p-4">
-                              <h4 className="font-bold">{sessionName} - Class Performance</h4>
-                          </div>
-                          <table className="w-full text-left">
-                              <thead className="bg-gray-50 text-xs uppercase text-gray-500 font-bold">
-                                  <tr>
-                                      <th className="p-3">Rank</th>
-                                      <th className="p-3">Student Name</th>
-                                      <th className="p-3 text-right">Total Obtained</th>
-                                      <th className="p-3 text-right">Percentage</th>
-                                  </tr>
-                              </thead>
-                              <tbody className="divide-y">
-                                  {leaderboard.map((item, idx) => (
-                                      <tr key={item.studentId} className={item.studentId === currentUser?.id ? 'bg-yellow-50' : ''}>
-                                          <td className="p-3 font-mono text-gray-500">
-                                              {idx === 0 ? <Crown size={16} className="text-gold-500 inline mr-1" /> : `#${idx + 1}`}
-                                          </td>
-                                          <td className="p-3 font-medium">
-                                              {item.studentName} {item.studentId === currentUser?.id && '(You)'}
-                                          </td>
-                                          <td className="p-3 text-right font-mono">{item.totalObtained} / {item.totalFull}</td>
-                                          <td className="p-3 text-right font-bold">{item.percentage.toFixed(2)}%</td>
-                                      </tr>
-                                  ))}
-                              </tbody>
-                          </table>
-                      </div>
-                  )
-              })}
-              
-              {uniqueSessions.length === 0 && (
-                  <p className="text-gray-500">No published class results available yet.</p>
-              )}
-          </div>
-      )
   }
 
   if (activeTab === 'fees') {

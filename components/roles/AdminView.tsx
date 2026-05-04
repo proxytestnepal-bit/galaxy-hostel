@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useAppStore } from "../../services/store";
 import { Role, User, ExamType, SubjectType, Notice, getApplicableSubjects } from "../../types";
 import AccountantView from "./AccountantView";
+import ClassLedger from "../ClassLedger";
 import {
   Check,
   X,
@@ -2610,6 +2611,11 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
         </div>
       </div>
     );
+  }
+
+  if (activeTab === "ledger") {
+    // Admin has access to all classes
+    return <ClassLedger />;
   }
 
   if (

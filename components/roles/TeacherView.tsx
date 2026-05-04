@@ -4,6 +4,7 @@ import { useAppStore } from '../../services/store';
 import { Assignment } from '../../types';
 import { generateAssignmentIdeas, generateFeedbackHelper } from '../../services/geminiService';
 import { Sparkles, Send, CheckCircle, Clock, PenTool, Save, Download, Bell, MessageSquare, GraduationCap, X } from 'lucide-react';
+import ClassLedger from '../ClassLedger';
 
 interface Props {
   activeTab: string;
@@ -727,6 +728,10 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
         </div>
       </div>
     );
+  }
+
+  if (activeTab === 'ledger') {
+    return <ClassLedger allowedClassIds={assignedClasses.length > 0 ? assignedClasses : undefined} />;
   }
 
   if (activeTab === 'notices') {

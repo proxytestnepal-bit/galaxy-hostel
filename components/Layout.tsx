@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useAppStore } from '../services/store';
-import { LogOut, User, LayoutDashboard, FileText, CreditCard, Bell, GraduationCap, Settings, Shield, UserPlus, PenTool, ClipboardList, ScanFace, LogIn, ChevronDown, PlusCircle, Lock, X } from 'lucide-react';
+import { LogOut, User, LayoutDashboard, FileText, CreditCard, Bell, GraduationCap, Settings, Shield, UserPlus, PenTool, ClipboardList, ScanFace, LogIn, ChevronDown, PlusCircle, Lock, X, CheckCircle, CheckSquare, UserCheck, BookOpen } from 'lucide-react';
 import { Role } from '../types';
 
 interface LayoutProps {
@@ -114,7 +114,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
           { id: 'assignments', label: 'My Assignments', icon: FileText },
           { id: 'reports', label: 'Exam Reports', icon: GraduationCap },
           { id: 'fees', label: 'Fee Status', icon: CreditCard },
-          { id: 'ledger', label: 'Class Ledger', icon: FileText },
           { id: 'notices', label: 'Notices', icon: Bell },
         ];
       case 'teacher':
@@ -123,6 +122,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
           { id: 'assignments', label: 'Manage Assignments', icon: FileText },
           { id: 'submissions', label: 'Submissions & Grading', icon: GraduationCap },
           { id: 'marks_entry', label: 'Marks Entry', icon: PenTool },
+          { id: 'ledger', label: 'Class Ledger', icon: BookOpen },
           { id: 'notices', label: 'Notices', icon: Bell },
         ];
       case 'accountant':
@@ -139,6 +139,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
           { id: 'approvals', label: 'Approvals', icon: Shield },
           { id: 'finance_overview', label: 'Finance Overview', icon: CreditCard },
           { id: 'exam_management', label: 'Exam Management', icon: GraduationCap },
+          { id: 'ledger', label: 'Class Ledger', icon: BookOpen },
           { id: 'issue_notices', label: 'Issue Notices', icon: Bell },
         ];
       case 'intern':
@@ -152,6 +153,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
               ...common,
               { id: 'users', label: 'Manage Users', icon: User }, 
               { id: 'impersonate', label: 'Act As User', icon: ScanFace },
+              { id: 'ledger', label: 'Class Ledger', icon: BookOpen },
               { id: 'debug', label: 'Debug & Reset', icon: Settings },
           ];
       default:
