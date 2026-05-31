@@ -2,7 +2,7 @@
 
 import { db } from './firebase';
 import { collection, doc, setDoc, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
-import { AppState, User, FeeRecord, Invoice, Assignment, Submission, ExamSession, ExamReport, Notice, Subject, SystemClass, WorkLog, RoleRequest } from '../types';
+import { AppState, User, FeeRecord, Invoice, Assignment, Submission, ExamSession, ExamReport, ExamConfig, Notice, Subject, SystemClass, WorkLog, RoleRequest } from '../types';
 
 // Helper to remove undefined fields which Firestore doesn't support
 const sanitize = (data: any) => {
@@ -39,12 +39,13 @@ export const loadAllData = async (): Promise<Partial<AppState>> => {
         const [
             users, assignments, submissions, invoices, fees, 
             examSessions, examReports, notices, availableSubjects, 
-            systemClasses, workLogs, roleRequests
+            systemClasses, workLogs, roleRequests, examConfigs
         ] = await Promise.all([
             loadCol('users'), loadCol('assignments'), loadCol('submissions'),
             loadCol('invoices'), loadCol('fees'), loadCol('examSessions'),
             loadCol('examReports'), loadCol('notices'), loadCol('subjects'),
-            loadCol('classes'), loadCol('workLogs'), loadCol('roleRequests')
+            loadCol('classes'), loadCol('workLogs'), loadCol('roleRequests'),
+            loadCol('examConfigs')
         ]);
 
         return {
@@ -55,6 +56,7 @@ export const loadAllData = async (): Promise<Partial<AppState>> => {
             fees: fees as FeeRecord[],
             examSessions: examSessions as ExamSession[],
             examReports: examReports as ExamReport[],
+            examConfigs: examConfigs as ExamConfig[],
             notices: notices as Notice[],
             availableSubjects: availableSubjects as Subject[],
             systemClasses: systemClasses as SystemClass[],
@@ -89,6 +91,8 @@ export const dbActions = {
     updateExamSession: (e: ExamSession) => saveCollectionItem('examSessions', e),
     deleteExamSession: (id: string) => deleteCollectionItem('examSessions', id),
     
+    updateExamConfig: (c: ExamConfig) => saveCollectionItem('examConfigs', c),
+
     addReport: (r: ExamReport) => saveCollectionItem('examReports', r),
     updateReport: (r: ExamReport) => saveCollectionItem('examReports', r),
     
@@ -137,6 +141,7 @@ export const seedDatabase = async (initialState: AppState) => {
     addToBatch('invoices', initialState.invoices);
     addToBatch('fees', initialState.fees);
     addToBatch('examSessions', initialState.examSessions);
+    addToBatch('examConfigs', initialState.examConfigs || []);
     addToBatch('examReports', initialState.examReports);
     addToBatch('notices', initialState.notices);
     addToBatch('workLogs', initialState.workLogs);
