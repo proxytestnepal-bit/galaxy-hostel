@@ -314,5 +314,8 @@ export const INITIAL_STATE: AppState = {
     { name: 'HDHM-SEM2', sections: ['Hyatt', 'Jumeirah', 'Sheraton'] },
     { name: 'HDHM-SEM3', sections: ['Hyatt', 'Jumeirah', 'Sheraton'] }
   ],
-  workLogs: []
+  workLogs: [],
+  hotels: [],
+  feedbackCycles: [],
+  internshipAssignments: [],
 };

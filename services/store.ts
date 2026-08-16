@@ -1,8 +1,10 @@
 
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { AppState, User, Assignment, Submission, FeeRecord, ExamReport, Notice, Invoice, ExamSession, Subject, ScoreData, WorkLog, RoleRequest, Role } from '../types';
+import React, { createContext, useContext, useReducer, useEffect, useState, useCallback, useRef } from 'react';
+import { AppState, User, Assignment, Submission, FeeRecord, ExamReport, Notice, Invoice, ExamSession, Subject, ScoreData, WorkLog, RoleRequest, Role, Hotel, FeedbackCycle, InternshipAssignment, ExamConfig } from '../types';
 import { INITIAL_STATE } from './mockData';
 import { loadAllData, dbActions, seedDatabase, seedCollection } from './db';
+import { db } from './firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
 
 type Action =
   | { type: 'LOGIN'; payload: User }
@@ -50,12 +52,28 @@ type Action =
   | { type: 'ADD_WORK_LOG'; payload: WorkLog }
   | { type: 'ADD_ROLE_REQUEST'; payload: RoleRequest }
   | { type: 'RESOLVE_ROLE_REQUEST'; payload: { id: string; status: 'approved' | 'rejected' } }
+  | { type: 'ADD_HOTEL'; payload: Hotel }
+  | { type: 'UPDATE_HOTEL'; payload: Hotel }
+  | { type: 'DELETE_HOTEL'; payload: string }
+  | { type: 'ADD_FEEDBACK_CYCLE'; payload: FeedbackCycle }
+  | { type: 'UPDATE_FEEDBACK_CYCLE'; payload: FeedbackCycle }
+  | { type: 'DELETE_FEEDBACK_CYCLE'; payload: string }
+  | { type: 'ADD_INTERNSHIP_ASSIGNMENTS'; payload: InternshipAssignment[] }
+  | { type: 'REMOVE_INTERNSHIP_ASSIGNMENT'; payload: string }
+  | { type: 'SUBMIT_INTERNSHIP_FEEDBACK'; payload: InternshipAssignment[] }
+  | { type: 'REOPEN_INTERNSHIP_FEEDBACK'; payload: { assignmentIds: string[] } }
+  | { type: 'UPDATE_INTERNSHIP_FEEDBACK'; payload: { assignmentId: string; feedbackData: Record<string, number>; remarks?: string } }
   | { type: 'RESET_DATABASE' };
 
-const AppContext = createContext<{
+interface AppContextType {
   state: AppState;
   dispatch: React.Dispatch<Action>;
-} | undefined>(undefined);
+  refreshData: (silent?: boolean) => Promise<void>;
+  isSyncing: boolean;
+  lastSyncedAt: Date | null;
+}
+
+const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const reducer = (state: AppState, action: Action): AppState => {
   switch (action.type) {
@@ -460,6 +478,81 @@ const reducer = (state: AppState, action: Action): AppState => {
         
         return { ...state, roleRequests: state.roleRequests.filter(r => r.id !== id), users: updatedUsers };
     }
+    case 'ADD_HOTEL':
+        dbActions.addHotel(action.payload);
+        return { ...state, hotels: [...(state.hotels || []), action.payload] };
+    case 'UPDATE_HOTEL': {
+        const updatedHotels = (state.hotels || []).map(h => h.id === action.payload.id ? action.payload : h);
+        dbActions.updateHotel(action.payload);
+        return { ...state, hotels: updatedHotels };
+    }
+    case 'DELETE_HOTEL':
+        dbActions.deleteHotel(action.payload);
+        return { ...state, hotels: (state.hotels || []).filter(h => h.id !== action.payload) };
+    case 'ADD_FEEDBACK_CYCLE':
+        dbActions.addFeedbackCycle(action.payload);
+        return { ...state, feedbackCycles: [...(state.feedbackCycles || []), action.payload] };
+    case 'UPDATE_FEEDBACK_CYCLE': {
+        const updatedCycles = (state.feedbackCycles || []).map(c => c.id === action.payload.id ? action.payload : c);
+        dbActions.updateFeedbackCycle(action.payload);
+        return { ...state, feedbackCycles: updatedCycles };
+    }
+    case 'DELETE_FEEDBACK_CYCLE':
+        dbActions.deleteFeedbackCycle(action.payload);
+        return { ...state, feedbackCycles: (state.feedbackCycles || []).filter(c => c.id !== action.payload) };
+    case 'ADD_INTERNSHIP_ASSIGNMENTS': {
+        action.payload.forEach(assignment => dbActions.addInternshipAssignment(assignment));
+        return { ...state, internshipAssignments: [...(state.internshipAssignments || []), ...action.payload] };
+    }
+    case 'REMOVE_INTERNSHIP_ASSIGNMENT':
+        dbActions.deleteInternshipAssignment(action.payload);
+        return { ...state, internshipAssignments: (state.internshipAssignments || []).filter(a => a.id !== action.payload) };
+    case 'SUBMIT_INTERNSHIP_FEEDBACK': {
+        const assignmentsMap = new Map(action.payload.map(a => [a.id, a]));
+        action.payload.forEach(assignment => dbActions.updateInternshipAssignment(assignment));
+        return {
+            ...state,
+            internshipAssignments: (state.internshipAssignments || []).map(a => 
+                assignmentsMap.has(a.id) ? assignmentsMap.get(a.id)! : a
+            )
+        };
+    }
+    case 'REOPEN_INTERNSHIP_FEEDBACK': {
+        const targetIds = new Set(action.payload.assignmentIds);
+        const updatedAssignments = (state.internshipAssignments || []).map(a => {
+            if (targetIds.has(a.id)) {
+                const updated: InternshipAssignment = {
+                    id: a.id,
+                    cycleId: a.cycleId,
+                    hotelId: a.hotelId,
+                    studentId: a.studentId,
+                    feedbackData: a.feedbackData,
+                    remarks: a.remarks
+                };
+                dbActions.updateInternshipAssignment(updated);
+                return updated;
+            }
+            return a;
+        });
+        return { ...state, internshipAssignments: updatedAssignments };
+    }
+    case 'UPDATE_INTERNSHIP_FEEDBACK': {
+        const { assignmentId, feedbackData, remarks } = action.payload;
+        const updatedAssignments = (state.internshipAssignments || []).map(a => {
+            if (a.id === assignmentId) {
+                const updated: InternshipAssignment = {
+                    ...a,
+                    feedbackData,
+                    remarks: remarks !== undefined ? remarks : a.remarks,
+                    feedbackSubmittedAt: a.feedbackSubmittedAt || new Date().toISOString()
+                };
+                dbActions.updateInternshipAssignment(updated);
+                return updated;
+            }
+            return a;
+        });
+        return { ...state, internshipAssignments: updatedAssignments };
+    }
     case 'RESET_DATABASE':
         return INITIAL_STATE;
     default:
@@ -469,69 +562,207 @@ const reducer = (state: AppState, action: Action): AppState => {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const isInitialMount = useRef(true);
 
-  // Load Data on Mount
+  // BroadcastChannel for instant local cross-tab communication
+  const channelRef = useRef<BroadcastChannel | null>(null);
+
   useEffect(() => {
-    const fetchData = async () => {
-        const data = await loadAllData();
-        
-        // 1. Check if ANY data exists (Users is a good proxy)
-        if(!data.users || data.users.length === 0) {
-            console.log("Empty DB detected, seeding initial data...");
-            await seedDatabase(INITIAL_STATE);
-            dispatch({ type: 'LOAD_DATA', payload: INITIAL_STATE });
-        } else {
-            // 2. Data Repair Logic:
-            const missingSubjects = !data.availableSubjects || data.availableSubjects.length === 0;
-            const missingClasses = !data.systemClasses || data.systemClasses.length === 0;
-            const missingNotices = !data.notices || data.notices.length === 0;
-
-            if (missingSubjects) {
-                await seedCollection('subjects', INITIAL_STATE.availableSubjects);
-                data.availableSubjects = INITIAL_STATE.availableSubjects;
-            }
-            
-            if (missingClasses) {
-                 await seedCollection('classes', INITIAL_STATE.systemClasses);
-                 data.systemClasses = INITIAL_STATE.systemClasses;
-            } else if (data.systemClasses) {
-                // Check if HDHM classes are missing sections and repair if needed
-                const hdhmClasses = data.systemClasses.filter(c => c.name.startsWith('HDHM'));
-                const needsHdhmRepair = hdhmClasses.some(c => c.sections.length === 0);
-                
-                if (needsHdhmRepair) {
-                    console.log("HDHM classes missing sections, repairing...");
-                    // Merge sections from INITIAL_STATE for HDHM classes
-                    const updatedClasses = data.systemClasses.map(c => {
-                        if (c.name.startsWith('HDHM') && c.sections.length === 0) {
-                            const initial = INITIAL_STATE.systemClasses.find(ic => ic.name === c.name);
-                            if (initial) return initial;
-                        }
-                        return c;
-                    });
-                    
-                    // Update Firestore
-                    for (const cls of updatedClasses) {
-                        await seedCollection('classes', [cls]);
-                    }
-                    data.systemClasses = updatedClasses;
-                }
-            }
-
-            if (missingNotices) {
-                await seedCollection('notices', INITIAL_STATE.notices);
-                data.notices = INITIAL_STATE.notices;
-            }
-
-            dispatch({ type: 'LOAD_DATA', payload: data });
-        }
+    try {
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        channelRef.current = new BroadcastChannel('galaxy_hotel_sync_channel');
+        channelRef.current.onmessage = (event) => {
+          if (event.data?.type === 'SYNC_REQUEST') {
+            fetchDataSilent();
+          }
+        };
+      }
+    } catch (e) {
+      console.warn('BroadcastChannel not supported or restricted', e);
+    }
+    return () => {
+      channelRef.current?.close();
     };
-    fetchData();
   }, []);
+
+  const broadcastSync = useCallback(() => {
+    try {
+      channelRef.current?.postMessage({ type: 'SYNC_REQUEST', timestamp: Date.now() });
+    } catch (e) {
+      // Ignore
+    }
+  }, []);
+
+  const fetchDataSilent = useCallback(async () => {
+    try {
+      const data = await loadAllData();
+      if (data && data.users && data.users.length > 0) {
+        dispatch({ type: 'LOAD_DATA', payload: data });
+        setLastSyncedAt(new Date());
+      }
+    } catch (err) {
+      console.error('Silent sync error:', err);
+    }
+  }, []);
+
+  const refreshData = useCallback(async (silent: boolean = false) => {
+    if (!silent) setIsSyncing(true);
+    try {
+      const data = await loadAllData();
+      if (data && data.users && data.users.length > 0) {
+        dispatch({ type: 'LOAD_DATA', payload: data });
+      }
+      setLastSyncedAt(new Date());
+      broadcastSync();
+    } catch (err) {
+      console.error('Manual refresh error:', err);
+    } finally {
+      if (!silent) setIsSyncing(false);
+    }
+  }, [broadcastSync]);
+
+  // Load Data on Initial Mount
+  useEffect(() => {
+    const initData = async () => {
+      setIsSyncing(true);
+      const data = await loadAllData();
+      
+      // 1. Check if ANY data exists (Users is a good proxy)
+      if(!data.users || data.users.length === 0) {
+        console.log("Empty DB detected, seeding initial data...");
+        await seedDatabase(INITIAL_STATE);
+        dispatch({ type: 'LOAD_DATA', payload: INITIAL_STATE });
+      } else {
+        // 2. Data Repair Logic:
+        const missingSubjects = !data.availableSubjects || data.availableSubjects.length === 0;
+        const missingClasses = !data.systemClasses || data.systemClasses.length === 0;
+        const missingNotices = !data.notices || data.notices.length === 0;
+
+        if (missingSubjects) {
+          await seedCollection('subjects', INITIAL_STATE.availableSubjects);
+          data.availableSubjects = INITIAL_STATE.availableSubjects;
+        }
+        
+        if (missingClasses) {
+          await seedCollection('classes', INITIAL_STATE.systemClasses);
+          data.systemClasses = INITIAL_STATE.systemClasses;
+        } else if (data.systemClasses) {
+          // Check if HDHM classes are missing sections and repair if needed
+          const hdhmClasses = data.systemClasses.filter(c => c.name.startsWith('HDHM'));
+          const needsHdhmRepair = hdhmClasses.some(c => c.sections.length === 0);
+          
+          if (needsHdhmRepair) {
+            console.log("HDHM classes missing sections, repairing...");
+            const updatedClasses = data.systemClasses.map(c => {
+              if (c.name.startsWith('HDHM') && c.sections.length === 0) {
+                const initial = INITIAL_STATE.systemClasses.find(ic => ic.name === c.name);
+                if (initial) return initial;
+              }
+              return c;
+            });
+            
+            for (const cls of updatedClasses) {
+              await seedCollection('classes', [cls]);
+            }
+            data.systemClasses = updatedClasses;
+          }
+        }
+
+        if (missingNotices) {
+          await seedCollection('notices', INITIAL_STATE.notices);
+          data.notices = INITIAL_STATE.notices;
+        }
+
+        dispatch({ type: 'LOAD_DATA', payload: data });
+      }
+      setLastSyncedAt(new Date());
+      setIsSyncing(false);
+      isInitialMount.current = false;
+    };
+    initData();
+  }, []);
+
+  // Real-time Firestore Listeners for Instant Multi-Device & Multi-Tab Sync
+  useEffect(() => {
+    let unsubAssignments: (() => void) | null = null;
+    let unsubCycles: (() => void) | null = null;
+    let unsubHotels: (() => void) | null = null;
+
+    try {
+      unsubAssignments = onSnapshot(collection(db, 'internshipAssignments'), (snapshot) => {
+        if (!isInitialMount.current) {
+          const assignments = snapshot.docs.map(d => d.data() as InternshipAssignment);
+          dispatch({ type: 'LOAD_DATA', payload: { internshipAssignments: assignments } });
+          setLastSyncedAt(new Date());
+        }
+      }, (err) => {
+        console.warn('Realtime listener for internship assignments note:', err);
+      });
+
+      unsubCycles = onSnapshot(collection(db, 'feedbackCycles'), (snapshot) => {
+        if (!isInitialMount.current) {
+          const cycles = snapshot.docs.map(d => d.data() as FeedbackCycle);
+          dispatch({ type: 'LOAD_DATA', payload: { feedbackCycles: cycles } });
+          setLastSyncedAt(new Date());
+        }
+      }, (err) => {
+        console.warn('Realtime listener for cycles note:', err);
+      });
+
+      unsubHotels = onSnapshot(collection(db, 'hotels'), (snapshot) => {
+        if (!isInitialMount.current) {
+          const hotelsList = snapshot.docs.map(d => d.data() as Hotel);
+          dispatch({ type: 'LOAD_DATA', payload: { hotels: hotelsList } });
+          setLastSyncedAt(new Date());
+        }
+      }, (err) => {
+        console.warn('Realtime listener for hotels note:', err);
+      });
+    } catch (e) {
+      console.warn('Could not establish Firestore snapshot listeners:', e);
+    }
+
+    return () => {
+      unsubAssignments?.();
+      unsubCycles?.();
+      unsubHotels?.();
+    };
+  }, []);
+
+  // Auto-sync on window focus / tab visibility change & periodic sync
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchDataSilent();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchDataSilent();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Periodic background sync every 15 seconds
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchDataSilent();
+      }
+    }, 15000);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(interval);
+    };
+  }, [fetchDataSilent]);
 
   return React.createElement(
     AppContext.Provider,
-    { value: { state, dispatch } },
+    { value: { state, dispatch, refreshData, isSyncing, lastSyncedAt } },
     children
   );
 };

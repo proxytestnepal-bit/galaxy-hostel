@@ -189,6 +189,40 @@ export interface WorkLog {
   hours: number;
 }
 
+export interface Hotel {
+  id: string;
+  name: string;
+  contactPerson?: string;
+  email?: string;
+}
+
+export interface FeedbackCriteria {
+  id: string;
+  label: string; // e.g., "Regularity/Punctuality"
+  type: 'scale';
+  min: number; // 1
+  max: number; // 5 or 10
+  order: number;
+}
+
+export interface FeedbackCycle {
+  id: string;
+  name: string; // e.g., "Summer 2026 Internship"
+  isActive: boolean; // Admin toggles this to lock/unlock the whole cycle
+  criteria: FeedbackCriteria[]; // Saved here so it's locked for this specific cycle
+  remarksEnabled: boolean;
+}
+
+export interface InternshipAssignment {
+  id: string;
+  cycleId: string;
+  hotelId: string;
+  studentId: string;
+  feedbackSubmittedAt?: string; // If populated, hotel has submitted it
+  feedbackData?: Record<string, number>; // Maps Criteria ID -> Score
+  remarks?: string;
+}
+
 export interface AppState {
   currentUser: User | null;
   originalUser: User | null; // Tracks the developer when impersonating
@@ -206,4 +240,7 @@ export interface AppState {
   availableSubjects: Subject[];
   systemClasses: SystemClass[];
   workLogs: WorkLog[];
+  hotels: Hotel[];
+  feedbackCycles: FeedbackCycle[];
+  internshipAssignments: InternshipAssignment[];
 }

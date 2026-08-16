@@ -2,8 +2,8 @@ import { ExamConfig } from '../types';
 
 export const getExamConfig = (
     configs: ExamConfig[] | undefined,
-    sessionId: string,
-    classId: string,
+    sessionId: string | undefined,
+    classId: string | undefined,
     subject: string
 ): ExamConfig | undefined => {
     if (!configs || configs.length === 0) return undefined;

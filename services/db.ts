@@ -2,7 +2,7 @@
 
 import { db } from './firebase';
 import { collection, doc, setDoc, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
-import { AppState, User, FeeRecord, Invoice, Assignment, Submission, ExamSession, ExamReport, ExamConfig, Notice, Subject, SystemClass, WorkLog, RoleRequest } from '../types';
+import { AppState, User, FeeRecord, Invoice, Assignment, Submission, ExamSession, ExamReport, ExamConfig, Notice, Subject, SystemClass, WorkLog, RoleRequest, Hotel, FeedbackCycle, InternshipAssignment } from '../types';
 
 // Helper to remove undefined fields which Firestore doesn't support
 const sanitize = (data: any) => {
@@ -39,13 +39,15 @@ export const loadAllData = async (): Promise<Partial<AppState>> => {
         const [
             users, assignments, submissions, invoices, fees, 
             examSessions, examReports, notices, availableSubjects, 
-            systemClasses, workLogs, roleRequests, examConfigs
+            systemClasses, workLogs, roleRequests, examConfigs,
+            hotels, feedbackCycles, internshipAssignments
         ] = await Promise.all([
             loadCol('users'), loadCol('assignments'), loadCol('submissions'),
             loadCol('invoices'), loadCol('fees'), loadCol('examSessions'),
             loadCol('examReports'), loadCol('notices'), loadCol('subjects'),
             loadCol('classes'), loadCol('workLogs'), loadCol('roleRequests'),
-            loadCol('examConfigs')
+            loadCol('examConfigs'), loadCol('hotels'), loadCol('feedbackCycles'),
+            loadCol('internshipAssignments')
         ]);
 
         return {
@@ -62,6 +64,9 @@ export const loadAllData = async (): Promise<Partial<AppState>> => {
             systemClasses: systemClasses as SystemClass[],
             workLogs: workLogs as WorkLog[],
             roleRequests: roleRequests as RoleRequest[],
+            hotels: hotels as Hotel[],
+            feedbackCycles: feedbackCycles as FeedbackCycle[],
+            internshipAssignments: internshipAssignments as InternshipAssignment[],
         };
     } catch (error) {
         console.error("Critical: Failed to load database:", error);
@@ -109,6 +114,18 @@ export const dbActions = {
 
     addRoleRequest: (r: RoleRequest) => saveCollectionItem('roleRequests', r),
     deleteRoleRequest: (id: string) => deleteCollectionItem('roleRequests', id),
+    
+    addHotel: (h: Hotel) => saveCollectionItem('hotels', h),
+    updateHotel: (h: Hotel) => saveCollectionItem('hotels', h),
+    deleteHotel: (id: string) => deleteCollectionItem('hotels', id),
+
+    addFeedbackCycle: (c: FeedbackCycle) => saveCollectionItem('feedbackCycles', c),
+    updateFeedbackCycle: (c: FeedbackCycle) => saveCollectionItem('feedbackCycles', c),
+    deleteFeedbackCycle: (id: string) => deleteCollectionItem('feedbackCycles', id),
+
+    addInternshipAssignment: (a: InternshipAssignment) => saveCollectionItem('internshipAssignments', a),
+    updateInternshipAssignment: (a: InternshipAssignment) => saveCollectionItem('internshipAssignments', a),
+    deleteInternshipAssignment: (id: string) => deleteCollectionItem('internshipAssignments', id),
 };
 
 // Helper for Auto-Repair
@@ -147,6 +164,9 @@ export const seedDatabase = async (initialState: AppState) => {
     addToBatch('workLogs', initialState.workLogs);
     // Role Requests start empty usually, but if mock data had them:
     addToBatch('roleRequests', initialState.roleRequests);
+    addToBatch('hotels', initialState.hotels || []);
+    addToBatch('feedbackCycles', initialState.feedbackCycles || []);
+    addToBatch('internshipAssignments', initialState.internshipAssignments || []);
 
     await batch.commit();
     console.log("Database Seeded Successfully");

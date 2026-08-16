@@ -134,7 +134,7 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
     const report = state.examReports.find(r => r.studentId === studentId && (r.examSessionId === sessionIdentifier || r.term === sessionIdentifier));
     if (!report) return { totalObtained: 0, totalFull: 0, pass: false, percentage: 0 };
 
-    const applicableSubjects = getApplicableSubjects(state.availableSubjects, student.classId, student.section);
+    const applicableSubjects = getApplicableSubjects(state.availableSubjects, student.classId || '', student.section);
     let totalObtained = 0;
     let totalFull = 0;
     let pass = true;
@@ -142,7 +142,8 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
     applicableSubjects.forEach(s => {
         const effectiveType = s.classTypes?.[student.classId!] || s.type;
         const scoreData = report.scores[s.name];
-        const config = getExamConfig(state.examConfigs, report.examSessionId, student.classId as string, s.name);
+        const classId: string = student.classId || '';
+        const config = getExamConfig(state.examConfigs, report.examSessionId, classId, s.name);
 
         if (effectiveType === 'Theory' || effectiveType === 'Both') {
             const f = config?.fullMarks ?? scoreData?.fullMarks ?? 100;
@@ -184,7 +185,7 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
               ) : (
                   <div className="grid gap-6">
                       {myReports.map(report => {
-                          const applicableSubjects = getApplicableSubjects(state.availableSubjects, currentUser!.classId!, currentUser!.section);
+                          const applicableSubjects = getApplicableSubjects(state.availableSubjects, currentUser!.classId || '', currentUser!.section);
                           const myStats = getStudentStats(currentUser!.id, report.examSessionId);
                           
                           // Calculate Rank and Highest in Section
@@ -257,7 +258,8 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
                                               if (!data) return null;
                                               const score = data as ScoreData;
                                               const effectiveType = s.classTypes?.[currentUser!.classId!] || s.type;
-                                              const config = getExamConfig(state.examConfigs, report.examSessionId, currentUser!.classId as string, s.name);
+                                              const classId: string = currentUser!.classId || '';
+                                              const config = getExamConfig(state.examConfigs, report.examSessionId, classId, s.name);
                                               
                                               const theoryFull = config?.fullMarks ?? score.fullMarks ?? 100;
                                               const theoryPass = config?.passMarks ?? score.passMarks ?? 40;

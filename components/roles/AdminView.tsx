@@ -3,6 +3,7 @@ import { useAppStore } from "../../services/store";
 import { Role, User, ExamType, SubjectType, Notice, getApplicableSubjects } from "../../types";
 import AccountantView from "./AccountantView";
 import ClassLedger from "../ClassLedger";
+import { AdminInternshipView } from "./AdminInternshipView";
 import { getExamConfig } from "../../utils/examUtils";
 import {
   Check,
@@ -2600,6 +2601,10 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   if (activeTab === "ledger") {
     // Admin has access to all classes
     return <ClassLedger />;
+  }
+
+  if (activeTab === "internships") {
+    return <AdminInternshipView />;
   }
 
   if (

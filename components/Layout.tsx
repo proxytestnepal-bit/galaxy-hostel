@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useAppStore } from '../services/store';
-import { LogOut, User, LayoutDashboard, FileText, CreditCard, Bell, GraduationCap, Settings, Shield, UserPlus, PenTool, ClipboardList, ScanFace, LogIn, ChevronDown, PlusCircle, Lock, X, CheckCircle, CheckSquare, UserCheck, BookOpen } from 'lucide-react';
+import { LogOut, User, LayoutDashboard, FileText, CreditCard, Bell, GraduationCap, Settings, Shield, UserPlus, PenTool, ClipboardList, ScanFace, LogIn, ChevronDown, PlusCircle, Lock, X, CheckCircle, CheckSquare, UserCheck, BookOpen, Briefcase } from 'lucide-react';
 import { Role } from '../types';
 
 interface LayoutProps {
@@ -135,6 +135,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
       case 'admin':
         return [
           ...common,
+          { id: 'internships', label: 'Internships', icon: Briefcase },
           { id: 'registration', label: 'Registration & Users', icon: UserPlus },
           { id: 'approvals', label: 'Approvals', icon: Shield },
           { id: 'finance_overview', label: 'Finance Overview', icon: CreditCard },
