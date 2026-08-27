@@ -504,7 +504,10 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   };
 
   const handleBulkUpdateMarksConfig = () => {
-    if (!selectedExamSessionId || !examEditClassId || !examEditSubject) return;
+    if (!selectedExamSessionId || !examEditClassId || !examEditSubject) {
+      showToast("Please select a Class and Subject before saving.", "error");
+      return;
+    }
 
     const targetsText = examEditSection ? `Section ${examEditSection}` : `all sections`;
     setConfirmDialog({
@@ -2148,6 +2151,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
             </div>
           )}
         </div>
+        {renderDialogs()}
       </div>
     );
   }
@@ -2350,6 +2354,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                 </div>
             )}
           </div>
+          {renderDialogs()}
         </div>
       );
     }
