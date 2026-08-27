@@ -1,0 +1,112 @@
+--- components/roles/AdminView.tsx
++++ components/roles/AdminView.tsx
+@@ -107,6 +107,16 @@
+   const [publishSection, setPublishSection] = useState("");
+   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
+ 
++  // Toast Notification State
++  const [toastMessage, setToastMessage] = useState<{message: string, type: 'success' | 'error'} | null>(null);
++
++  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
++    setToastMessage({ message, type });
++    setTimeout(() => {
++      setToastMessage(null);
++    }, 3000);
++  };
++
+   // Exam Session Detailed View / Edit
+   const [selectedExamSessionId, setSelectedExamSessionId] = useState<string | null>(null);
+   const [examEditClassId, setExamEditClassId] = useState("");
+@@ -176,7 +186,7 @@
+       },
+     });
+     setNoticeForm({ title: "", content: "", audience: "all" });
+-    alert("Notice published successfully to the chosen audience.");
++    showToast("Notice published successfully to the chosen audience.");
+   };
+ 
+   const handleRoleImpersonate = (roleName: Role) => {
+@@ -260,7 +270,7 @@
+   const handleResetPassword = () => {
+     if (resetPassUserId && newPasswordInput) {
+       if (newPasswordInput.length < 4) {
+-        alert("Password must be at least 4 characters.");
++        showToast("Password must be at least 4 characters.", "error");
+         return;
+       }
+       dispatch({
+@@ -271,14 +281,14 @@
+       });
+       setResetPassUserId(null);
+       setNewPasswordInput("");
+-      alert("Password updated successfully.");
++      showToast("Password updated successfully.");
+     }
+   };
+ 
+   const handleDeleteUser = () => {
+     if (userToDelete) {
+       if (userToDelete.role === "developer") {
+-        alert("Cannot delete developer accounts.");
++        showToast("Cannot delete developer accounts.", "error");
+         setUserToDelete(null);
+         return;
+       }
+@@ -509,7 +519,7 @@
+         practicalPassMarks: hasPractical ? examEditPracticalPassMarks : undefined
+       }
+     });
+-    alert(`Marks configuration saved for Class ${examEditClassId} ${examEditSubject}.`);
++    showToast(`Marks configuration saved for Class ${examEditClassId} ${examEditSubject}.`);
+   };
+ 
+   const exportLedgerToCSV = (sessionId: string, classId: string, section?: string) => {
+@@ -524,7 +534,7 @@
+     });
+ 
+     if (students.length === 0) {
+-        alert("No students found in this class/section.");
++        showToast("No students found in this class/section.", "error");
+         return;
+     }
+ 
+@@ -625,11 +635,11 @@
+ 
+   const handleGenerateReportCard = (userId: string, sessionId: string) => {
+     if (!selectedClass) {
+-      alert("Please select a class first");
++      showToast("Please select a class first", "error");
+       return;
+     }
+     if (!sessionId) {
+-      alert(
++      showToast(
+         "Please select an active examination session to generate report card",
++        "error"
+       );
+       return;
+     }
+@@ -699,6 +709,21 @@
+ 
+   return (
+     <div className="space-y-6">
++      {/* Toast Notification */}
++      {toastMessage && (
++        <div className={`fixed bottom-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 text-white transform transition-all duration-300 translate-y-0 opacity-100 ${
++          toastMessage.type === 'success' ? 'bg-green-600' : 'bg-red-600'
++        }`}>
++          {toastMessage.type === 'success' ? (
++            <Check className="w-5 h-5" />
++          ) : (
++            <AlertTriangle className="w-5 h-5" />
++          )}
++          <p className="font-medium text-sm">{toastMessage.message}</p>
++          <button onClick={() => setToastMessage(null)} className="ml-2 hover:opacity-80">
++            <X className="w-4 h-4" />
++          </button>
++        </div>
++      )}
++
+       {/* Dashboard (Overview) */}
+       {activeTab === "overview" && (
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

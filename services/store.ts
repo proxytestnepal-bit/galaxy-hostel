@@ -274,10 +274,11 @@ const reducer = (state: AppState, action: Action): AppState => {
         );
         let newConfigs = [...(state.examConfigs || [])];
         if (existsIndex > -1) {
-            newConfigs[existsIndex] = config;
-            dbActions.updateExamConfig(config);
+            const updatedConfig = { ...config, id: newConfigs[existsIndex].id };
+            newConfigs[existsIndex] = updatedConfig;
+            dbActions.updateExamConfig(updatedConfig);
         } else {
-            const newConfig = { ...config, id: `ec_${Date.now()}` };
+            const newConfig = { ...config, id: config.id || `ec_${Date.now()}` };
             newConfigs.push(newConfig);
             dbActions.updateExamConfig(newConfig);
         }

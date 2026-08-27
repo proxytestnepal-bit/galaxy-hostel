@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import React, { useState, useEffect } from "react";
 import { useAppStore } from "../../services/store";
 import { Role, User, ExamType, SubjectType, Notice, getApplicableSubjects } from "../../types";
@@ -5,6 +6,7 @@ import AccountantView from "./AccountantView";
 import ClassLedger from "../ClassLedger";
 import { AdminInternshipView } from "./AdminInternshipView";
 import { getExamConfig } from "../../utils/examUtils";
+import { ConfirmDialog } from "../common/ConfirmDialog";
 import {
   Check,
   X,
@@ -105,6 +107,22 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   const [publishClassId, setPublishClassId] = useState("");
   const [publishSection, setPublishSection] = useState("");
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void, type?: "warning" | "danger" | "info" | "success"}>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {}
+  });
+
+  // Toast Notification State
+  const [toastMessage, setToastMessage] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToastMessage({ message, type });
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 3000);
+  };
 
   // Exam Session Detailed View / Edit
   const [selectedExamSessionId, setSelectedExamSessionId] = useState<string | null>(null);
@@ -183,7 +201,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
 
     dispatch({ type: "ADD_NOTICE", payload: newNotice });
     setNoticeForm({ title: "", content: "", audience: "all" });
-    alert("Notice published successfully to the chosen audience.");
+    showToast("Notice published successfully to the chosen audience.");
   };
 
   // Approvals Logic
@@ -260,7 +278,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   const handleAdminResetPassword = () => {
     if (!resetPassUserId || !newPasswordInput) return;
     if (newPasswordInput.length < 4) {
-      alert("Password must be at least 4 characters.");
+      showToast("Password must be at least 4 characters.", "error");
       return;
     }
 
@@ -271,14 +289,14 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
         password: newPasswordInput,
       },
     });
-    alert("Password updated successfully.");
+    showToast("Password updated successfully.");
     setResetPassUserId(null);
     setNewPasswordInput("");
   };
 
   const handleDeleteClick = (user: User) => {
     if (user.role === "developer") {
-      alert("Cannot delete developer accounts.");
+      showToast("Cannot delete developer accounts.", "error");
       return;
     }
     setUserToDelete(user);
@@ -489,29 +507,32 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
     if (!selectedExamSessionId || !examEditClassId || !examEditSubject) return;
 
     const targetsText = examEditSection ? `Section ${examEditSection}` : `all sections`;
-    if (!window.confirm(`Are you sure you want to apply these Full/Pass marks to ${targetsText} of Class ${examEditClassId} for ${examEditSubject}?`)) return;
-
-    const selectedSubjectData = state.availableSubjects.find(s => s.name === examEditSubject);
-    const effectiveType = selectedSubjectData?.classTypes?.[examEditClassId] || selectedSubjectData?.type || 'Theory';
-    const hasPractical = effectiveType === 'Practical' || effectiveType === 'Both';
-    
-    dispatch({
-      type: "UPDATE_EXAM_CONFIG",
-      payload: {
-        id: "",
-        examSessionId: selectedExamSessionId,
-        classId: examEditClassId,
-        subject: examEditSubject,
-        fullMarks: examEditFullMarks,
-        passMarks: examEditPassMarks,
-        practicalFullMarks: hasPractical ? examEditPracticalFullMarks : undefined,
-        practicalPassMarks: hasPractical ? examEditPracticalPassMarks : undefined
+    setConfirmDialog({
+      isOpen: true,
+      title: "Confirm Bulk Update",
+      message: `Are you sure you want to apply these Full/Pass marks to ${targetsText} of Class ${examEditClassId} for ${examEditSubject}?`,
+      type: "warning",
+      onConfirm: () => {
+        const selectedSubjectData = state.availableSubjects.find(s => s.name === examEditSubject);
+        const effectiveType = selectedSubjectData?.classTypes?.[examEditClassId] || selectedSubjectData?.type || "Theory";
+        const hasPractical = effectiveType === "Practical" || effectiveType === "Both";
+        dispatch({
+          type: "UPDATE_EXAM_CONFIG",
+          payload: {
+            id: "",
+            examSessionId: selectedExamSessionId,
+            classId: examEditClassId,
+            subject: examEditSubject,
+            fullMarks: examEditFullMarks,
+            passMarks: examEditPassMarks,
+            practicalFullMarks: hasPractical ? examEditPracticalFullMarks : undefined,
+            practicalPassMarks: hasPractical ? examEditPracticalPassMarks : undefined
+          }
+        });
+        showToast(`Marks configuration saved for Class ${examEditClassId} ${examEditSubject}.`);
       }
     });
-
-    alert(`Marks configuration saved for Class ${examEditClassId} ${examEditSubject}.`);
   };
-
   const exportLedgerToCSV = (sessionId: string, classId: string, section?: string) => {
     const session = state.examSessions.find(s => s.id === sessionId);
     if (!session) return;
@@ -524,7 +545,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
     ).sort((a, b) => a.name.localeCompare(b.name));
     
     if (students.length === 0) {
-        alert("No students found in this class/section.");
+        showToast("No students found in this class/section.", "error");
         return;
     }
 
@@ -625,12 +646,12 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
     reportCount: number,
   ) => {
     if (!publishClassId) {
-      alert("Please select a class first");
+      showToast("Please select a class first", "error");
       return;
     }
     if (reportCount === 0) {
-      alert(
-        "No marks found for this session in the selected class. Teachers must enter marks before you can publish results.",
+      showToast(
+        "No marks found for this session in the selected class. Teachers must enter marks before you can publish results.", "error"
       );
       return;
     }
@@ -646,6 +667,35 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       },
     });
   };
+
+
+  const renderDialogs = () => (
+    <>
+      <ConfirmDialog 
+        isOpen={confirmDialog.isOpen} 
+        title={confirmDialog.title} 
+        message={confirmDialog.message} 
+        type={confirmDialog.type} 
+        onConfirm={() => { confirmDialog.onConfirm(); setConfirmDialog(prev => ({ ...prev, isOpen: false })); }} 
+        onCancel={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+      />
+      {toastMessage && (
+        <div className={`fixed bottom-4 right-4 z-[9999] px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 text-white transform transition-all duration-300 translate-y-0 opacity-100 ${
+          toastMessage.type === "success" ? "bg-green-600" : "bg-red-600"
+        }`}>
+          {toastMessage.type === "success" ? (
+            <Check className="w-5 h-5" />
+          ) : (
+            <AlertTriangle className="w-5 h-5" />
+          )}
+          <p className="font-medium text-sm">{toastMessage.message}</p>
+          <button onClick={() => setToastMessage(null)} className="ml-2 hover:opacity-80">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+    </>
+  );
 
   const selectedClassData = state.systemClasses.find(
     (c) => c.name === reviewData.classId,
@@ -1932,6 +1982,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
             </table>
           </div>
         </div>
+        {renderDialogs()}
       </div>
     );
   }
@@ -2115,6 +2166,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       const totalStudents = state.users.filter(u => u.role === 'student' && u.status === 'active').length;
 
       const uniqueClasses = state.systemClasses.map(c => c.name);
+
       const selectedClassData = state.systemClasses.find(c => c.name === examEditClassId);
       const availableSections = selectedClassData?.sections || [];
       const availableSubjects = getApplicableSubjects(state.availableSubjects, examEditClassId, examEditSection);
@@ -2594,6 +2646,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
             </div>
           )}
         </div>
+        {renderDialogs()}
       </div>
     );
   }
