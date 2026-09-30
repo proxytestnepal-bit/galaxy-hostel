@@ -2,8 +2,8 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../../services/store';
 import { CheckCircle, AlertCircle, FileText, Send, Crown, Bell } from 'lucide-react';
-import { ScoreData, getApplicableSubjects } from '../../types';
-import { getExamConfig } from '../../utils/examUtils';
+import { ScoreData } from '../../types';
+import { getExamConfig, getActiveExamSubjects } from '../../utils/examUtils';
 
 interface Props {
   activeTab: string;
@@ -134,12 +134,20 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
     const report = state.examReports.find(r => r.studentId === studentId && (r.examSessionId === sessionIdentifier || r.term === sessionIdentifier));
     if (!report) return { totalObtained: 0, totalFull: 0, pass: false, percentage: 0 };
 
-    const applicableSubjects = getApplicableSubjects(state.availableSubjects, student.classId || '', student.section);
+    const activeSubjects = getActiveExamSubjects(
+        state.availableSubjects,
+        state.examReports,
+        state.examConfigs,
+        report.examSessionId || sessionIdentifier,
+        student.classId || '',
+        student.section,
+        state.users
+    );
     let totalObtained = 0;
     let totalFull = 0;
     let pass = true;
 
-    applicableSubjects.forEach(s => {
+    activeSubjects.forEach(s => {
         const effectiveType = s.classTypes?.[student.classId!] || s.type;
         const scoreData = report.scores[s.name];
         const classId: string = student.classId || '';
@@ -185,7 +193,15 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
               ) : (
                   <div className="grid gap-6">
                       {myReports.map(report => {
-                          const applicableSubjects = getApplicableSubjects(state.availableSubjects, currentUser!.classId || '', currentUser!.section);
+                          const activeSubjects = getActiveExamSubjects(
+                              state.availableSubjects,
+                              state.examReports,
+                              state.examConfigs,
+                              report.examSessionId,
+                              currentUser!.classId || '',
+                              currentUser!.section,
+                              state.users
+                          );
                           const myStats = getStudentStats(currentUser!.id, report.examSessionId);
                           
                           // Calculate Rank and Highest in Section
@@ -253,7 +269,7 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
                                           </tr>
                                       </thead>
                                       <tbody>
-                                          {applicableSubjects.map(s => {
+                                          {activeSubjects.map(s => {
                                               const data = report.scores[s.name];
                                               if (!data) return null;
                                               const score = data as ScoreData;

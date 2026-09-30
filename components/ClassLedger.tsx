@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../services/store';
 import { Crown, Download } from 'lucide-react';
-import { getExamConfig } from '../utils/examUtils';
-import { getApplicableSubjects } from '../types';
+import { getExamConfig, getActiveExamSubjects } from '../utils/examUtils';
 
 interface ScoreData {
     fullMarks?: number;
@@ -36,12 +35,20 @@ const ClassLedger: React.FC<ClassLedgerProps> = ({ allowedClassIds }) => {
         const report = state.examReports.find(r => r.studentId === studentId && (r.examSessionId === sessionId || r.term === sessionId));
         if (!report) return { totalObtained: 0, totalFull: 0, pass: false, percentage: 0 };
 
-        const applicableSubjects = getApplicableSubjects(state.availableSubjects, student.classId, student.section);
+        const activeSubjects = getActiveExamSubjects(
+            state.availableSubjects,
+            state.examReports,
+            state.examConfigs,
+            sessionId,
+            student.classId,
+            selectedSection || student.section,
+            state.users
+        );
         let totalObtained = 0;
         let totalFull = 0;
         let pass = true;
 
-        applicableSubjects.forEach(s => {
+        activeSubjects.forEach(s => {
             const effectiveType = s.classTypes?.[student.classId!] || s.type;
             const scoreData = report.scores[s.name] as ScoreData | undefined;
             const config = getExamConfig(state.examConfigs, sessionId, student.classId as string, s.name);

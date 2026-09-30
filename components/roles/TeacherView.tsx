@@ -183,7 +183,11 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
 
   if (activeTab === 'marks_entry') {
       const openSessions = state.examSessions.filter(s => s.status === 'open');
-      const uniqueClasses = teacherClasses.map(c => c.name);
+      const selectedSession = state.examSessions.find(s => s.id === selectedSessionId);
+      const sessionApplicableClasses = selectedSession?.applicableClasses && selectedSession.applicableClasses.length > 0
+          ? teacherClasses.filter(c => selectedSession.applicableClasses!.includes(c.name))
+          : teacherClasses;
+      const uniqueClasses = sessionApplicableClasses.map(c => c.name);
       
       const filteredStudents = selectedClassId 
           ? state.users.filter(u => {
@@ -284,10 +288,18 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                                   <select 
                                       className="w-full border p-1 rounded text-xs bg-white h-8"
                                       value={selectedSessionId}
-                                      onChange={e => setSelectedSessionId(e.target.value)}
+                                      onChange={e => {
+                                          setSelectedSessionId(e.target.value);
+                                          setSelectedClassId('');
+                                          setSelectedSection('');
+                                      }}
                                   >
                                       <option value="">-- Choose Exam --</option>
-                                      {openSessions.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                      {openSessions.map(s => (
+                                          <option key={s.id} value={s.id}>
+                                              {s.name} {s.applicableClasses && s.applicableClasses.length > 0 ? `(Classes: ${s.applicableClasses.join(', ')})` : ''}
+                                          </option>
+                                      ))}
                                   </select>
                               </div>
                               <div>

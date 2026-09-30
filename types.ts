@@ -133,6 +133,7 @@ export interface ExamSession {
   type: ExamType;
   status: 'open' | 'closed';
   startDate: string;
+  applicableClasses?: string[]; // Optional: Array of Class IDs. Empty or undefined means all classes.
 }
 
 export interface ScoreData {

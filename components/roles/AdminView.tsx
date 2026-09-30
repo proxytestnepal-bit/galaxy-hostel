@@ -5,7 +5,7 @@ import { Role, User, ExamType, SubjectType, Notice, getApplicableSubjects } from
 import AccountantView from "./AccountantView";
 import ClassLedger from "../ClassLedger";
 import { AdminInternshipView } from "./AdminInternshipView";
-import { getExamConfig } from "../../utils/examUtils";
+import { getExamConfig, getActiveExamSubjects } from "../../utils/examUtils";
 import { ConfirmDialog } from "../common/ConfirmDialog";
 import {
   Check,
@@ -104,6 +104,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   // Exam Session Form
   const [newSessionName, setNewSessionName] = useState("");
   const [newSessionType, setNewSessionType] = useState<ExamType>("Term Exam");
+  const [newSessionClasses, setNewSessionClasses] = useState<string[]>([]);
   const [publishClassId, setPublishClassId] = useState("");
   const [publishSection, setPublishSection] = useState("");
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
@@ -459,9 +460,11 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
         type: newSessionType,
         status: "open",
         startDate: new Date().toISOString().split("T")[0],
+        applicableClasses: newSessionClasses.length > 0 ? newSessionClasses : undefined,
       },
     });
     setNewSessionName("");
+    setNewSessionClasses([]);
   };
 
   const [resetVal, setResetVal] = useState(1);
@@ -552,38 +555,44 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
         return;
     }
 
-    const availableSubjects = getApplicableSubjects(state.availableSubjects, classId, section);
+    const activeSubjects = getActiveExamSubjects(
+        state.availableSubjects,
+        state.examReports,
+        state.examConfigs,
+        sessionId,
+        classId,
+        section,
+        state.users
+    );
     
-    // Determine active columns (not 0 full marks) across students
+    if (activeSubjects.length === 0) {
+        showToast("No active exam marks recorded for this class/section in this session.", "error");
+        return;
+    }
+
+    // Determine active columns across students: only include theory or practical if students actually scored > 0 in it
     const activeColumns: Record<string, { theory: boolean, practical: boolean }> = {};
-    availableSubjects.forEach(s => {
-        let hasTheory = false;
-        let hasPractical = false;
+    activeSubjects.forEach(s => {
         const effectiveType = s.classTypes?.[classId] || s.type;
-        const config = getExamConfig(state.examConfigs, sessionId, classId, s.name);
         
-        if (effectiveType === 'Theory' || effectiveType === 'Both') {
-            hasTheory = ((config?.fullMarks ?? 100) > 0) || students.some(student => {
-                const report = state.examReports.find(r => r.studentId === student.id && r.examSessionId === sessionId);
-                const scoreData = report?.scores[s.name];
-                return (scoreData?.fullMarks ?? 100) > 0;
-            });
-        }
+        const hasTheory = (effectiveType === 'Theory' || effectiveType === 'Both') && students.some(student => {
+            const report = state.examReports.find(r => r.studentId === student.id && (r.examSessionId === sessionId || r.term === session.name));
+            const scoreData = report?.scores?.[s.name];
+            return (scoreData?.obtained !== undefined && scoreData.obtained > 0);
+        });
         
-        if (effectiveType === 'Practical' || effectiveType === 'Both') {
-            hasPractical = ((config?.practicalFullMarks ?? 50) > 0) || students.some(student => {
-                const report = state.examReports.find(r => r.studentId === student.id && r.examSessionId === sessionId);
-                const scoreData = report?.scores[s.name];
-                return (scoreData?.practicalFullMarks ?? 50) > 0;
-            });
-        }
+        const hasPractical = (effectiveType === 'Practical' || effectiveType === 'Both') && students.some(student => {
+            const report = state.examReports.find(r => r.studentId === student.id && (r.examSessionId === sessionId || r.term === session.name));
+            const scoreData = report?.scores?.[s.name];
+            return (scoreData?.practicalObtained !== undefined && scoreData.practicalObtained > 0);
+        });
         
         activeColumns[s.name] = { theory: hasTheory, practical: hasPractical };
     });
 
     // Headers: Name, Section, [Subject Theory Full, Subject Theory Pass, Subject Theory Obtained, Subject Practical Full, Subject Practical Pass, Subject Practical Obtained]
     const headers = ['Student Name', 'Section'];
-    availableSubjects.forEach(s => {
+    activeSubjects.forEach(s => {
         const cols = activeColumns[s.name];
         if (cols.theory) {
             headers.push(`${s.name} (T) Full`, `${s.name} (T) Pass`, `${s.name} (T) Obt`);
@@ -604,7 +613,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
         let totalFull = 0;
         let pass = true;
 
-        availableSubjects.forEach(s => {
+        activeSubjects.forEach(s => {
             const cols = activeColumns[s.name];
             const scoreData = report?.scores[s.name];
             const config = getExamConfig(state.examConfigs, sessionId, classId, s.name);
@@ -2169,7 +2178,10 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       const studentsWithMarks = new Set(sessionReports.map(r => r.studentId)).size;
       const totalStudents = state.users.filter(u => u.role === 'student' && u.status === 'active').length;
 
-      const uniqueClasses = state.systemClasses.map(c => c.name);
+      const sessionClasses = session.applicableClasses && session.applicableClasses.length > 0
+        ? state.systemClasses.filter(c => session.applicableClasses!.includes(c.name))
+        : state.systemClasses;
+      const uniqueClasses = sessionClasses.map(c => c.name);
 
       const selectedClassData = state.systemClasses.find(c => c.name === examEditClassId);
       const availableSections = selectedClassData?.sections || [];
@@ -2401,6 +2413,45 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
             >
               <Plus size={16} /> Create Session
             </button>
+
+            <div className="w-full pt-3 border-t mt-2">
+              <label className="text-xs font-bold text-gray-500 uppercase block mb-1.5">
+                Participating Classes (Optional: leave unselected to apply to all classes)
+              </label>
+              <div className="flex flex-wrap gap-2 items-center">
+                <button
+                  type="button"
+                  onClick={() => setNewSessionClasses([])}
+                  className={`text-xs px-3 py-1 rounded-full border transition ${newSessionClasses.length === 0 ? "bg-galaxy-800 text-white border-galaxy-800 font-bold" : "bg-white text-gray-600 border-gray-300 hover:bg-gray-100"}`}
+                >
+                  All Classes {newSessionClasses.length === 0 && "✓"}
+                </button>
+                {state.systemClasses.map(cls => {
+                  const isSelected = newSessionClasses.includes(cls.name);
+                  return (
+                    <button
+                      key={cls.name}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          setNewSessionClasses(newSessionClasses.filter(c => c !== cls.name));
+                        } else {
+                          setNewSessionClasses([...newSessionClasses, cls.name]);
+                        }
+                      }}
+                      className={`text-xs px-3 py-1 rounded-full border transition ${isSelected ? "bg-galaxy-600 text-white border-galaxy-600 font-bold" : "bg-white text-gray-600 border-gray-300 hover:bg-gray-100"}`}
+                    >
+                      Class {cls.name} {isSelected && "✓"}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1">
+                {newSessionClasses.length === 0
+                  ? "All classes can participate. For each class/section, only subjects with recorded marks will appear in reports and ledgers."
+                  : `Restricted to: Class ${newSessionClasses.join(', ')}. Subjects without recorded marks are automatically ignored.`}
+              </p>
+            </div>
           </div>
 
           <div className="space-y-3">
@@ -2415,13 +2466,22 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                 onClick={() => setSelectedExamSessionId(session.id)}
               >
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="font-bold text-lg">{session.name}</h4>
                     <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded border">
                       {session.type}
                     </span>
+                    {session.applicableClasses && session.applicableClasses.length > 0 ? (
+                      <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded font-medium">
+                        Classes: {session.applicableClasses.join(", ")}
+                      </span>
+                    ) : (
+                      <span className="text-xs bg-gray-50 text-gray-500 border border-gray-200 px-2 py-0.5 rounded">
+                        All Classes
+                      </span>
+                    )}
                   </div>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-500 mt-0.5">
                     Started: {session.startDate}
                   </p>
                 </div>
@@ -2566,25 +2626,35 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                 ).length;
                 const totalReports = reportsForClass.length;
 
+                const isClassApplicable = !session.applicableClasses || session.applicableClasses.length === 0 || session.applicableClasses.includes(publishClassId);
                 const isFullyPublished =
-                  totalReports > 0 && publishedCount === totalReports;
-                const hasNoReports = totalReports === 0;
+                  isClassApplicable && totalReports > 0 && publishedCount === totalReports;
+                const hasNoReports = !isClassApplicable || totalReports === 0;
 
                 return (
                   <div
                     key={session.id}
                     className={`border rounded-xl p-4 transition-all ${
-                      isFullyPublished
-                        ? "bg-green-50 border-green-200"
-                        : hasNoReports
-                          ? "bg-gray-50 border-gray-200 opacity-70"
-                          : "bg-white border-yellow-200 shadow-sm"
+                      !isClassApplicable
+                        ? "bg-gray-50 border-gray-200 opacity-60"
+                        : isFullyPublished
+                          ? "bg-green-50 border-green-200"
+                          : hasNoReports
+                            ? "bg-gray-50 border-gray-200 opacity-70"
+                            : "bg-white border-yellow-200 shadow-sm"
                     }`}
                   >
                     <div className="flex justify-between items-start mb-2">
-                      <h4 className="font-bold text-gray-800">
-                        {session.name}
-                      </h4>
+                      <div>
+                        <h4 className="font-bold text-gray-800">
+                          {session.name}
+                        </h4>
+                        {!isClassApplicable && (
+                          <span className="text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
+                            Not for Class {publishClassId}
+                          </span>
+                        )}
+                      </div>
                       {isFullyPublished ? (
                         <Check size={18} className="text-green-600" />
                       ) : (
