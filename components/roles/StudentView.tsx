@@ -194,13 +194,16 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
               ) : (
                   <div className="grid gap-6">
                       {myReports.map(report => {
+                          const reportClass = report.classIdSnapshot || currentUser!.classId || '';
+                          const reportSection = report.sectionSnapshot || currentUser!.section;
+
                           const activeSubjects = getActiveExamSubjects(
                               state.availableSubjects,
                               state.examReports,
                               state.examConfigs,
                               report.examSessionId,
-                              currentUser!.classId || '',
-                              currentUser!.section,
+                              reportClass,
+                              reportSection,
                               state.users,
                               state.examSessions
                           );
@@ -208,8 +211,8 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
                           
                           // Calculate Rank and Highest in Section
                           const classReports = state.examReports.filter(r => r.examSessionId === report.examSessionId && r.published);
-                          const sectionStudents = state.users.filter(u => u.role === 'student' && u.classId === currentUser!.classId && u.section === currentUser!.section && u.status === 'active');
-                          const classStudents = state.users.filter(u => u.role === 'student' && u.classId === currentUser!.classId && u.status === 'active');
+                          const sectionStudents = state.users.filter(u => u.role === 'student' && (u.classId === reportClass || u.classId === currentUser!.classId) && (u.section === reportSection || u.section === currentUser!.section) && u.status === 'active');
+                          const classStudents = state.users.filter(u => u.role === 'student' && (u.classId === reportClass || u.classId === currentUser!.classId) && u.status === 'active');
 
                           const classLeaderboard = classStudents.map(su => ({
                               studentId: su.id,
@@ -233,7 +236,7 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
                                   <div>
                                       <h4 className="font-bold text-lg text-galaxy-800">{report.term} Report</h4>
                                       <div className="text-sm font-medium text-gray-600 mt-1">
-                                          Class: {currentUser?.classId} {currentUser?.section ? `| Section: ${currentUser?.section}` : ''}
+                                          Class: {reportClass} {reportSection ? `| Section: ${reportSection}` : ''}
                                       </div>
                                   </div>
                                   <div className="text-xs font-mono text-gray-500 bg-white px-2 py-1 rounded shadow-sm border border-gray-100">ID: {report.id}</div>

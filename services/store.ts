@@ -36,8 +36,8 @@ type Action =
   | { type: 'UPDATE_EXAM_SESSION'; payload: ExamSession }
   | { type: 'DELETE_EXAM_SESSION'; payload: string } // id
   | { type: 'TOGGLE_EXAM_SESSION_STATUS'; payload: string } // id
-  | { type: 'UPDATE_EXAM_MARKS'; payload: { studentId: string; examSessionId: string; sessionName: string; subject: string; scoreData: ScoreData } }
-  | { type: 'BULK_UPDATE_EXAM_MARKS'; payload: { updates: { studentId: string; scoreData: ScoreData }[]; examSessionId: string; sessionName: string; subject: string } }
+  | { type: 'UPDATE_EXAM_MARKS'; payload: { studentId: string; examSessionId: string; sessionName: string; subject: string; scoreData: ScoreData; classId?: string; section?: string; academicYear?: string } }
+  | { type: 'BULK_UPDATE_EXAM_MARKS'; payload: { updates: { studentId: string; scoreData: ScoreData }[]; examSessionId: string; sessionName: string; subject: string; classId?: string; section?: string; academicYear?: string } }
   | { type: 'UPDATE_EXAM_CONFIG'; payload: ExamConfig }
   | { type: 'PUBLISH_REPORT'; payload: { id: string; published: boolean } }
   | { type: 'PUBLISH_CLASS_RESULT'; payload: { examSessionId: string; sessionName: string; classId: string; section?: string; published: boolean } }
@@ -48,6 +48,7 @@ type Action =
   | { type: 'DELETE_SYSTEM_SUBJECT'; payload: string } // name
   | { type: 'ADD_SYSTEM_CLASS'; payload: string }
   | { type: 'DELETE_SYSTEM_CLASS'; payload: string }
+  | { type: 'TOGGLE_ARCHIVE_CLASS'; payload: string }
   | { type: 'ADD_CLASS_SECTION'; payload: { className: string; section: string } }
   | { type: 'DELETE_CLASS_SECTION'; payload: { className: string; section: string } }
   | { type: 'ADD_WORK_LOG'; payload: WorkLog }
@@ -250,13 +251,17 @@ const reducer = (state: AppState, action: Action): AppState => {
             r => r.studentId === studentId && (r.examSessionId === examSessionId || r.term === sessionName)
         );
 
+        const student = state.users.find(u => u.id === studentId);
         let newReports = [...state.examReports];
         if (existingReportIndex > -1) {
             const report = newReports[existingReportIndex];
             const updatedReport = {
                 ...report,
                 examSessionId, 
-                scores: { ...report.scores, [subject]: scoreData }
+                scores: { ...report.scores, [subject]: scoreData },
+                classIdSnapshot: report.classIdSnapshot || student?.classId || action.payload.classId,
+                sectionSnapshot: report.sectionSnapshot || student?.section || action.payload.section,
+                academicYear: report.academicYear || (new Date().getFullYear()).toString(),
             };
             newReports[existingReportIndex] = updatedReport;
             dbActions.updateReport(updatedReport);
@@ -268,7 +273,10 @@ const reducer = (state: AppState, action: Action): AppState => {
                 term: sessionName,
                 scores: { [subject]: scoreData },
                 remarks: '',
-                published: false
+                published: false,
+                classIdSnapshot: student?.classId || action.payload.classId,
+                sectionSnapshot: student?.section || action.payload.section,
+                academicYear: (new Date().getFullYear()).toString(),
             };
             newReports = [...newReports, newReport];
             dbActions.addReport(newReport);
@@ -298,6 +306,7 @@ const reducer = (state: AppState, action: Action): AppState => {
         let newReports = [...state.examReports];
         
         updates.forEach(({ studentId, scoreData }: any) => {
+            const student = state.users.find(u => u.id === studentId);
             const existingReportIndex = newReports.findIndex(
                 r => r.studentId === studentId && (r.examSessionId === examSessionId || r.term === sessionName)
             );
@@ -307,7 +316,10 @@ const reducer = (state: AppState, action: Action): AppState => {
                 const updatedReport = {
                     ...report,
                     examSessionId,
-                    scores: { ...report.scores, [subject]: scoreData }
+                    scores: { ...report.scores, [subject]: scoreData },
+                    classIdSnapshot: report.classIdSnapshot || student?.classId,
+                    sectionSnapshot: report.sectionSnapshot || student?.section,
+                    academicYear: report.academicYear || (new Date().getFullYear()).toString(),
                 };
                 newReports[existingReportIndex] = updatedReport;
                 dbActions.updateReport(updatedReport);
@@ -319,7 +331,10 @@ const reducer = (state: AppState, action: Action): AppState => {
                     term: sessionName,
                     scores: { [subject]: scoreData },
                     remarks: '',
-                    published: false
+                    published: false,
+                    classIdSnapshot: student?.classId,
+                    sectionSnapshot: student?.section,
+                    academicYear: (new Date().getFullYear()).toString(),
                 };
                 newReports.push(newReport);
                 dbActions.addReport(newReport);
@@ -428,6 +443,15 @@ const reducer = (state: AppState, action: Action): AppState => {
     case 'DELETE_SYSTEM_CLASS':
         dbActions.deleteClass(action.payload);
         return { ...state, systemClasses: state.systemClasses.filter(c => c.name !== action.payload) };
+    case 'TOGGLE_ARCHIVE_CLASS': {
+        const className = action.payload;
+        const updatedClasses = state.systemClasses.map(c => 
+            c.name === className ? { ...c, isArchived: !c.isArchived } : c
+        );
+        const cls = updatedClasses.find(c => c.name === className);
+        if (cls) dbActions.updateClass(cls);
+        return { ...state, systemClasses: updatedClasses };
+    }
     case 'ADD_CLASS_SECTION': {
         const updatedClasses = state.systemClasses.map(c => 
             c.name === action.payload.className 

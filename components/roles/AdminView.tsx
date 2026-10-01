@@ -7,7 +7,7 @@ import ClassLedger from "../ClassLedger";
 import { AdminInternshipView } from "./AdminInternshipView";
 import { getExamConfig, getActiveExamSubjects, getSessionAllowedSubjects } from "../../utils/examUtils";
 import { ConfirmDialog } from "../common/ConfirmDialog";
-import { ExamSessionWizardModal } from "../exam/ExamSessionWizardModal";
+import { ExamCreator } from "../exam/ExamCreator";
 import {
   Check,
   X,
@@ -23,6 +23,7 @@ import {
   Search,
   Filter,
   Eye,
+  EyeOff,
   Settings,
   Plus,
   Trash2,
@@ -115,6 +116,7 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   const [editSessionSubjects, setEditSessionSubjects] = useState<Record<string, string[]>>({});
   const [publishClassId, setPublishClassId] = useState("");
   const [publishSection, setPublishSection] = useState("");
+  const [publishFilterTab, setPublishFilterTab] = useState<'ready' | 'published' | 'all'>('ready');
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void, type?: "warning" | "danger" | "info" | "success"}>({
     isOpen: false,
@@ -1364,18 +1366,53 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                       className="border rounded-lg overflow-hidden"
                     >
                       <div className="bg-gray-100 p-3 flex justify-between items-center font-bold">
-                        <span>{c.name}</span>
-                        <button
-                          onClick={() =>
-                            dispatch({
-                              type: "DELETE_SYSTEM_CLASS",
-                              payload: c.name,
-                            })
-                          }
-                          className="text-red-500 hover:text-red-700 p-1"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <span>{c.name}</span>
+                          {c.isArchived && (
+                            <span className="text-[10px] bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded-full font-bold">
+                              Archived (Past Batch)
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              dispatch({
+                                type: "TOGGLE_ARCHIVE_CLASS",
+                                payload: c.name,
+                              });
+                              showToast(
+                                c.isArchived
+                                  ? `Class ${c.name} restored to active.`
+                                  : `Class ${c.name} archived for historical preservation.`,
+                                "success"
+                              );
+                            }}
+                            className={`text-xs px-2.5 py-1 rounded flex items-center gap-1 font-semibold border transition ${
+                              c.isArchived
+                                ? "bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100"
+                                : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                            }`}
+                            title={c.isArchived ? "Unarchive Class" : "Archive Class (Preserve Past Data)"}
+                          >
+                            <Archive size={13} />
+                            {c.isArchived ? "Unarchive" : "Archive"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              dispatch({
+                                type: "DELETE_SYSTEM_CLASS",
+                                payload: c.name,
+                              })
+                            }
+                            className="text-red-500 hover:text-red-700 p-1"
+                            title="Delete Class"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </div>
                       <div className="p-3 bg-white">
                         <div className="flex flex-wrap gap-2 mb-2">
@@ -2567,18 +2604,19 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
             )})}
           </div>
 
-          {/* Exam Session Multi-Step Wizard Modal */}
-          <ExamSessionWizardModal
+          {/* ExamCreator Multi-Step Workflow Component */}
+          <ExamCreator
             isOpen={isWizardOpen}
             onClose={() => {
               setIsWizardOpen(false);
               setEditingScopeSession(null);
             }}
-            onSave={handleSaveSessionFromWizard}
+            onSuccess={() => {
+              setIsWizardOpen(false);
+              setEditingScopeSession(null);
+              showToast("Exam session saved successfully.", "success");
+            }}
             initialSession={editingScopeSession}
-            systemClasses={state.systemClasses}
-            availableSubjects={state.availableSubjects}
-            users={state.users}
           />
         </div>
 
@@ -2611,15 +2649,31 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
           </div>
         )}
 
-        <div className="bg-white p-6 rounded-xl border border-galaxy-200 shadow-sm">
-          <h3 className="text-xl font-bold mb-4">Publish Class Results</h3>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end mb-6">
-            <div className="md:col-span-1">
-              <label className="text-sm font-bold text-gray-600 block mb-1">
-                Select Class
+        <div className="bg-white p-6 rounded-2xl border border-galaxy-200 shadow-sm space-y-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b pb-4">
+            <div>
+              <h3 className="text-xl font-bold flex items-center gap-2 text-galaxy-900">
+                <UploadCloud className="text-galaxy-600" /> Publish Class Results
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Release finalized marks to students and parents. Only exams with entered marks for the selected class are displayed.
+              </p>
+            </div>
+            {publishClassId && (
+              <span className="text-xs font-semibold px-3 py-1.5 bg-galaxy-50 text-galaxy-800 rounded-full border border-galaxy-200 self-start md:self-auto">
+                Class {publishClassId}{publishSection ? ` • Section ${publishSection}` : ' • All Sections'}
+              </span>
+            )}
+          </div>
+
+          {/* Class & Section Selector Controls */}
+          <div className="bg-gray-50/70 p-4 rounded-xl border border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            <div>
+              <label className="text-xs font-bold text-gray-700 uppercase tracking-wider block mb-1">
+                1. Select Class <span className="text-red-500">*</span>
               </label>
               <select
-                className="w-full border p-2 rounded"
+                className="w-full border border-gray-300 p-2.5 rounded-xl text-sm bg-white focus:ring-2 focus:ring-galaxy-500"
                 value={publishClassId}
                 onChange={(e) => {
                   setPublishClassId(e.target.value);
@@ -2629,17 +2683,18 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                 <option value="">-- Choose Class --</option>
                 {state.systemClasses.map((c) => (
                   <option key={c.name} value={c.name}>
-                    {c.name}
+                    Class {c.name}
                   </option>
                 ))}
               </select>
             </div>
-            <div className="md:col-span-1">
-              <label className="text-sm font-bold text-gray-600 block mb-1">
-                Select Section
+
+            <div>
+              <label className="text-xs font-bold text-gray-700 uppercase tracking-wider block mb-1">
+                2. Select Section (Optional)
               </label>
               <select
-                className="w-full border p-2 rounded"
+                className="w-full border border-gray-300 p-2.5 rounded-xl text-sm bg-white focus:ring-2 focus:ring-galaxy-500"
                 value={publishSection}
                 onChange={(e) => setPublishSection(e.target.value)}
                 disabled={!publishClassId}
@@ -2649,136 +2704,296 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                   .find((c) => c.name === publishClassId)
                   ?.sections.map((s) => (
                     <option key={s} value={s}>
-                      {s}
+                      Section {s}
                     </option>
                   ))}
               </select>
             </div>
-            <div className="md:col-span-2">
-              <p className="text-xs text-gray-500 mb-2">
-                Results are hidden from students until published. Publishing
-                applies to all students in the selected class/section.
+
+            <div>
+              <p className="text-[11px] text-gray-500">
+                Unrelated exams and sessions with no student marks are automatically filtered out. Results are hidden from student portal until published.
               </p>
             </div>
           </div>
 
-          {publishClassId && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in">
-              {state.examSessions.map((session) => {
-                const reportsForSession = state.examReports.filter(
-                  (r) =>
-                    (r.examSessionId && r.examSessionId === session.id) ||
-                    r.term?.trim() === session.name?.trim(),
-                );
-                const studentsInClass = state.users.filter(
-                  (u) =>
-                    u.role === "student" &&
-                    u.classId?.trim() === publishClassId?.trim() &&
-                    (!publishSection ||
-                      u.section?.trim() === publishSection.trim()),
-                );
-                const reportsForClass = reportsForSession.filter((r) =>
-                  studentsInClass.some((s) => s.id === r.studentId),
-                );
-                const publishedCount = reportsForClass.filter(
-                  (r) => r.published === true || String(r.published) === "true",
-                ).length;
-                const totalReports = reportsForClass.length;
+          {/* Results Area */}
+          {!publishClassId ? (
+            <div className="p-12 text-center bg-gray-50/50 rounded-2xl border border-dashed border-gray-300 space-y-3">
+              <div className="w-12 h-12 bg-galaxy-100 text-galaxy-700 rounded-full flex items-center justify-center mx-auto">
+                <BookOpen size={24} />
+              </div>
+              <h4 className="font-bold text-gray-800 text-base">Select a Class Above</h4>
+              <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                Choose a class and section to view scored exams and publish results to the student portal.
+              </p>
+            </div>
+          ) : (() => {
+            const studentsInClass = state.users.filter(
+              (u) =>
+                u.role === "student" &&
+                u.classId?.trim() === publishClassId?.trim() &&
+                u.status === "active" &&
+                (!publishSection || u.section?.trim() === publishSection.trim()),
+            );
 
-                const isClassApplicable = !session.applicableClasses || session.applicableClasses.length === 0 || session.applicableClasses.includes(publishClassId);
-                const isFullyPublished =
-                  isClassApplicable && totalReports > 0 && publishedCount === totalReports;
-                const hasNoReports = !isClassApplicable || totalReports === 0;
+            // Filter sessions applicable to this class (and section)
+            const applicableSessions = state.examSessions.filter((session) => {
+              const isClassApplicable =
+                !session.applicableClasses ||
+                session.applicableClasses.length === 0 ||
+                session.applicableClasses.includes(publishClassId);
+              if (!isClassApplicable) return false;
 
-                return (
-                  <div
-                    key={session.id}
-                    className={`border rounded-xl p-4 transition-all ${
-                      !isClassApplicable
-                        ? "bg-gray-50 border-gray-200 opacity-60"
-                        : isFullyPublished
-                          ? "bg-green-50 border-green-200"
-                          : hasNoReports
-                            ? "bg-gray-50 border-gray-200 opacity-70"
-                            : "bg-white border-yellow-200 shadow-sm"
-                    }`}
-                  >
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h4 className="font-bold text-gray-800">
-                          {session.name}
-                        </h4>
-                        {!isClassApplicable && (
-                          <span className="text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">
-                            Not for Class {publishClassId}
-                          </span>
-                        )}
-                      </div>
-                      {isFullyPublished ? (
-                        <Check size={18} className="text-green-600" />
-                      ) : (
-                        <UploadCloud size={18} className="text-gray-400" />
-                      )}
-                    </div>
-                    <div className="text-xs space-y-1 mb-4">
-                      <p className="flex justify-between">
-                        <span className="text-gray-500">Students:</span>
-                        <span className="font-mono">
-                          {studentsInClass.length}
-                        </span>
-                      </p>
-                      <p className="flex justify-between">
-                        <span className="text-gray-500">Reports Found:</span>
-                        <span className="font-mono">{totalReports}</span>
-                      </p>
-                      <p className="flex justify-between font-bold">
-                        <span className="text-gray-500">Published:</span>
-                        <span
-                          className={`${isFullyPublished ? "text-green-600" : "text-gray-400"}`}
-                        >
-                          {publishedCount} / {totalReports}
-                        </span>
-                      </p>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <button
-                          onClick={() =>
-                            handlePublishClassResult(
-                              session,
-                              !isFullyPublished,
-                              totalReports,
-                            )
-                          }
-                          disabled={hasNoReports}
-                          className={`w-full py-2 rounded text-sm font-bold transition-colors ${
-                            hasNoReports
-                              ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                              : isFullyPublished
-                                ? "bg-white border border-red-200 text-red-600 hover:bg-red-50"
-                                : "bg-galaxy-900 text-white hover:bg-galaxy-800"
+              if (publishSection) {
+                const sectionAllowed =
+                  !session.applicableSections?.[publishClassId] ||
+                  session.applicableSections[publishClassId].length === 0 ||
+                  session.applicableSections[publishClassId].includes(publishSection);
+                if (!sectionAllowed) return false;
+              }
+
+              return true;
+            });
+
+            // Calculate reports & stats for each applicable session
+            const sessionStats = applicableSessions.map((session) => {
+              const reportsForSession = state.examReports.filter(
+                (r) =>
+                  (r.examSessionId && r.examSessionId === session.id) ||
+                  r.term?.trim() === session.name?.trim(),
+              );
+              const reportsForClass = reportsForSession.filter((r) =>
+                studentsInClass.some((s) => s.id === r.studentId),
+              );
+              const publishedCount = reportsForClass.filter(
+                (r) => r.published === true || String(r.published) === "true",
+              ).length;
+              const totalReports = reportsForClass.length;
+              const isFullyPublished = totalReports > 0 && publishedCount === totalReports;
+              const hasReports = totalReports > 0;
+
+              return {
+                session,
+                totalReports,
+                publishedCount,
+                isFullyPublished,
+                hasReports,
+                coveragePercent: studentsInClass.length > 0 ? Math.min(100, Math.round((totalReports / studentsInClass.length) * 100)) : 0,
+              };
+            });
+
+            const readySessions = sessionStats.filter((s) => s.hasReports);
+            const publishedSessions = sessionStats.filter((s) => s.isFullyPublished);
+            const unpublishedReady = readySessions.filter((s) => !s.isFullyPublished);
+
+            const displayList =
+              publishFilterTab === 'published'
+                ? publishedSessions
+                : publishFilterTab === 'all'
+                ? sessionStats
+                : readySessions;
+
+            return (
+              <div className="space-y-4 animate-in fade-in">
+                {/* Filter Tabs & Batch Actions */}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+                  <div className="flex flex-wrap gap-1.5 items-center">
+                    <button
+                      onClick={() => setPublishFilterTab('ready')}
+                      className={`text-xs px-3 py-1.5 rounded-lg transition font-bold flex items-center gap-1.5 ${
+                        publishFilterTab === 'ready'
+                          ? 'bg-galaxy-900 text-white shadow-xs'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      <span>Ready with Marks</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${publishFilterTab === 'ready' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-700'}`}>
+                        {readySessions.length}
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => setPublishFilterTab('published')}
+                      className={`text-xs px-3 py-1.5 rounded-lg transition font-medium flex items-center gap-1.5 ${
+                        publishFilterTab === 'published'
+                          ? 'bg-emerald-700 text-white font-bold shadow-xs'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      <span>Published</span>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${publishFilterTab === 'published' ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-700'}`}>
+                        {publishedSessions.length}
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => setPublishFilterTab('all')}
+                      className={`text-xs px-3 py-1.5 rounded-lg transition font-medium text-gray-500 hover:text-gray-800 ${
+                        publishFilterTab === 'all'
+                          ? 'bg-gray-800 text-white font-bold'
+                          : 'hover:bg-gray-100'
+                      }`}
+                      title="Show all sessions including unscored exams"
+                    >
+                      <span>All Sessions ({sessionStats.length})</span>
+                    </button>
+                  </div>
+
+                  {unpublishedReady.length > 0 && (
+                    <button
+                      onClick={() => {
+                        unpublishedReady.forEach((item) => {
+                          handlePublishClassResult(item.session, true, item.totalReports);
+                        });
+                        showToast(`Published results for ${unpublishedReady.length} exam session(s).`, "success");
+                      }}
+                      className="text-xs px-3.5 py-1.5 bg-emerald-600 text-white font-bold rounded-lg hover:bg-emerald-700 transition flex items-center gap-1.5 shadow-xs"
+                    >
+                      <Eye size={14} /> Publish All Ready ({unpublishedReady.length})
+                    </button>
+                  )}
+                </div>
+
+                {/* Scored Exams Grid */}
+                {displayList.length === 0 ? (
+                  <div className="p-10 text-center bg-gray-50 rounded-2xl border border-gray-200 space-y-2">
+                    <p className="text-sm font-bold text-gray-700">
+                      {publishFilterTab === 'ready'
+                        ? `No exam marks recorded yet for Class ${publishClassId}${publishSection ? ` (${publishSection})` : ''}`
+                        : publishFilterTab === 'published'
+                        ? `No published results yet for Class ${publishClassId}`
+                        : `No exam sessions applicable for Class ${publishClassId}`}
+                    </p>
+                    <p className="text-xs text-gray-500 max-w-md mx-auto">
+                      Unrelated exams and sessions with NO student marks are hidden to prevent clutter. Once teachers record marks for this class, they will appear here ready to publish.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {displayList.map(({ session, totalReports, publishedCount, isFullyPublished, hasReports, coveragePercent }) => {
+                      return (
+                        <div
+                          key={session.id}
+                          className={`rounded-2xl border p-5 transition-all flex flex-col justify-between space-y-4 ${
+                            isFullyPublished
+                              ? 'bg-emerald-50/50 border-emerald-200 shadow-xs'
+                              : hasReports
+                              ? 'bg-white border-galaxy-200 shadow-sm hover:border-galaxy-400'
+                              : 'bg-gray-50 border-gray-200 opacity-60'
                           }`}
                         >
-                          {hasNoReports
-                            ? "No Data"
-                            : isFullyPublished
-                              ? "Unpublish Results"
-                              : "Publish Results"}
-                        </button>
-                        
-                        {!hasNoReports && (
-                          <button
-                            onClick={() => exportLedgerToCSV(session.id, publishClassId, publishSection)}
-                            className="w-full py-2 bg-green-600 text-white rounded text-sm font-bold flex items-center justify-center gap-2 hover:bg-green-700 transition"
-                          >
-                            <Download size={14} /> Export Ledger (Excel)
-                          </button>
-                        )}
-                    </div>
+                          <div>
+                            {/* Card Header */}
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div>
+                                <h4 className="font-extrabold text-gray-900 text-base leading-snug">
+                                  {session.name}
+                                </h4>
+                                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                  <span className="text-[11px] bg-gray-100 text-gray-700 font-semibold px-2 py-0.5 rounded-md border border-gray-200">
+                                    {session.type}
+                                  </span>
+                                  <span className="text-[11px] text-gray-400">
+                                    Started: {session.startDate}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div>
+                                {isFullyPublished ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-100 text-emerald-800 text-[11px] font-bold rounded-full">
+                                    <Eye size={12} /> Published
+                                  </span>
+                                ) : hasReports ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-100 text-amber-800 text-[11px] font-bold rounded-full">
+                                    <EyeOff size={12} /> Draft
+                                  </span>
+                                ) : (
+                                  <span className="text-[11px] bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full font-medium">
+                                    No Marks
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Scoring Progress Bar */}
+                            <div className="mt-3 bg-gray-100 rounded-full h-2 overflow-hidden">
+                              <div
+                                className={`h-full transition-all duration-500 ${
+                                  isFullyPublished
+                                    ? 'bg-emerald-500'
+                                    : coveragePercent >= 80
+                                    ? 'bg-galaxy-600'
+                                    : 'bg-amber-500'
+                                }`}
+                                style={{ width: `${coveragePercent}%` }}
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-between text-[11px] text-gray-500 mt-1">
+                              <span>Scored: <strong>{totalReports}</strong> / {studentsInClass.length} students</span>
+                              <span className="font-bold text-gray-700">{coveragePercent}%</span>
+                            </div>
+
+                            {/* Details Pill grid */}
+                            <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-gray-100 text-xs">
+                              <div className="bg-gray-50 p-2 rounded-lg">
+                                <span className="text-[10px] text-gray-400 uppercase font-bold block">Status</span>
+                                <span className={`font-bold ${isFullyPublished ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                  {isFullyPublished ? 'Visible to Students' : 'Hidden from Students'}
+                                </span>
+                              </div>
+                              <div className="bg-gray-50 p-2 rounded-lg">
+                                <span className="text-[10px] text-gray-400 uppercase font-bold block">Published Count</span>
+                                <span className="font-mono font-bold text-gray-800">
+                                  {publishedCount} / {totalReports}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="space-y-2 pt-2 border-t border-gray-100">
+                            <button
+                              onClick={() => handlePublishClassResult(session, !isFullyPublished, totalReports)}
+                              disabled={!hasReports}
+                              className={`w-full py-2.5 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                                !hasReports
+                                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                  : isFullyPublished
+                                  ? 'bg-white border border-red-200 text-red-600 hover:bg-red-50'
+                                  : 'bg-galaxy-900 text-white hover:bg-galaxy-800 shadow-xs'
+                              }`}
+                            >
+                              {isFullyPublished ? (
+                                <>
+                                  <EyeOff size={14} /> Unpublish Results
+                                </>
+                              ) : (
+                                <>
+                                  <Eye size={14} /> Publish Results Now
+                                </>
+                              )}
+                            </button>
+
+                            {hasReports && (
+                              <button
+                                onClick={() => exportLedgerToCSV(session.id, publishClassId, publishSection)}
+                                className="w-full py-2 bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition"
+                              >
+                                <Download size={13} /> Export Ledger (Excel)
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })}
-            </div>
-          )}
+                )}
+              </div>
+            );
+          })()}
         </div>
         {renderDialogs()}
       </div>

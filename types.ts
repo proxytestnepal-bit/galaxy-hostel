@@ -166,6 +166,9 @@ export interface ExamReport {
   scores: Record<string, ScoreData>; // Subject Name -> Score Data
   remarks: string;
   published: boolean; 
+  classIdSnapshot?: string; // Historical Snapshot: Class ID at time of exam (e.g. "E26", "11")
+  sectionSnapshot?: string; // Historical Snapshot: Section at time of exam (e.g. "Accor")
+  academicYear?: string; // Historical Snapshot: Academic Year (e.g. "2026")
 }
 
 export interface Notice {
@@ -180,6 +183,8 @@ export interface Notice {
 export interface SystemClass {
   name: string;
   sections: string[];
+  isArchived?: boolean; // When true, class is preserved for history/reports but hidden from new day-to-day entries
+  academicYear?: string; // Optional batch/year tag, e.g. "2026"
 }
 
 export interface WorkLog {

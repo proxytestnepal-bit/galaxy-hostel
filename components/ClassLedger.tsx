@@ -30,18 +30,19 @@ const ClassLedger: React.FC<ClassLedgerProps> = ({ allowedClassIds }) => {
 
     const getStudentStats = (studentId: string, sessionId: string) => {
         const student = state.users.find(u => u.id === studentId);
-        if (!student || !student.classId) return { totalObtained: 0, totalFull: 0, pass: false, percentage: 0 };
-        
         const report = state.examReports.find(r => r.studentId === studentId && (r.examSessionId === sessionId || r.term === sessionId));
+        const effectiveClassId = report?.classIdSnapshot || student?.classId;
+        if (!effectiveClassId) return { totalObtained: 0, totalFull: 0, pass: false, percentage: 0 };
         if (!report) return { totalObtained: 0, totalFull: 0, pass: false, percentage: 0 };
 
+        const effectiveSection = report?.sectionSnapshot || selectedSection || student?.section;
         const activeSubjects = getActiveExamSubjects(
             state.availableSubjects,
             state.examReports,
             state.examConfigs,
             sessionId,
-            student.classId,
-            selectedSection || student.section,
+            effectiveClassId,
+            effectiveSection,
             state.users,
             state.examSessions
         );
@@ -50,9 +51,9 @@ const ClassLedger: React.FC<ClassLedgerProps> = ({ allowedClassIds }) => {
         let pass = true;
 
         activeSubjects.forEach(s => {
-            const effectiveType = s.classTypes?.[student.classId!] || s.type;
+            const effectiveType = s.classTypes?.[effectiveClassId] || s.type;
             const scoreData = report.scores[s.name] as ScoreData | undefined;
-            const config = getExamConfig(state.examConfigs, sessionId, student.classId as string, s.name);
+            const config = getExamConfig(state.examConfigs, sessionId, effectiveClassId, s.name);
 
             if (effectiveType === 'Theory' || effectiveType === 'Both') {
                 const f = config?.fullMarks ?? scoreData?.fullMarks ?? 100;
@@ -81,11 +82,12 @@ const ClassLedger: React.FC<ClassLedgerProps> = ({ allowedClassIds }) => {
 
     const classReports = state.examReports.filter(r => {
         const student = state.users.find(u => u.id === r.studentId);
+        const effectiveClassId = r.classIdSnapshot || student?.classId;
+        const effectiveSection = r.sectionSnapshot || student?.section;
         return (
             (r.examSessionId === selectedSessionId || r.term === selectedSessionId) && 
-            student?.classId === selectedClassId &&
-            (!selectedSection || student?.section === selectedSection) &&
-            student?.status === 'active'
+            effectiveClassId === selectedClassId &&
+            (!selectedSection || effectiveSection === selectedSection)
         );
     });
 
