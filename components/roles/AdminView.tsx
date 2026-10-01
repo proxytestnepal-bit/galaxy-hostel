@@ -1,12 +1,13 @@
 import { createPortal } from "react-dom";
 import React, { useState, useEffect } from "react";
 import { useAppStore } from "../../services/store";
-import { Role, User, ExamType, SubjectType, Notice, getApplicableSubjects } from "../../types";
+import { Role, User, ExamType, ExamSession, SubjectType, Notice, getApplicableSubjects } from "../../types";
 import AccountantView from "./AccountantView";
 import ClassLedger from "../ClassLedger";
 import { AdminInternshipView } from "./AdminInternshipView";
-import { getExamConfig, getActiveExamSubjects } from "../../utils/examUtils";
+import { getExamConfig, getActiveExamSubjects, getSessionAllowedSubjects } from "../../utils/examUtils";
 import { ConfirmDialog } from "../common/ConfirmDialog";
+import { ExamSessionWizardModal } from "../exam/ExamSessionWizardModal";
 import {
   Check,
   X,
@@ -105,6 +106,13 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
   const [newSessionName, setNewSessionName] = useState("");
   const [newSessionType, setNewSessionType] = useState<ExamType>("Term Exam");
   const [newSessionClasses, setNewSessionClasses] = useState<string[]>([]);
+  const [newSessionSections, setNewSessionSections] = useState<Record<string, string[]>>({});
+  const [newSessionSubjects, setNewSessionSubjects] = useState<Record<string, string[]>>({});
+  const [editingScopeSession, setEditingScopeSession] = useState<ExamSession | null>(null);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [editSessionClasses, setEditSessionClasses] = useState<string[]>([]);
+  const [editSessionSections, setEditSessionSections] = useState<Record<string, string[]>>({});
+  const [editSessionSubjects, setEditSessionSubjects] = useState<Record<string, string[]>>({});
   const [publishClassId, setPublishClassId] = useState("");
   const [publishSection, setPublishSection] = useState("");
   const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
@@ -461,10 +469,81 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
         status: "open",
         startDate: new Date().toISOString().split("T")[0],
         applicableClasses: newSessionClasses.length > 0 ? newSessionClasses : undefined,
+        applicableSections: Object.keys(newSessionSections).length > 0 ? newSessionSections : undefined,
+        applicableSubjects: Object.keys(newSessionSubjects).length > 0 ? newSessionSubjects : undefined,
       },
     });
     setNewSessionName("");
     setNewSessionClasses([]);
+    setNewSessionSections({});
+    setNewSessionSubjects({});
+    showToast("Exam session created successfully.", "success");
+  };
+
+  const handleSaveSessionFromWizard = (sessionData: {
+    id?: string;
+    name: string;
+    type: ExamType;
+    startDate: string;
+    applicableClasses?: string[];
+    applicableSections?: Record<string, string[]>;
+    applicableSubjects?: Record<string, string[]>;
+  }) => {
+    if (sessionData.id) {
+      const existing = state.examSessions.find(s => s.id === sessionData.id);
+      if (existing) {
+        dispatch({
+          type: "UPDATE_EXAM_SESSION",
+          payload: {
+            ...existing,
+            name: sessionData.name,
+            type: sessionData.type,
+            startDate: sessionData.startDate,
+            applicableClasses: sessionData.applicableClasses,
+            applicableSections: sessionData.applicableSections,
+            applicableSubjects: sessionData.applicableSubjects,
+          }
+        });
+        showToast("Exam session scope updated successfully.", "success");
+      }
+    } else {
+      dispatch({
+        type: "ADD_EXAM_SESSION",
+        payload: {
+          id: `es${Date.now()}`,
+          name: sessionData.name,
+          type: sessionData.type,
+          status: "open",
+          startDate: sessionData.startDate,
+          applicableClasses: sessionData.applicableClasses,
+          applicableSections: sessionData.applicableSections,
+          applicableSubjects: sessionData.applicableSubjects,
+        }
+      });
+      showToast("Exam session created successfully with customized scope.", "success");
+    }
+  };
+
+  const handleStartEditScope = (session: ExamSession) => {
+    setEditingScopeSession(session);
+    setEditSessionClasses(session.applicableClasses ? [...session.applicableClasses] : []);
+    setEditSessionSections(session.applicableSections ? { ...session.applicableSections } : {});
+    setEditSessionSubjects(session.applicableSubjects ? { ...session.applicableSubjects } : {});
+  };
+
+  const handleSaveScopeEdit = () => {
+    if (!editingScopeSession) return;
+    dispatch({
+      type: "UPDATE_EXAM_SESSION",
+      payload: {
+        ...editingScopeSession,
+        applicableClasses: editSessionClasses.length > 0 ? editSessionClasses : undefined,
+        applicableSections: Object.keys(editSessionSections).length > 0 ? editSessionSections : undefined,
+        applicableSubjects: Object.keys(editSessionSubjects).length > 0 ? editSessionSubjects : undefined,
+      },
+    });
+    setEditingScopeSession(null);
+    showToast("Exam session scope updated successfully.", "success");
   };
 
   const [resetVal, setResetVal] = useState(1);
@@ -562,7 +641,8 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
         sessionId,
         classId,
         section,
-        state.users
+        state.users,
+        state.examSessions
     );
     
     if (activeSubjects.length === 0) {
@@ -2184,8 +2264,12 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
       const uniqueClasses = sessionClasses.map(c => c.name);
 
       const selectedClassData = state.systemClasses.find(c => c.name === examEditClassId);
-      const availableSections = selectedClassData?.sections || [];
-      const availableSubjects = getApplicableSubjects(state.availableSubjects, examEditClassId, examEditSection);
+      const rawSections = selectedClassData?.sections || [];
+      const sessionAllowedSections = session.applicableSections?.[examEditClassId] && session.applicableSections[examEditClassId].length > 0
+        ? session.applicableSections[examEditClassId]
+        : null;
+      const availableSections = rawSections.filter(s => !sessionAllowedSections || sessionAllowedSections.includes(s));
+      const availableSubjects = getSessionAllowedSubjects(state.availableSubjects, session, examEditClassId, examEditSection);
       const selectedSubjectData = availableSubjects.find(s => s.name === examEditSubject);
       const effectiveType = selectedSubjectData?.classTypes?.[examEditClassId] || selectedSubjectData?.type || 'Theory';
       const showPractical = effectiveType === 'Practical' || effectiveType === 'Both';
@@ -2373,85 +2457,25 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
 
     return (
       <div className="space-y-8">
-        <div className="bg-white p-6 rounded-xl border border-galaxy-200 shadow-sm">
-          <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-            <Calendar className="text-galaxy-600" /> Manage Exam Sessions
-          </h3>
-
-          <div className="bg-gray-50 p-4 rounded-lg mb-6 flex flex-wrap gap-4 items-end border">
-            <div className="flex-1 min-w-[200px]">
-              <label className="text-sm font-bold text-gray-600 block mb-1">
-                Session Name
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Second Term 2024"
-                className="w-full border p-2 rounded"
-                value={newSessionName}
-                onChange={(e) => setNewSessionName(e.target.value)}
-              />
-            </div>
-            <div className="min-w-[150px]">
-              <label className="text-sm font-bold text-gray-600 block mb-1">
-                Exam Type
-              </label>
-              <select
-                className="w-full border p-2 rounded"
-                value={newSessionType}
-                onChange={(e) => setNewSessionType(e.target.value as ExamType)}
-              >
-                <option value="Monthly Test">Monthly Test</option>
-                <option value="Unit Test">Unit Test</option>
-                <option value="Term Exam">Term Exam</option>
-                <option value="Viva Exam">Viva Exam</option>
-                <option value="Final Exam">Final Exam</option>
-              </select>
-            </div>
-            <button
-              onClick={handleCreateSession}
-              className="bg-galaxy-900 text-white px-4 py-2 rounded hover:bg-galaxy-800 flex items-center gap-2"
-            >
-              <Plus size={16} /> Create Session
-            </button>
-
-            <div className="w-full pt-3 border-t mt-2">
-              <label className="text-xs font-bold text-gray-500 uppercase block mb-1.5">
-                Participating Classes (Optional: leave unselected to apply to all classes)
-              </label>
-              <div className="flex flex-wrap gap-2 items-center">
-                <button
-                  type="button"
-                  onClick={() => setNewSessionClasses([])}
-                  className={`text-xs px-3 py-1 rounded-full border transition ${newSessionClasses.length === 0 ? "bg-galaxy-800 text-white border-galaxy-800 font-bold" : "bg-white text-gray-600 border-gray-300 hover:bg-gray-100"}`}
-                >
-                  All Classes {newSessionClasses.length === 0 && "✓"}
-                </button>
-                {state.systemClasses.map(cls => {
-                  const isSelected = newSessionClasses.includes(cls.name);
-                  return (
-                    <button
-                      key={cls.name}
-                      type="button"
-                      onClick={() => {
-                        if (isSelected) {
-                          setNewSessionClasses(newSessionClasses.filter(c => c !== cls.name));
-                        } else {
-                          setNewSessionClasses([...newSessionClasses, cls.name]);
-                        }
-                      }}
-                      className={`text-xs px-3 py-1 rounded-full border transition ${isSelected ? "bg-galaxy-600 text-white border-galaxy-600 font-bold" : "bg-white text-gray-600 border-gray-300 hover:bg-gray-100"}`}
-                    >
-                      Class {cls.name} {isSelected && "✓"}
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="text-[11px] text-gray-400 mt-1">
-                {newSessionClasses.length === 0
-                  ? "All classes can participate. For each class/section, only subjects with recorded marks will appear in reports and ledgers."
-                  : `Restricted to: Class ${newSessionClasses.join(', ')}. Subjects without recorded marks are automatically ignored.`}
+        <div className="bg-white p-6 rounded-xl border border-galaxy-200 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b pb-4">
+            <div>
+              <h3 className="text-xl font-bold flex items-center gap-2 text-galaxy-900">
+                <Calendar className="text-galaxy-600" /> Manage Exam Sessions
+              </h3>
+              <p className="text-xs text-gray-500 mt-1">
+                Configure exam sessions, customize target classes, drill down to specific sections, and choose individual subjects.
               </p>
             </div>
+            <button
+              onClick={() => {
+                setEditingScopeSession(null);
+                setIsWizardOpen(true);
+              }}
+              className="bg-galaxy-900 hover:bg-galaxy-800 text-white font-bold px-4 py-2.5 rounded-xl flex items-center justify-center gap-2 shadow-sm transition active:scale-95 text-xs sm:text-sm shrink-0"
+            >
+              <Plus size={16} strokeWidth={2.5} /> Create Exam Session
+            </button>
           </div>
 
           <div className="space-y-3">
@@ -2462,12 +2486,12 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
               return (
               <div
                 key={session.id}
-                className="flex items-center justify-between border p-4 rounded-lg bg-white shadow-sm cursor-pointer hover:bg-gray-50 transition-colors"
+                className="flex items-center justify-between border p-4 rounded-xl bg-white shadow-xs cursor-pointer hover:bg-gray-50 transition-colors"
                 onClick={() => setSelectedExamSessionId(session.id)}
               >
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="font-bold text-lg">{session.name}</h4>
+                    <h4 className="font-bold text-base md:text-lg">{session.name}</h4>
                     <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded border">
                       {session.type}
                     </span>
@@ -2480,12 +2504,33 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
                         All Classes
                       </span>
                     )}
+                    {session.applicableSections && Object.keys(session.applicableSections).length > 0 && (
+                      <span className="text-xs bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded font-medium">
+                        Custom Sections
+                      </span>
+                    )}
+                    {session.applicableSubjects && Object.keys(session.applicableSubjects).length > 0 && (
+                      <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded font-medium">
+                        Custom Subjects
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-gray-500 mt-0.5">
                     Started: {session.startDate}
                   </p>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 md:gap-4 flex-wrap">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingScopeSession(session);
+                      setIsWizardOpen(true);
+                    }}
+                    className="px-2.5 py-1 text-xs border border-gray-300 hover:border-galaxy-500 hover:text-galaxy-800 bg-white rounded flex items-center gap-1 font-medium transition shadow-xs"
+                    title="Edit Classes, Sections & Subjects for this Exam"
+                  >
+                    <Settings size={13} /> Edit Scope
+                  </button>
                   <div
                     className={`text-sm font-bold ${session.status === "open" ? "text-green-600" : "text-red-500"}`}
                   >
@@ -2521,6 +2566,20 @@ const AdminView: React.FC<Props> = ({ activeTab, role }) => {
               </div>
             )})}
           </div>
+
+          {/* Exam Session Multi-Step Wizard Modal */}
+          <ExamSessionWizardModal
+            isOpen={isWizardOpen}
+            onClose={() => {
+              setIsWizardOpen(false);
+              setEditingScopeSession(null);
+            }}
+            onSave={handleSaveSessionFromWizard}
+            initialSession={editingScopeSession}
+            systemClasses={state.systemClasses}
+            availableSubjects={state.availableSubjects}
+            users={state.users}
+          />
         </div>
 
         {sessionToDelete && (

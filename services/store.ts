@@ -33,6 +33,7 @@ type Action =
   | { type: 'REQUEST_DELETE_FEE'; payload: string }
   | { type: 'DELETE_FEE'; payload: string }
   | { type: 'ADD_EXAM_SESSION'; payload: ExamSession }
+  | { type: 'UPDATE_EXAM_SESSION'; payload: ExamSession }
   | { type: 'DELETE_EXAM_SESSION'; payload: string } // id
   | { type: 'TOGGLE_EXAM_SESSION_STATUS'; payload: string } // id
   | { type: 'UPDATE_EXAM_MARKS'; payload: { studentId: string; examSessionId: string; sessionName: string; subject: string; scoreData: ScoreData } }
@@ -224,6 +225,13 @@ const reducer = (state: AppState, action: Action): AppState => {
     case 'ADD_EXAM_SESSION':
         dbActions.addExamSession(action.payload);
         return { ...state, examSessions: [action.payload, ...state.examSessions] };
+    case 'UPDATE_EXAM_SESSION': {
+        const updatedSessions = state.examSessions.map(s => 
+            s.id === action.payload.id ? { ...s, ...action.payload } : s
+        );
+        dbActions.updateExamSession(action.payload);
+        return { ...state, examSessions: updatedSessions };
+    }
     case 'DELETE_EXAM_SESSION': {
         dbActions.deleteExamSession(action.payload);
         return { ...state, examSessions: state.examSessions.filter(s => s.id !== action.payload) };

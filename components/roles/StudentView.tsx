@@ -141,7 +141,8 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
         report.examSessionId || sessionIdentifier,
         student.classId || '',
         student.section,
-        state.users
+        state.users,
+        state.examSessions
     );
     let totalObtained = 0;
     let totalFull = 0;
@@ -200,7 +201,8 @@ const StudentView: React.FC<Props> = ({ activeTab }) => {
                               report.examSessionId,
                               currentUser!.classId || '',
                               currentUser!.section,
-                              state.users
+                              state.users,
+                              state.examSessions
                           );
                           const myStats = getStudentStats(currentUser!.id, report.examSessionId);
                           

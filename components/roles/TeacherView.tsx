@@ -4,7 +4,7 @@ import { useAppStore } from '../../services/store';
 import { Assignment } from '../../types';
 import { generateAssignmentIdeas, generateFeedbackHelper } from '../../services/geminiService';
 import { Sparkles, Send, CheckCircle, Clock, PenTool, Save, Download, Bell, MessageSquare, GraduationCap, X } from 'lucide-react';
-import { getExamConfig } from '../../utils/examUtils';
+import { getExamConfig, getSessionAllowedSubjects } from '../../utils/examUtils';
 import ClassLedger from '../ClassLedger';
 
 interface Props {
@@ -215,7 +215,11 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
           }).sort((a, b) => a.name.localeCompare(b.name))
           : [];
 
-      const availableSections = selectedClassData 
+      const sessionAllowedSections = selectedSession?.applicableSections?.[selectedClassId] && selectedSession.applicableSections[selectedClassId].length > 0
+          ? selectedSession.applicableSections[selectedClassId]
+          : null;
+
+      const rawAvailableSections = selectedClassData 
           ? (teacherAssignments.length > 0
               ? (() => {
                   const assignment = teacherAssignments.find(a => a.subject === selectedSubject && a.classId === selectedClassId);
@@ -226,6 +230,14 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                   return legacySections.length > 0 ? legacySections : (selectedClassData.sections || []);
                 })())
           : [];
+
+      const availableSections = rawAvailableSections.filter(s => !sessionAllowedSections || sessionAllowedSections.includes(s));
+
+      const sessionAllowed = getSessionAllowedSubjects(state.availableSubjects, selectedSession, selectedClassId, selectedSection);
+      const availableAssignedSubjects = assignedSubjects.filter(s => {
+          if (!selectedSession || (!selectedSession.applicableSubjects && !selectedSession.applicableClasses)) return true;
+          return sessionAllowed.some(as => as.name === s);
+      });
 
       const selectedSubjectData = state.availableSubjects.find(s => s.name === selectedSubject);
       const effectiveType = selectedSubjectData?.classTypes?.[selectedClassId] || selectedSubjectData?.type || 'Theory';
@@ -340,7 +352,7 @@ const TeacherView: React.FC<Props> = ({ activeTab }) => {
                                       onChange={e => { setSelectedSubject(e.target.value); setSelectedClassId(''); setSelectedSection(''); }}
                                   >
                                       <option value="">-- Subject --</option>
-                                      {assignedSubjects.map(s => <option key={s} value={s}>{s}</option>)}
+                                      {availableAssignedSubjects.map(s => <option key={s} value={s}>{s}</option>)}
                                   </select>
                               </div>
                           </div>

@@ -134,6 +134,8 @@ export interface ExamSession {
   status: 'open' | 'closed';
   startDate: string;
   applicableClasses?: string[]; // Optional: Array of Class IDs. Empty or undefined means all classes.
+  applicableSections?: Record<string, string[]>; // classId -> array of section names. Empty or undefined means all sections.
+  applicableSubjects?: Record<string, string[]>; // classId or `${classId}_${section}` -> array of subject names. Empty or undefined means all subjects.
 }
 
 export interface ScoreData {

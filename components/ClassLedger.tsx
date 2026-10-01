@@ -42,7 +42,8 @@ const ClassLedger: React.FC<ClassLedgerProps> = ({ allowedClassIds }) => {
             sessionId,
             student.classId,
             selectedSection || student.section,
-            state.users
+            state.users,
+            state.examSessions
         );
         let totalObtained = 0;
         let totalFull = 0;
